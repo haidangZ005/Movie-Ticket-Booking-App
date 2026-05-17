@@ -80,6 +80,13 @@ class ApiService {
       method: 'DELETE'
     });
   }
+
+  async patch(url, body) {
+    return this.fetch(url, {
+      method: 'PATCH',
+      body: JSON.stringify(body)
+    });
+  }
 }
 
 // Khởi tạo instance duy nhất để các trang khác dùng chung
