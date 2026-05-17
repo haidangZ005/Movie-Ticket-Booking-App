@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 
 import { connectDB } from './config/database';
 import { globalExceptionHandler } from './utils/exceptions/global.exception.handler';
+import { ApiResponse } from './utils/dto/api.response';
+import { ErrorCode } from './utils/exceptions/error.code';
 import authRoutes from './routes/auth.routes';
 import customerRoutes from './routes/customer.routes';
 import adminRoutes from './routes/admin.routes';
@@ -46,11 +48,11 @@ app.use('/api/admin',        adminRoutes);
 // 3. XỬ LÝ ROUTE KHÔNG TỒN TẠI (404)
 // ==========================================
 app.use('*', (req: Request, res: Response) => {
-  res.status(404).json({
-    code: 404,
-    message: `Route ${req.originalUrl} không tồn tại`,
-    timestamp: new Date().toISOString(),
-  });
+  const routeError = {
+    ...ErrorCode.ROUTE_NOT_FOUND,
+    message: `Route ${req.originalUrl} không tồn tại`
+  };
+  res.status(404).json(ApiResponse.error(routeError));
 });
 
 // ==========================================

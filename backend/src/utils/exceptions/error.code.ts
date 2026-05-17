@@ -20,6 +20,7 @@ export const ErrorCode = {
   UNAUTHENTICATED: { code: 3000, message: 'Unauthenticated', statusCode: 401 },
   FORBIDDEN: { code: 3001, message: 'Forbidden: You do not have permission', statusCode: 403 },
   RESET_OTP_NOT_VERIFIED: { code: 1007, message: 'Reset OTP verification expired. Please request a new OTP.', statusCode: 400 },
+  ROUTE_NOT_FOUND: { code: 4040, message: 'Route not found', statusCode: 404 },
 } as const;
 
 export type ErrorCodeKeys = keyof typeof ErrorCode;
