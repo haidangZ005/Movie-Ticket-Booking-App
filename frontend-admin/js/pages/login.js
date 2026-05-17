@@ -21,11 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hide old errors
     errorAlert.style.display = 'none';
     
-    const email = document.getElementById('email').value.trim();
+    const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
 
-    if (!email || !password) {
-      showError('Vui lòng nhập đầy đủ email và mật khẩu.');
+    if (!username || !password) {
+      showError('Vui lòng nhập đầy đủ tài khoản và mật khẩu.');
       return;
     }
 
@@ -37,17 +37,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       // Gọi API Login
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', { email: username, password });
       
-      if (response.code === 2000 && response.data && response.data.accessToken) {
+      const accessToken = response.data?.accessToken || response.data?.token;
+      if ((response.success || response.code === 2000) && accessToken) {
         // 1. Lưu token vào kho bộ nhớ cục bộ
-        localStorage.setItem('admin_token', response.data.accessToken);
-        // Lưu thông tin tối thiểu
-        const userInfo = {
+        localStorage.setItem('admin_token', accessToken);
+        localStorage.setItem('admin_refresh_token', response.data.refreshToken || '');
+        localStorage.setItem('admin_user', JSON.stringify({
           accountId: response.data.accountId,
-          accountType: response.data.accountType
-        };
-        localStorage.setItem('admin_user', JSON.stringify(userInfo));
+          customerId: response.data.customerId,
+          accountType: response.data.accountType,
+          email: username
+        })); // Lưu info
         
         // 2. Chuyển hướng sang trang Dashboard
         window.location.href = 'index.html';

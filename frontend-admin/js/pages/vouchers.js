@@ -1,116 +1,42 @@
 /**
- * Vouchers Logic - Handles Grid Rendering & UI state.
+ * Vouchers Logic.
+ * Backend voucher endpoints are not implemented yet, so this page deliberately
+ * shows an unavailable state instead of fake campaign data.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const sidebar = new Sidebar('sidebar-container');
+  new Sidebar('sidebar-container');
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebarEl = document.getElementById('sidebar-container');
   if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-      sidebarEl.classList.toggle('show');
-    });
+    sidebarToggle.addEventListener('click', () => sidebarEl.classList.toggle('show'));
   }
 
   bindVoucherEvents();
-  renderVouchers();
+  renderUnavailableState();
 });
 
-const mockVouchers = [
-  {
-    id: 1,
-    code: 'WELCOME2026',
-    title: 'Mừng Bạn Mới Tới CineAdmin',
-    description: 'Giảm 50% tối đa 50k cho đơn vé đầu tiên của tài khoản mới',
-    discountType: 'PERCENT',
-    discountValue: 50,
-    validUntil: '31/12/2026',
-    status: 'ACTIVE'
-  },
-  {
-    id: 2,
-    code: 'DEADPIC50K',
-    title: 'Giảm giá Deadpool 3',
-    description: 'Giảm trực tiếp 50K khi mua từ 2 vé Deadpool & Wolverine',
-    discountType: 'FIXED',
-    discountValue: 50000,
-    validUntil: '15/05/2026',
-    status: 'ACTIVE'
-  },
-  {
-    id: 3,
-    code: 'QUOCTEPHUNU',
-    title: 'Happy Women Day 8/3',
-    description: 'Cơ hội tặng free 1 vé cho khách hàng nữ',
-    discountType: 'PERCENT',
-    discountValue: 100,
-    validUntil: '10/03/2026',
-    status: 'EXPIRED'
-  },
-  {
-    id: 4,
-    code: 'SUMMERVIBE',
-    title: 'Đón Hè Cực Cháy (Bản nháp)',
-    description: 'Kịch bản giảm 20% cho thành viên Member (chờ duyệt)',
-    discountType: 'PERCENT',
-    discountValue: 20,
-    validUntil: '30/08/2026',
-    status: 'DRAFT'
-  }
-];
-
-function renderVouchers() {
+function renderUnavailableState() {
   const container = document.getElementById('vouchers-grid-container');
   if (!container) return;
 
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'ACTIVE': return `<span class="status-badge active">Đang áp dụng</span>`;
-      case 'EXPIRED': return `<span class="status-badge expired">Đã hết hạn</span>`;
-      case 'DRAFT': return `<span class="status-badge draft">Bản nháp</span>`;
-      default: return `<span class="status-badge draft">Chưa rõ</span>`;
-    }
-  };
-
-  const formatDiscountInfo = (type, value) => {
-    if(type === 'PERCENT') return `<div class="voucher-discount-value">${value}%</div><div class="voucher-discount-type">Giảm</div>`;
-    return `<div class="voucher-discount-value">${(value/1000)}k</div><div class="voucher-discount-type">Giảm</div>`;
-  };
-
-  const html = mockVouchers.map(v => `
-    <div class="voucher-card">
-      
-      <div class="voucher-left">
-        ${formatDiscountInfo(v.discountType, v.discountValue)}
-      </div>
-      
+  container.innerHTML = `
+    <div class="voucher-card" style="grid-column: 1 / -1;">
       <div class="voucher-right">
-        <!-- Nút Quick Actions ẩn hiện khi hover -->
-        <div class="voucher-actions">
-          <button title="Sửa Voucher" onclick="alert('Mở form sửa Voucher')"><i data-lucide="edit-3"></i></button>
-          <button title="Xóa" class="delete" onclick="alert('Đã xóa')"><i data-lucide="trash-2"></i></button>
-        </div>
-
         <div class="voucher-header">
-          <span class="voucher-code">${v.code}</span>
-          ${getStatusBadge(v.status)}
+          <span class="voucher-code">API REQUIRED</span>
+          <span class="status-badge draft">Chưa triển khai</span>
         </div>
-        <h3 class="voucher-title">${v.title}</h3>
-        <p class="voucher-desc">${v.description}</p>
-        
-        <div class="voucher-footer">
-          <span><i data-lucide="clock" style="width:12px; margin-right:4px;"></i> HSD: ${v.validUntil}</span>
-          <span><i data-lucide="users" style="width:12px; margin-right:4px;"></i> FEFO System</span>
-        </div>
+        <h3 class="voucher-title">Chưa có API khuyến mãi</h3>
+        <p class="voucher-desc">
+          Trang này đã bỏ dữ liệu mock. Cần backend routes như GET/POST /api/admin/vouchers
+          trước khi quản trị voucher thật.
+        </p>
       </div>
     </div>
-  `).join('');
+  `;
 
-  container.innerHTML = html;
-  
-  if (window.lucide) {
-    lucide.createIcons();
-  }
+  if (window.lucide) lucide.createIcons();
 }
 
 function bindVoucherEvents() {
@@ -123,22 +49,22 @@ function bindVoucherEvents() {
 
   const closeModal = () => {
     modalOverlay.classList.remove('active');
-    form.reset(); 
+    form.reset();
   };
 
   if (btnAdd) btnAdd.addEventListener('click', () => modalOverlay.classList.add('active'));
   if (btnClose) btnClose.addEventListener('click', closeModal);
   if (btnCancel) btnCancel.addEventListener('click', closeModal);
-  
+
   if (btnSave) {
-    btnSave.addEventListener('click', (e) => {
-      e.preventDefault(); 
-      alert('Mock: Lưu voucher thành công! (Sẽ gọi POST /admin/vouchers)');
+    btnSave.addEventListener('click', (event) => {
+      event.preventDefault();
+      alert('Chưa thể lưu voucher vì backend /api/admin/vouchers chưa được triển khai.');
       closeModal();
     });
   }
 
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) closeModal();
+  modalOverlay?.addEventListener('click', (event) => {
+    if (event.target === modalOverlay) closeModal();
   });
 }

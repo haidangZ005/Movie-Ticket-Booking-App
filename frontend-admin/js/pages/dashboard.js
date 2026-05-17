@@ -1,16 +1,13 @@
 /**
- * Dashboard Logic - Handles rendering stats and charts from real Backend
+ * Dashboard Logic - real Backend data.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const sidebar = new Sidebar('sidebar-container');
+  new Sidebar('sidebar-container');
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebarEl = document.getElementById('sidebar-container');
-  
   if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-      sidebarEl.classList.toggle('show');
-    });
+    sidebarToggle.addEventListener('click', () => sidebarEl.classList.toggle('show'));
   }
 
   loadDashboardData();
@@ -19,55 +16,60 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadDashboardData() {
   try {
     const response = await api.get('/admin/stats/revenue');
-    const { summary, marketShare } = response.data;
+    const { summary, marketShare, topMovies } = response.data || {};
 
     renderStatsCards(summary);
-    initRevenueChart(); 
-    initOccupancyChart();
+    initRevenueChart(topMovies || []);
+    initOccupancyChart(marketShare || []);
   } catch (error) {
     console.error('Lỗi tải Dashboard:', error);
-    // Vẫn hiển thị khung nếu lỗi
     renderStatsCards(null);
+    initRevenueChart([]);
+    initOccupancyChart([]);
   }
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('vi-VN') + ' ₫';
 }
 
 function renderStatsCards(summary) {
   const statsContainer = document.getElementById('stats-container');
   if (!statsContainer) return;
 
-  const data = summary || { totalRevenue: 0, totalTickets: 0, avgTicketValue: 0 };
+  const data = summary || { totalRevenue: 0, totalTickets: 0, avgTicketValue: 0, totalAccounts: 0 };
 
   const stats = [
     {
       title: 'Tổng doanh thu',
-      value: (data.totalRevenue / 1000).toLocaleString() + 'k ₫',
+      value: formatCurrency(data.totalRevenue),
       icon: 'dollar-sign',
       colorClass: 'primary',
-      change: '+12%',
+      change: 'Từ booking đã xác nhận',
       isUp: true
     },
     {
       title: 'Vé bán ra',
-      value: data.totalTickets.toLocaleString(),
+      value: Number(data.totalTickets || 0).toLocaleString('vi-VN'),
       icon: 'ticket',
       colorClass: 'success',
-      change: '+5%',
+      change: `${Number(data.totalBookings || 0).toLocaleString('vi-VN')} đơn`,
       isUp: true
     },
     {
-      title: 'Giá vé TB',
-      value: Math.round(data.avgTicketValue).toLocaleString() + ' ₫',
+      title: 'Giá trị đơn TB',
+      value: formatCurrency(data.avgTicketValue),
       icon: 'activity',
       colorClass: 'info',
-      change: 'Ổn định',
+      change: 'Theo booking',
       isUp: true
     },
     {
-      title: 'Khách hàng mới',
-      value: '124',
+      title: 'Tài khoản hoạt động',
+      value: Number(data.totalAccounts || 0).toLocaleString('vi-VN'),
       icon: 'users',
       colorClass: 'warning',
-      change: '+8%',
+      change: `${Number(data.activeMovies || 0)} phim`,
       isUp: true
     }
   ];
@@ -89,24 +91,26 @@ function renderStatsCards(summary) {
       </div>
     </div>
   `).join('');
-  
+
   if (window.lucide) lucide.createIcons();
 }
 
-function initRevenueChart() {
+function initRevenueChart(topMovies) {
   const ctx = document.getElementById('revenueChart');
   if (!ctx) return;
+
+  const labels = topMovies.length ? topMovies.map(item => item.MovieTitle) : ['Chưa có dữ liệu'];
+  const data = topMovies.length ? topMovies.map(item => item.ticketCount) : [0];
+
   new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: {
-      labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+      labels,
       datasets: [{
-        label: 'Doanh thu (Triệu VNĐ)',
-        data: [12, 19, 15, 25, 42, 65, 55],
-        borderColor: '#E50914',
-        backgroundColor: 'rgba(229, 9, 20, 0.1)',
-        fill: true,
-        tension: 0.4
+        label: 'Vé đã bán',
+        data,
+        backgroundColor: '#E50914',
+        borderRadius: 8
       }]
     },
     options: {
@@ -114,23 +118,27 @@ function initRevenueChart() {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { grid: { color: '#333333' } },
+        y: { grid: { color: '#333333' }, beginAtZero: true },
         x: { grid: { display: false } }
       }
     }
   });
 }
 
-function initOccupancyChart() {
+function initOccupancyChart(marketShare) {
   const ctx = document.getElementById('occupancyChart');
   if (!ctx) return;
+
+  const labels = marketShare.length ? marketShare.map(item => item.CinemaName) : ['Chưa có dữ liệu'];
+  const data = marketShare.length ? marketShare.map(item => Number(item.revenue || 0)) : [1];
+
   new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Đã đặt', 'Ghế trống', 'Đang giữ'],
+      labels,
       datasets: [{
-        data: [65, 25, 10],
-        backgroundColor: ['#E50914', '#333333', '#f1c40f'],
+        data,
+        backgroundColor: ['#E50914', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6'],
         borderWidth: 0
       }]
     },
