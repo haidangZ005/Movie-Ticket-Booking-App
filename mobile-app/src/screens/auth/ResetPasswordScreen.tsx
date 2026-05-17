@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
@@ -16,6 +16,7 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     if (!email) {
@@ -42,6 +43,7 @@ export default function ResetPasswordScreen() {
     }
 
     setError('');
+    setSuccessMessage('');
     setIsLoading(true);
     try {
       const res = await authService.resetPassword(email, newPassword);
@@ -49,9 +51,10 @@ export default function ResetPasswordScreen() {
         console.log('[Reset Password Response]', res);
       }
       
-      Alert.alert('', t('reset.success'), [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      setSuccessMessage(t('reset.success'));
+      setTimeout(() => {
+        navigation.navigate('Login');
+      }, 2000);
     } catch (err: any) {
       if (__DEV__) {
         console.log('[Reset Password Error]', err);
@@ -114,10 +117,16 @@ export default function ResetPasswordScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+            {successMessage ? (
+              <View style={styles.successContainer}>
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            ) : null}
+
             <TouchableOpacity 
               style={[styles.primaryButton, isLoading && styles.disabledButton]} 
               onPress={handleResetPassword}
-              disabled={isLoading}
+              disabled={isLoading || !!successMessage}
             >
               <Text style={styles.primaryButtonText}>
                 {isLoading ? t('common.processing') : t('newPassword.update')}
@@ -148,6 +157,15 @@ const styles = StyleSheet.create({
   inputError: { borderWidth: 1, borderColor: COLORS.error || '#FF4D4D' },
   hintText: { color: '#888888', fontSize: 13, marginTop: 6 },
   errorText: { color: COLORS.error || '#FF4D4D', marginBottom: 16, fontSize: 13 },
+  successContainer: {
+    backgroundColor: 'rgba(76, 217, 100, 0.1)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 217, 100, 0.3)',
+  },
+  successText: { color: '#4CD964', fontSize: 14, textAlign: 'center', fontWeight: '500' },
   primaryButton: { backgroundColor: COLORS.primary || '#FCC434', paddingVertical: 18, borderRadius: 30, alignItems: 'center', marginTop: 8, marginBottom: 32 },
   disabledButton: { opacity: 0.6 },
   primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: 'bold' },

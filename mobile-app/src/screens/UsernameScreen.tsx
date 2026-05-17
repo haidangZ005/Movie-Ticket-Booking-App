@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 
 export default function UsernameScreen({ navigation }: any) {
   const [username, setUsername] = useState('');
+  const [error, setError] = useState('');
 
   const handleDone = () => {
     if (username.trim().length < 2) {
-      Alert.alert('Lỗi', 'Tên người dùng phải có ít nhất 2 ký tự');
+      setError('Tên người dùng phải có ít nhất 2 ký tự');
       return;
     }
+    setError('');
     // Navigate to Home screen after successful login/signup
     navigation.reset({
       index: 0,
@@ -47,14 +49,19 @@ export default function UsernameScreen({ navigation }: any) {
         <Text style={styles.subtitle}>Latin characters, no emoji/symbols</Text>
 
         <TextInput
-          style={styles.usernameInput}
+          style={[styles.usernameInput, error ? styles.inputError : null]}
           placeholder="Angelina"
           placeholderTextColor={Colors.textMuted}
           value={username}
-          onChangeText={setUsername}
+          onChangeText={(text) => {
+            setUsername(text);
+            if (error) setError('');
+          }}
           autoCapitalize="words"
           autoFocus
         />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TouchableOpacity
           style={[styles.doneBtn, !username && styles.doneBtnDisabled]}
@@ -107,6 +114,15 @@ const styles = StyleSheet.create({
     fontSize: 22, fontWeight: '600', color: Colors.white,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
     paddingBottom: 12, marginBottom: 30,
+  },
+  inputError: {
+    borderBottomColor: Colors.error || '#FF4D4D',
+  },
+  errorText: {
+    color: Colors.error || '#FF4D4D',
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
   },
 
   doneBtn: {
