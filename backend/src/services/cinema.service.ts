@@ -45,7 +45,7 @@ class CinemaService {
       .input('cityId', sql.Int, cityId)
       .query(`
         SELECT c.*, ct.CityName 
-        FROM CinemaComplex c
+        FROM Cinema c
         JOIN City ct ON c.CityID = ct.CityID
         WHERE c.CityID = @cityId AND c.IsActive = 1
         ORDER BY c.CinemaName
@@ -57,16 +57,20 @@ class CinemaService {
    * Lấy tất cả thành phố
    */
   static async getAllCities() {
-    const pool = getPool();
-    const result = await pool.request()
-      .query('SELECT * FROM City ORDER BY CityName');
-    return result.recordset;
+    return await CinemaModel.getAllCities();
   }
 
   /**
    * Thêm cụm rạp mới (Admin)
    */
   static async create(cinemaData: any) {
+    if (!cinemaData.cityId && cinemaData.CityID) {
+      cinemaData.cityId = cinemaData.CityID;
+    }
+    if (!cinemaData.cityId && cinemaData.cityName) {
+      const city = await CinemaModel.findOrCreateCity(cinemaData.cityName);
+      cinemaData.cityId = city.CityID;
+    }
     // Kiểm tra thành phố tồn tại
     const pool = getPool();
     const cityCheck = await pool.request()

@@ -3,6 +3,9 @@ import { AdminController } from '../../controllers/admin/admin.controller';
 import * as movieController from '../../controllers/movie/movie.controller';
 import * as cinemaController from '../../controllers/cinema/cinema.controller';
 import * as showController from '../../controllers/show/show.controller';
+import * as productController from '../../controllers/product/product.controller';
+import * as voucherController from '../../controllers/voucher/voucher.controller';
+import { CustomerController } from '../../controllers/customer/customer.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { roleMiddleware } from '../../middlewares/role.middleware';
 
@@ -32,6 +35,20 @@ router.post('/shows', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), 
 router.put('/shows/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), showController.updateShow);
 router.delete('/shows/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), showController.deleteShow);
 
+// === Quản lý Sản phẩm / Combo (Mới) ===
+router.get('/products', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.getAllProducts);
+router.get('/products/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.getProductById);
+router.post('/products', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.createProduct);
+router.put('/products/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.updateProduct);
+router.delete('/products/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.deleteProduct);
+
+// === Quản lý Khuyến mãi / Voucher (Mới) ===
+router.get('/vouchers', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), voucherController.getAllVouchers);
+router.get('/vouchers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), voucherController.getVoucherById);
+router.post('/vouchers', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), voucherController.createVoucher);
+router.put('/vouchers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), voucherController.updateVoucher);
+router.delete('/vouchers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), voucherController.deleteVoucher);
+
 // === Thống kê & Báo cáo (M8) ===
 router.get('/stats/revenue', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getStats);
 router.get('/stats/tickets', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getStats); // TODO: Tạo controller riêng
@@ -43,6 +60,12 @@ router.get('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN'])
 // router.put('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.updateSettings); // TODO: Tạo controller method
 
 // === Quản lý tài khoản ===
+router.get('/customers', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminGetCustomers);
+router.get('/customers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminGetCustomerById);
+router.post('/customers', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminCreateCustomer);
+router.put('/customers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminUpdateCustomer);
+router.delete('/customers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminDeleteCustomer);
+router.put('/customers/:id/status', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminSetCustomerStatus);
 router.put('/accounts/:id/status', authMiddleware, roleMiddleware(['SUPER_ADMIN']), AdminController.patchAccountStatus);
 
 export default router;

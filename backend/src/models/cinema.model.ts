@@ -29,6 +29,36 @@ interface Cinema {
 }
 
 class CinemaModel {
+  static async getAllCities(): Promise<any[]> {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .query('SELECT * FROM City ORDER BY CityName');
+    return result.recordset;
+  }
+
+  static async findOrCreateCity(cityName: string): Promise<any> {
+    const pool = await connectDB();
+    const normalizedCityName = cityName.trim();
+
+    const existing = await pool.request()
+      .input('cityName', mssql.NVarChar(100), normalizedCityName)
+      .query('SELECT TOP 1 * FROM City WHERE CityName = @cityName');
+
+    if (existing.recordset[0]) {
+      return existing.recordset[0];
+    }
+
+    const created = await pool.request()
+      .input('cityName', mssql.NVarChar(100), normalizedCityName)
+      .query(`
+        INSERT INTO City (CityName)
+        OUTPUT INSERTED.*
+        VALUES (@cityName)
+      `);
+
+    return created.recordset[0];
+  }
+
   /**
    * Lấy danh sách cụm rạp có phân trang và lọc theo thành phố
    */
@@ -50,7 +80,7 @@ class CinemaModel {
     
     const countResult = await countRequest.query(`
       SELECT COUNT(*) AS total 
-      FROM CinemaComplex 
+      FROM Cinema 
       ${whereSQL}
     `);
     
@@ -61,7 +91,7 @@ class CinemaModel {
     
     const result = await dataRequest.query(`
       SELECT c.*, ct.CityName 
-      FROM CinemaComplex c
+      FROM Cinema c
       LEFT JOIN City ct ON c.CityID = ct.CityID
       ${whereSQL}
       ORDER BY c.CinemaName
@@ -82,7 +112,7 @@ class CinemaModel {
     
     const cinemaResult = await pool.request()
       .input('id', mssql.Int, id)
-      .query('SELECT * FROM CinemaComplex WHERE CinemaID = @id AND IsActive = 1');
+      .query('SELECT * FROM Cinema WHERE CinemaID = @id AND IsActive = 1');
     
     if (cinemaResult.recordset.length === 0) return null;
     
@@ -106,9 +136,9 @@ class CinemaModel {
     
     let query = `
       SELECT s.*, m.MovieTitle, m.MovieGenre, m.MovieRuntime, m.Rating
-      FROM Showtime s
+      FROM [Show] s
       INNER JOIN CinemaHall ch ON s.HallID = ch.HallID
-      INNER JOIN CinemaComplex c ON ch.CinemaID = c.CinemaID
+      INNER JOIN Cinema c ON ch.CinemaID = c.CinemaID
       INNER JOIN Movie m ON s.MovieID = m.MovieID
       WHERE c.CinemaID = @cinemaId AND m.IsActive = 1
     `;
@@ -133,15 +163,15 @@ class CinemaModel {
   static async create(cinemaData: CinemaData): Promise<Cinema> {
     const pool = await connectDB();
     const result = await pool.request()
-      .input('cinemaName', mssql.NVarChar, cinemaData.cinemaName)
-      .input('address', mssql.NVarChar, cinemaData.address || null)
-      .input('district', mssql.NVarChar, cinemaData.district || null)
+      .input('cinemaName', mssql.NVarChar(200), cinemaData.cinemaName)
+      .input('address', mssql.NVarChar(500), cinemaData.address || null)
+      .input('district', mssql.NVarChar(100), cinemaData.district || null)
       .input('cityId', mssql.Int, cinemaData.cityId)
       .input('latitude', mssql.Decimal(9, 6), cinemaData.latitude || null)
       .input('longitude', mssql.Decimal(9, 6), cinemaData.longitude || null)
       .input('isActive', mssql.Bit, cinemaData.isActive !== undefined ? cinemaData.isActive : 1)
       .query(`
-        INSERT INTO CinemaComplex (
+        INSERT INTO Cinema (
           CinemaName, Address, District, CityID, Latitude, Longitude, IsActive
         ) 
         OUTPUT INSERTED.*
@@ -159,14 +189,14 @@ class CinemaModel {
     const pool = await connectDB();
     await pool.request()
       .input('id', mssql.Int, id)
-      .input('cinemaName', mssql.NVarChar, cinemaData.cinemaName)
-      .input('address', mssql.NVarChar, cinemaData.address || null)
-      .input('district', mssql.NVarChar, cinemaData.district || null)
+      .input('cinemaName', mssql.NVarChar(200), cinemaData.cinemaName)
+      .input('address', mssql.NVarChar(500), cinemaData.address || null)
+      .input('district', mssql.NVarChar(100), cinemaData.district || null)
       .input('cityId', mssql.Int, cinemaData.cityId)
       .input('latitude', mssql.Decimal(9, 6), cinemaData.latitude || null)
       .input('longitude', mssql.Decimal(9, 6), cinemaData.longitude || null)
       .query(`
-        UPDATE CinemaComplex SET
+        UPDATE Cinema SET
           CinemaName = @cinemaName,
           Address = @address,
           District = @district,
@@ -184,7 +214,7 @@ class CinemaModel {
     const pool = await connectDB();
     await pool.request()
       .input('id', mssql.Int, id)
-      .query('UPDATE CinemaComplex SET IsActive = 0 WHERE CinemaID = @id');
+      .query('UPDATE Cinema SET IsActive = 0 WHERE CinemaID = @id');
     return true;
   }
 

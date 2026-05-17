@@ -24,7 +24,27 @@ async function seedAdmin() {
       `);
 
     if (checkResult.recordset.length > 0) {
-      console.log(`[Seed] Tài khoản admin đã tồn tại (${ADMIN_EMAIL}). Bỏ qua.`);
+      console.log(`[Seed] Tài khoản admin đã tồn tại (${ADMIN_EMAIL}).`);
+      
+      const accountId = checkResult.recordset[0].AccountID;
+      
+      // Kiểm tra xem đã có Customer record chưa
+      const customerCheck = await pool.request()
+        .input('AccountID', sql.Int, accountId)
+        .query('SELECT CustomerID FROM [dbo].[Customer] WHERE AccountID = @AccountID');
+        
+      if (customerCheck.recordset.length === 0) {
+        console.log(`[Seed] Đang tạo dummy Customer cho tài khoản admin...`);
+        await pool.request()
+          .input('AccountID', sql.Int, accountId)
+          .query(`
+            INSERT INTO [dbo].[Customer] (AccountID, FullName, LoyaltyPoints)
+            VALUES (@AccountID, 'Admin', 0)
+          `);
+        console.log(`[Seed] ✅ Đã tạo bổ sung dummy Customer.`);
+      } else {
+        console.log(`[Seed] Dummy Customer đã tồn tại. Bỏ qua.`);
+      }
       return;
     }
 
@@ -49,11 +69,9 @@ async function seedAdmin() {
     // 4. Tạo dummy Customer record (để pass qua logic loginBasic hiện tại chưa sửa)
     await pool.request()
       .input('AccountID', sql.Int, accountId)
-      .input('CustomerName', sql.NVarChar(150), 'Admin')
-      .input('CustomerEmail', sql.NVarChar(100), ADMIN_EMAIL)
       .query(`
-        INSERT INTO [dbo].[Customer] (AccountID, CustomerName, CustomerEmail, LoyaltyPoints)
-        VALUES (@AccountID, @CustomerName, @CustomerEmail, 0)
+        INSERT INTO [dbo].[Customer] (AccountID, FullName, LoyaltyPoints)
+        VALUES (@AccountID, 'Admin', 0)
       `);
 
     console.log(`[Seed] ✅ Đã tạo tài khoản admin: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);

@@ -25,6 +25,12 @@ export const getCinemas = asyncHandler(async (req: Request, res: Response) => {
   }));
 });
 
+// GET /api/cinemas/cities
+export const getCities = asyncHandler(async (req: Request, res: Response) => {
+  const cities = await CinemaService.getAllCities();
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, cities));
+});
+
 // GET /api/cinemas?cityId= — Lọc cụm rạp theo thành phố
 export const getCinemasByCity = asyncHandler(async (req: Request, res: Response) => {
   const { cityId } = req.query;

@@ -13,6 +13,7 @@ export const ErrorCode = {
   USER_EXISTED: { code: 1001, message: 'User existed', statusCode: 400 },
   INVALID_OTP: { code: 1002, message: 'Invalid or expired OTP', statusCode: 400 },
   INVALID_DATA: { code: 1003, message: 'Invalid data', statusCode: 400 },
+  DATA_NOT_FOUND: { code: 1015, message: 'Data not found', statusCode: 404 },
   UNVERIFIED_ACCOUNT: { code: 1004, message: 'Account is not verified', statusCode: 403 },
   INVALID_OLD_PASSWORD: { code: 1005, message: 'Invalid old password', statusCode: 400 },
   PHONE_NUMBER_EXISTED: { code: 1006, message: 'Phone number already in use', statusCode: 400 },
