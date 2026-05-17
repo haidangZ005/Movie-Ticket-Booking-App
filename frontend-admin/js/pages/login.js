@@ -37,12 +37,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       // Gọi API Login
-      const response = await api.post('/auth/login', { username, password });
+      const response = await api.post('/auth/login', { email: username, password });
       
-      if (response.success && response.data.token) {
+      const accessToken = response.data?.accessToken || response.data?.token;
+      if ((response.success || response.code === 2000) && accessToken) {
         // 1. Lưu token vào kho bộ nhớ cục bộ
-        localStorage.setItem('admin_token', response.data.token);
-        localStorage.setItem('admin_user', JSON.stringify(response.data.user)); // Lưu info
+        localStorage.setItem('admin_token', accessToken);
+        localStorage.setItem('admin_refresh_token', response.data.refreshToken || '');
+        localStorage.setItem('admin_user', JSON.stringify({
+          accountId: response.data.accountId,
+          customerId: response.data.customerId,
+          accountType: response.data.accountType,
+          email: username
+        })); // Lưu info
         
         // 2. Chuyển hướng sang trang Dashboard
         window.location.href = 'index.html';
