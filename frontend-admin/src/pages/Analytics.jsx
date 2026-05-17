@@ -27,7 +27,7 @@ const Analytics = () => {
               <defs>
                 <linearGradient id="blueGradient" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="#2346d5"></stop>
-                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0"></stop>
+                  <stop offset="100%" stopColor="#111827" stopOpacity="0"></stop>
                 </linearGradient>
               </defs>
             </svg>
@@ -38,7 +38,7 @@ const Analytics = () => {
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex flex-col items-center justify-center h-48">
           <h3 className="font-label-md text-label-md text-text-muted uppercase tracking-wider mb-4 self-start w-full">Total Ticket</h3>
           <div className="relative w-24 h-24 flex-shrink-0">
-            <div className="w-full h-full rounded-full" style={{background: 'conic-gradient(#EF4444 0% 30%, #F3F4F6 30% 100%)'}}></div>
+            <div className="w-full h-full rounded-full" style={{background: 'conic-gradient(#F87171 0% 30%, #253044 30% 100%)'}}></div>
             <div className="absolute inset-0 m-auto w-16 h-16 bg-surface rounded-full flex items-center justify-center flex-col">
               <span className="material-symbols-outlined text-primary text-xl">confirmation_number</span>
               <span className="font-label-sm text-label-sm font-bold">565</span>
@@ -204,10 +204,10 @@ const Analytics = () => {
                 <stop offset="100%" stopColor="#4361ee" stopOpacity="0.0"></stop>
               </linearGradient>
             </defs>
-            <line stroke="#F3F4F6" strokeWidth="0.5" x1="0" x2="100" y1="10" y2="10"></line>
-            <line stroke="#F3F4F6" strokeWidth="0.5" x1="0" x2="100" y1="20" y2="20"></line>
-            <line stroke="#F3F4F6" strokeWidth="0.5" x1="0" x2="100" y1="30" y2="30"></line>
-            <line stroke="#F3F4F6" strokeWidth="0.5" x1="0" x2="100" y1="40" y2="40"></line>
+            <line stroke="#253044" strokeWidth="0.5" x1="0" x2="100" y1="10" y2="10"></line>
+            <line stroke="#253044" strokeWidth="0.5" x1="0" x2="100" y1="20" y2="20"></line>
+            <line stroke="#253044" strokeWidth="0.5" x1="0" x2="100" y1="30" y2="30"></line>
+            <line stroke="#253044" strokeWidth="0.5" x1="0" x2="100" y1="40" y2="40"></line>
             <text className="font-body-md text-[2px]" fill="#9CA3AF" fontSize="2" x="-5" y="10">1000</text>
             <text className="font-body-md text-[2px]" fill="#9CA3AF" fontSize="2" x="-5" y="20">800</text>
             <text className="font-body-md text-[2px]" fill="#9CA3AF" fontSize="2" x="-5" y="30">600</text>

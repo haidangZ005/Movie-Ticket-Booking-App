@@ -14,7 +14,7 @@ const Bookings = () => {
       <div className="bg-surface rounded-xl border border-border-default shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed text-left border-collapse">
-            <thead className="bg-[#F9FAFB] border-b border-border-default">
+            <thead className="bg-surface-container-low border-b border-border-default">
               <tr>
                 <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[15%]">Movie Name <span className="material-symbols-outlined text-[12px] align-middle ml-1 cursor-pointer">arrow_drop_down</span></th>
                 <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[15%]">Customer</th>

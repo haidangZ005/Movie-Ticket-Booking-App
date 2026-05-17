@@ -28,7 +28,7 @@ const Login = () => {
 
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
+      if (!res.ok) {
         throw new Error(data.message || 'Email hoặc mật khẩu không đúng.');
       }
 

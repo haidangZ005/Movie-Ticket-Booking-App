@@ -1,8 +1,22 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
+const navItems = [
+  { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
+  { to: '/movies', label: 'Movies', icon: 'movie' },
+  { to: '/cinemas', label: 'Cinemas', icon: 'theaters' },
+  { to: '/products', label: 'Products', icon: 'fastfood' },
+  { to: '/vouchers', label: 'Vouchers', icon: 'local_offer' },
+  { to: '/bookings', label: 'Bookings', icon: 'confirmation_number' },
+  { to: '/customers', label: 'Customers', icon: 'group' },
+  { to: '/transactions', label: 'Transactions', icon: 'receipt_long' },
+  { to: '/analytics', label: 'Analytics', icon: 'analytics' },
+  { to: '/settings', label: 'Settings', icon: 'settings' },
+];
+
 const AdminLayout = () => {
   const navigate = useNavigate();
+  const accountType = localStorage.getItem('accountType') || 'ADMIN';
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -11,83 +25,58 @@ const AdminLayout = () => {
     navigate('/login');
   };
 
-  const accountType = localStorage.getItem('accountType') || 'Admin';
-
   return (
-    <div className="bg-page-bg text-on-surface font-body-md antialiased overflow-x-hidden min-h-screen">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 bg-surface w-[240px] border-r border-border-default hidden md:flex flex-col">
-        <div className="h-[64px] flex items-center px-6 border-b border-border-default">
-          <span className="material-symbols-outlined text-primary-container text-2xl mr-2" style={{ fontVariationSettings: "'FILL' 1" }}>movie</span>
-          <span className="font-display-md text-display-md font-bold text-on-surface text-[20px]">FlickTickets</span>
+    <div className="min-h-screen overflow-x-hidden bg-page-bg text-on-surface antialiased">
+      <aside className="fixed left-0 top-0 z-40 hidden h-full w-[240px] flex-col border-r border-border-default bg-surface md:flex">
+        <div className="flex h-[64px] items-center border-b border-border-default px-6">
+          <span className="material-symbols-outlined mr-2 text-2xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>movie</span>
+          <span className="text-[20px] font-bold text-on-surface">FlickTickets</span>
         </div>
         <div className="px-6 py-4">
-          <p className="text-xs text-text-muted uppercase tracking-wider mb-4 font-semibold">Cinema Admin</p>
+          <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Cinema Admin</p>
         </div>
-        <nav className="flex-1 px-4 space-y-1">
-          <NavLink to="/" end className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">dashboard</span>
-            Dashboard
-          </NavLink>
-          <NavLink to="/movies" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">movie</span>
-            Movie
-          </NavLink>
-          <NavLink to="/bookings" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">confirmation_number</span>
-            Bookings
-          </NavLink>
-          <NavLink to="/customers" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">group</span>
-            Customer
-          </NavLink>
-          <NavLink to="/transaction" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">receipt_long</span>
-            Transaction
-          </NavLink>
-          <NavLink to="/analytics" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">analytics</span>
-            Analytics
-          </NavLink>
-          <NavLink to="/settings" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-body-md transition-colors ${isActive ? 'text-primary bg-accent-soft border-l-4 border-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50'}`}>
-            <span className="material-symbols-outlined">settings</span>
-            Settings
-          </NavLink>
+        <nav className="flex-1 space-y-1 px-4">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-4 py-3 text-body-md transition-colors ${
+                  isActive
+                    ? 'border-l-4 border-primary bg-accent-soft font-semibold text-primary'
+                    : 'text-on-surface-variant hover:bg-surface-variant/70'
+                }`
+              }
+            >
+              <span className="material-symbols-outlined">{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
       </aside>
 
-      {/* Top Navigation */}
-      <header className="fixed top-0 right-0 w-[calc(100%-240px)] z-30 flex justify-between items-center px-container-padding bg-surface h-[64px] border-b border-border-default hidden md:flex">
-        <div className="flex-1 flex items-center">
-          <div className="relative w-64">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">search</span>
-            <input className="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-lg text-sm focus:ring-2 focus:ring-primary-container/50 focus:outline-none transition-shadow" placeholder="Search" type="text" />
-          </div>
+      <header className="fixed right-0 top-0 z-30 hidden h-[64px] w-[calc(100%-240px)] items-center justify-between border-b border-border-default bg-surface px-container-padding md:flex">
+        <div className="relative w-64">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">search</span>
+          <input className="w-full rounded-lg border border-border-default bg-surface-container-low py-2 pl-10 pr-4 text-sm text-text-primary outline-none transition-shadow placeholder:text-text-muted focus:ring-2 focus:ring-primary/30" placeholder="Search" type="text" />
         </div>
+
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 border border-border-default rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors">
-            <img alt="English Flag" className="w-5 h-4 object-cover rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPiqo91dCGQWBLBXRmkM6SxGy707vNuwOQ3vdJEUXOf8fnr-1P6SRO00r27S50HyKN10-Joa4K0nHL4s3YYq72IJgtWgTMaKaOjHMUQjkUaUEYJIFrOf9_sMgGPf8x7v8XR9NdtmVWs9r0dSPfHWSZGHfLn2ILvfzlHfdjGWnwswaWCdwIeC-lHp4Os-_v6W79E8sr2FcNPLGdrVXUbAjK_czvVfcwl2PPOVKrH27W0_glzl2x6kvkGwRLoiVmFHrZpj1pL0dWn_1I" />
-            <span className="text-sm font-medium text-text-secondary">ENGLISH</span>
-            <span className="material-symbols-outlined text-text-muted text-sm">expand_more</span>
-          </div>
-          <button className="relative p-2 text-text-secondary hover:text-primary transition-colors hover:bg-surface-container-low rounded-full">
+          <button className="relative rounded-full p-2 text-text-secondary transition-colors hover:bg-surface-container-low hover:text-primary" title="Notifications">
             <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full border border-surface"></span>
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-surface bg-danger" />
           </button>
-          <div className="flex items-center gap-3 pl-4 border-l border-border-default">
-            <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
-                A
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-text-primary">Admin</span>
-                <span className="text-xs text-text-muted capitalize">{accountType.replace('_', ' ')}</span>
-              </div>
+          <div className="flex items-center gap-3 border-l border-border-default pl-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-inverse-on-surface">A</div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-text-primary">Admin</span>
+              <span className="text-xs capitalize text-text-muted">{accountType.replace('_', ' ')}</span>
             </div>
             <button
               onClick={handleLogout}
-              title="Đăng xuất"
-              className="ml-2 p-2 text-text-muted hover:text-danger hover:bg-danger-bg rounded-lg transition-colors"
+              title="Logout"
+              className="ml-2 rounded-lg p-2 text-text-muted transition-colors hover:bg-danger-bg hover:text-danger"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
@@ -95,8 +84,7 @@ const AdminLayout = () => {
         </div>
       </header>
 
-      {/* Main Content Canvas */}
-      <main className="md:ml-[240px] pt-[64px] p-container-padding">
+      <main className="p-container-padding pt-[64px] md:ml-[240px]">
         <Outlet />
       </main>
     </div>
