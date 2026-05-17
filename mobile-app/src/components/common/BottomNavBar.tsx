@@ -8,12 +8,17 @@ export default function BottomNavBar() {
   const navigation = useNavigation<any>();
   const route = useRoute();
 
+  const isActive = (routeName: string) => {
+    if (routeName === 'Movie') return route.name === 'Movie' || route.name === 'MovieDetail';
+    return route.name === routeName;
+  };
+
   const getIconColor = (routeName: string) => {
-    return route.name === routeName ? Colors.primary : Colors.textMuted;
+    return isActive(routeName) ? Colors.primary : Colors.textMuted;
   };
 
   const getTextColor = (routeName: string) => {
-    return route.name === routeName ? Colors.primary : Colors.textMuted;
+    return isActive(routeName) ? Colors.primary : Colors.textMuted;
   };
 
   return (
@@ -34,7 +39,7 @@ export default function BottomNavBar() {
       </TouchableOpacity>
       
       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-        <Ionicons name={route.name === 'Profile' ? 'person' : 'person-outline'} size={24} color={getIconColor('Profile')} style={styles.navIcon} />
+        <Ionicons name={isActive('Profile') ? 'person' : 'person-outline'} size={24} color={getIconColor('Profile')} style={styles.navIcon} />
         <Text style={[styles.navLabel, { color: getTextColor('Profile') }]}>Profile</Text>
       </TouchableOpacity>
     </View>
