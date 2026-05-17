@@ -1,76 +1,104 @@
 /**
- * Shows Management Logic - API backed.
+ * Shows Management Logic
+ * Handles Dual-view rendering (List/Grid) and time calculations.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  new Sidebar('sidebar-container');
+  const sidebar = new Sidebar('sidebar-container');
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebarEl = document.getElementById('sidebar-container');
   if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => sidebarEl.classList.toggle('show'));
+    sidebarToggle.addEventListener('click', () => {
+      sidebarEl.classList.toggle('show');
+    });
   }
 
   const app = new ShowsManager();
   app.init();
 });
 
+// Mock Data
+const mockMovies = [
+  { id: 1, title: 'Dune: Hành Tinh Cát - Phần 2', duration: 166 },
+  { id: 2, title: 'Lật Mặt 7: Một Điều Ước', duration: 138 },
+  { id: 3, title: 'Godzilla x Kong', duration: 115 },
+  { id: 4, title: 'Deadpool & Wolverine', duration: 127 }
+];
+
+const mockCinemas = [
+  { 
+    id: 1, name: 'CineAdmin Metropolis', 
+    halls: [
+      { id: 101, name: 'Phòng 01 (IMAX)' },
+      { id: 102, name: 'Phòng 02' },
+      { id: 103, name: 'Phòng 03' }
+    ]
+  },
+  { 
+    id: 2, name: 'CineAdmin Landmark 81',
+    halls: [
+      { id: 201, name: 'Phòng Gold Class' },
+      { id: 202, name: 'Phòng 02' }
+    ]
+  }
+];
+
+const mockShows = [
+  { id: 1, movieId: 1, cinemaId: 1, hallId: 101, startTime: '2026-04-20T10:00', format: 'IMAX 2D', surcharge: 20000 },
+  { id: 2, movieId: 1, cinemaId: 1, hallId: 101, startTime: '2026-04-20T14:00', format: 'IMAX 2D', surcharge: 20000 },
+  { id: 3, movieId: 2, cinemaId: 1, hallId: 102, startTime: '2026-04-20T09:30', format: '2D', surcharge: 0 },
+  { id: 4, movieId: 3, cinemaId: 1, hallId: 102, startTime: '2026-04-20T13:00', format: '2D', surcharge: 0 },
+  { id: 5, movieId: 4, cinemaId: 1, hallId: 103, startTime: '2026-04-20T19:00', format: '2D', surcharge: 0 }
+];
+
 class ShowsManager {
   constructor() {
-    this.currentView = 'list';
-    this.currentCinemaId = null;
-    this.currentDate = document.getElementById('filter-date')?.value || new Date().toISOString().slice(0, 10);
-    this.movies = [];
-    this.cinemas = [];
-    this.halls = [];
-    this.shows = [];
-
+    this.currentView = 'list'; // 'list' or 'grid'
+    this.currentCinemaId = 1;
+    this.currentDate = '2026-04-20';
+    
+    // DOM Elements
     this.listBtn = document.getElementById('view-list-btn');
     this.gridBtn = document.getElementById('view-grid-btn');
     this.listViewEl = document.getElementById('shows-list-view');
     this.gridViewEl = document.getElementById('shows-grid-view');
+    
     this.tableBody = document.getElementById('shows-table-body');
     this.timelineContainer = document.getElementById('timeline-container');
+    
     this.movieSelect = document.getElementById('input-movie');
     this.hallSelect = document.getElementById('input-hall');
     this.startTimeInput = document.getElementById('input-start-time');
     this.displayDuration = document.getElementById('display-duration');
     this.displayEndTime = document.getElementById('display-end-time');
+    
     this.btnSave = document.getElementById('btn-save-show');
   }
 
-  async init() {
-    this.bindEvents();
-    await this.loadBootstrapData();
-    await this.loadShows();
+  init() {
+    this.initFilters();
+    this.initViewSwitcher();
+    this.initModalLogic();
+    this.render();
   }
 
-  getItems(payload) {
-    if (Array.isArray(payload?.data?.items)) return payload.data.items;
-    if (Array.isArray(payload?.data)) return payload.data;
-    return [];
+  initFilters() {
+    const cinemaFilter = document.getElementById('filter-cinema');
+    const dateFilter = document.getElementById('filter-date');
+
+    cinemaFilter.addEventListener('change', (e) => {
+      this.currentCinemaId = parseInt(e.target.value);
+      this.render();
+    });
+
+    dateFilter.addEventListener('change', (e) => {
+      this.currentDate = e.target.value;
+      this.render();
+    });
   }
 
-  bindEvents() {
-    document.getElementById('filter-cinema')?.addEventListener('change', async (event) => {
-      this.currentCinemaId = Number(event.target.value);
-      await this.loadCinemaDetail();
-      await this.loadShows();
-    });
-
-    document.getElementById('filter-date')?.addEventListener('change', async (event) => {
-      this.currentDate = event.target.value;
-      await this.loadShows();
-    });
-
-    document.getElementById('filter-hall')?.addEventListener('change', () => this.render());
-
-    document.getElementById('btn-reset-filters')?.addEventListener('click', async () => {
-      document.getElementById('filter-date').value = '';
-      this.currentDate = '';
-      await this.loadShows();
-    });
-
-    this.listBtn?.addEventListener('click', () => {
+  initViewSwitcher() {
+    this.listBtn.addEventListener('click', () => {
       this.currentView = 'list';
       this.listBtn.classList.add('active');
       this.gridBtn.classList.remove('active');
@@ -79,7 +107,7 @@ class ShowsManager {
       this.render();
     });
 
-    this.gridBtn?.addEventListener('click', () => {
+    this.gridBtn.addEventListener('click', () => {
       this.currentView = 'grid';
       this.gridBtn.classList.add('active');
       this.listBtn.classList.remove('active');
@@ -87,170 +115,134 @@ class ShowsManager {
       this.gridViewEl.style.display = 'block';
       this.render();
     });
-
-    this.bindModal();
   }
 
-  async loadBootstrapData() {
-    const [moviesResponse, cinemasResponse] = await Promise.all([
-      api.get('/movies?limit=100'),
-      api.get('/cinemas?limit=100')
-    ]);
-
-    this.movies = this.getItems(moviesResponse);
-    this.cinemas = this.getItems(cinemasResponse);
-
-    const cinemaFilter = document.getElementById('filter-cinema');
-    cinemaFilter.innerHTML = this.cinemas.map(cinema =>
-      `<option value="${cinema.CinemaID}">${cinema.CinemaName}</option>`
-    ).join('');
-
-    this.movieSelect.innerHTML = this.movies.map(movie =>
-      `<option value="${movie.MovieID}">${movie.MovieTitle}</option>`
-    ).join('');
-
-    this.currentCinemaId = Number(cinemaFilter.value || this.cinemas[0]?.CinemaID);
-    await this.loadCinemaDetail();
-  }
-
-  async loadCinemaDetail() {
-    if (!this.currentCinemaId) return;
-    const response = await api.get(`/cinemas/${this.currentCinemaId}`);
-    this.halls = response.data?.halls || [];
-    document.getElementById('filter-hall').innerHTML = [
-      `<option value="all">Tất cả phòng</option>`,
-      ...this.halls.map(hall => `<option value="${hall.HallID}">${hall.HallName}</option>`)
-    ].join('');
-    this.hallSelect.innerHTML = this.halls.map(hall =>
-      `<option value="${hall.HallID}">${hall.HallName}</option>`
-    ).join('');
-  }
-
-  async loadShows() {
-    if (!this.currentCinemaId) return;
-    this.tableBody.innerHTML = `<tr><td colspan="6" class="text-secondary">Đang tải suất chiếu...</td></tr>`;
-    const query = this.currentDate ? `?showDate=${this.currentDate}` : '';
-    try {
-      const response = await api.get(`/cinemas/${this.currentCinemaId}/shows${query}`);
-      this.shows = Array.isArray(response.data) ? response.data : [];
-      this.render();
-    } catch (error) {
-      this.tableBody.innerHTML = `<tr><td colspan="6" class="text-secondary">Không tải được suất chiếu: ${error.message}</td></tr>`;
-    }
-  }
-
-  bindModal() {
+  initModalLogic() {
+    // Populate movies
+    this.movieSelect.innerHTML = mockMovies.map(m => `<option value="${m.id}">${m.title}</option>`).join('');
+    
+    // Show Modal
     const btnAdd = document.getElementById('btn-add-show');
     const modalOverlay = document.getElementById('show-modal-overlay');
     const btnCancel = document.getElementById('btn-cancel-modal');
     const btnClose = document.getElementById('btn-close-modal');
 
-    btnAdd?.addEventListener('click', () => modalOverlay.classList.add('active'));
-    [btnCancel, btnClose].forEach(btn => btn?.addEventListener('click', () => modalOverlay.classList.remove('active')));
+    btnAdd.addEventListener('click', () => {
+      // Update Halls for currently selected cinema in filter
+      const cinema = mockCinemas.find(c => c.id === this.currentCinemaId);
+      this.hallSelect.innerHTML = cinema.halls.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+      
+      modalOverlay.classList.add('active');
+    });
 
+    [btnCancel, btnClose].forEach(btn => btn.addEventListener('click', () => {
+      modalOverlay.classList.remove('active');
+    }));
+
+    // Time calculation Logic
     const updateEndTime = () => {
-      const movie = this.movies.find(item => item.MovieID === Number(this.movieSelect.value));
+      const movieId = parseInt(this.movieSelect.value);
+      const movie = mockMovies.find(m => m.id === movieId);
       const startTimeVal = this.startTimeInput.value;
-      if (!movie || !startTimeVal) return;
 
-      this.displayDuration.value = `${movie.MovieRuntime} phút`;
-      const end = new Date(new Date(startTimeVal).getTime() + (Number(movie.MovieRuntime || 0) + 15) * 60000);
-      this.displayEndTime.textContent = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+      if (movie && startTimeVal) {
+        this.displayDuration.value = movie.duration + ' phút';
+        
+        const start = new Date(startTimeVal);
+        // EndTime = StartTime + Duration + 15 mins cleanup
+        const end = new Date(start.getTime() + (movie.duration + 15) * 60000);
+        
+        const hours = end.getHours().toString().padStart(2, '0');
+        const mins = end.getMinutes().toString().padStart(2, '0');
+        this.displayEndTime.textContent = `${hours}:${mins}`;
+      }
     };
 
-    this.movieSelect?.addEventListener('change', updateEndTime);
-    this.startTimeInput?.addEventListener('change', updateEndTime);
+    this.movieSelect.addEventListener('change', updateEndTime);
+    this.startTimeInput.addEventListener('change', updateEndTime);
 
-    this.btnSave?.addEventListener('click', async (event) => {
-      event.preventDefault();
-      const start = this.startTimeInput.value ? new Date(this.startTimeInput.value) : null;
-      if (!start || !this.movieSelect.value || !this.hallSelect.value) {
-        alert('Vui lòng chọn phim, phòng chiếu và giờ bắt đầu.');
-        return;
-      }
-
-      const payload = {
-        movieId: Number(this.movieSelect.value),
-        hallId: Number(this.hallSelect.value),
-        showDate: this.startTimeInput.value.slice(0, 10),
-        showTime: this.startTimeInput.value.slice(11, 16),
-        format: '2D',
-        basePrice: 75000 + Number(document.getElementById('input-surcharge')?.value || 0)
-      };
-
-      try {
-        await api.post('/admin/shows', payload);
-        modalOverlay.classList.remove('active');
-        await this.loadShows();
-      } catch (error) {
-        alert(`Không lưu được suất chiếu: ${error.message}`);
-      }
+    this.btnSave.addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Đã kiểm tra xung đột: Lịch chiếu Hợp lệ! Đã lưu thành công (Mock).');
+      modalOverlay.classList.remove('active');
     });
   }
 
-  formatTime(value) {
-    if (!value) return '--:--';
-    const date = new Date(value);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  }
-
   render() {
-    const hallFilter = document.getElementById('filter-hall')?.value || 'all';
-    const shows = hallFilter === 'all'
-      ? this.shows
-      : this.shows.filter(show => String(show.HallID) === hallFilter);
+    const filteredShows = mockShows.filter(s => 
+      s.cinemaId === this.currentCinemaId && 
+      s.startTime.startsWith(this.currentDate)
+    );
 
     if (this.currentView === 'list') {
-      this.renderListView(shows);
+      this.renderListView(filteredShows);
     } else {
-      this.renderGridView(shows);
+      this.renderGridView(filteredShows);
     }
   }
 
   renderListView(shows) {
     if (!this.tableBody) return;
-    if (!shows.length) {
-      this.tableBody.innerHTML = `<tr><td colspan="6" class="text-secondary">Không có suất chiếu phù hợp.</td></tr>`;
-      return;
-    }
 
-    this.tableBody.innerHTML = shows.map(show => `
-      <tr>
-        <td>
-          <div style="font-weight:600; color:var(--color-primary)">${this.formatTime(show.ShowTime)} - ${this.formatTime(show.EndTime)}</div>
-          <div style="font-size:0.8rem; color:var(--text-secondary)">${show.ShowDate?.slice(0, 10)}</div>
-        </td>
-        <td>
-          <div style="font-weight:600">${show.MovieTitle}</div>
-          <div style="font-size:0.8rem; color:var(--text-secondary)">${show.Format} | ${show.MovieRuntime}ph</div>
-        </td>
-        <td>${show.HallName}</td>
-        <td>${Number(show.BasePrice || 0).toLocaleString('vi-VN')} ₫</td>
-        <td><span class="badge active">Sẵn sàng</span></td>
-        <td>
-          <div class="action-btns">
-            <button class="btn-icon-sub"><i data-lucide="edit-3"></i></button>
-            <button class="btn-icon-sub delete"><i data-lucide="trash-2"></i></button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
+    this.tableBody.innerHTML = shows.map(s => {
+      const movie = mockMovies.find(m => m.id === s.movieId);
+      const cinema = mockCinemas.find(c => c.id === s.cinemaId);
+      const hall = cinema.halls.find(h => h.id === s.hallId);
+      
+      const start = new Date(s.startTime);
+      const end = new Date(start.getTime() + (movie.duration + 15) * 60000);
+      
+      const timeStr = `${start.getHours().toString().padStart(2, '0')}:${start.getMinutes().toString().padStart(2, '0')} - ${end.getHours().toString().padStart(2, '0')}:${end.getMinutes().toString().padStart(2, '0')}`;
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600; color:var(--color-primary)">${timeStr}</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary)">${this.currentDate}</div>
+          </td>
+          <td>
+            <div style="font-weight:600">${movie.title}</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary)">${s.format} | ${movie.duration}ph</div>
+          </td>
+          <td>${hall.name}</td>
+          <td>+${s.surcharge.toLocaleString()} ₫</td>
+          <td><span class="badge active">Sẵn sàng</span></td>
+          <td>
+            <div class="action-btns">
+               <button class="btn-icon-sub"><i data-lucide="edit-3"></i></button>
+               <button class="btn-icon-sub delete"><i data-lucide="trash-2"></i></button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
     if (window.lucide) lucide.createIcons();
   }
 
   renderGridView(shows) {
     if (!this.timelineContainer) return;
-    this.timelineContainer.innerHTML = this.halls.map(hall => {
-      const hallShows = shows.filter(show => show.HallID === hall.HallID);
-      const showsHtml = hallShows.map(show => {
-        const start = new Date(show.ShowTime);
-        const startPercent = ((start.getHours() * 60 + start.getMinutes()) / 1440) * 100;
-        const durationPercent = ((Number(show.MovieRuntime || 120) + 15) / 1440) * 100;
+
+    const cinema = mockCinemas.find(c => c.id === this.currentCinemaId);
+    
+    this.timelineContainer.innerHTML = cinema.halls.map(hall => {
+      const hallShows = shows.filter(s => s.hallId === hall.id);
+      
+      const showsHtml = hallShows.map(s => {
+        const movie = mockMovies.find(m => m.id === s.movieId);
+        const start = new Date(s.startTime);
+        
+        // Calculate position (Basic percentage based on 24h)
+        const startHour = start.getHours();
+        const startMin = start.getMinutes();
+        const startPercent = ((startHour * 60 + startMin) / (24 * 60)) * 100;
+        
+        const durationPercent = ((movie.duration + 15) / (24 * 60)) * 100;
+
         return `
-          <div class="show-block" style="left: ${startPercent}%; width: ${durationPercent}%" title="${show.MovieTitle}">
-            <div style="font-weight:bold">${this.formatTime(show.ShowTime)}</div>
-            <div style="font-size:0.6rem; opacity:0.8">${show.MovieTitle.substring(0, 15)}...</div>
+          <div class="show-block" style="left: ${startPercent}%; width: ${durationPercent}%" title="${movie.title}">
+            <div style="font-weight:bold">${startHour}:${startMin.toString().padStart(2, '0')}</div>
+            <div style="font-size:0.6rem; opacity:0.8">${movie.title.substring(0, 15)}...</div>
           </div>
         `;
       }).join('');
@@ -258,10 +250,12 @@ class ShowsManager {
       return `
         <div class="hall-timeline">
           <div class="hall-info-mini">
-            <div style="font-weight:600">${hall.HallName}</div>
+            <div style="font-weight:600">${hall.name}</div>
             <div class="text-secondary" style="font-size:0.8rem">${hallShows.length} suất chiếu</div>
           </div>
-          <div class="timeline-row">${showsHtml}</div>
+          <div class="timeline-row">
+            ${showsHtml}
+          </div>
           <div class="time-marker-container">
             <span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>23:59</span>
           </div>

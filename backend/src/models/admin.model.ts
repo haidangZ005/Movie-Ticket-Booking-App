@@ -12,36 +12,16 @@ export class AdminModel {
    */
   static async getRevenueStats() {
     const pool = getPool();
-    const summaryResult = await pool.request()
+    const result = await pool.request()
       .query(`
         SELECT 
-          ISNULL(SUM(TotalAmount), 0) as totalRevenue,
-          COUNT(BookingID) as totalBookings,
-          ISNULL(SUM(TotalSeats), 0) as totalTickets,
-          ISNULL(AVG(TotalAmount), 0) as avgTicketValue
+          SUM(TotalAmount) as totalRevenue,
+          COUNT(BookingID) as totalTickets,
+          AVG(TotalAmount) as avgTicketValue
         FROM [dbo].[Booking]
-        WHERE Status IN ('CONFIRMED', 'COMPLETED')
+        WHERE Status = 'COMPLETED'
       `);
-
-    const customerResult = await pool.request()
-      .query(`
-        SELECT COUNT(*) as totalAccounts
-        FROM [dbo].[Account]
-        WHERE IsActive = 1
-      `);
-
-    const movieResult = await pool.request()
-      .query(`
-        SELECT COUNT(*) as activeMovies
-        FROM [dbo].[Movie]
-        WHERE IsActive = 1
-      `);
-
-    return {
-      ...summaryResult.recordset[0],
-      totalAccounts: customerResult.recordset[0].totalAccounts,
-      activeMovies: movieResult.recordset[0].activeMovies
-    };
+    return result.recordset[0];
   }
 
   /**
@@ -52,13 +32,13 @@ export class AdminModel {
     const result = await pool.request()
       .query(`
         SELECT TOP 5 
-          m.MovieTitle, 
+          m.Title, 
           COUNT(bs.BookingSeatID) as ticketCount
         FROM [dbo].[BookingSeat] bs
-        JOIN [dbo].[Showtime] s ON bs.ShowID = s.ShowID
+        JOIN [dbo].[Show] s ON bs.ShowID = s.ShowID
         JOIN [dbo].[Movie] m ON s.MovieID = m.MovieID
         WHERE bs.Status = 'BOOKED'
-        GROUP BY m.MovieTitle
+        GROUP BY m.Title
         ORDER BY ticketCount DESC
       `);
     return result.recordset;
@@ -75,10 +55,10 @@ export class AdminModel {
            c.CinemaName, 
            SUM(b.TotalAmount) as revenue
          FROM [dbo].[Booking] b
-         JOIN [dbo].[Showtime] s ON b.ShowID = s.ShowID
+         JOIN [dbo].[Show] s ON b.ShowID = s.ShowID
          JOIN [dbo].[CinemaHall] ch ON s.HallID = ch.HallID
-         JOIN [dbo].[CinemaComplex] c ON ch.CinemaID = c.CinemaID
-         WHERE b.Status IN ('CONFIRMED', 'COMPLETED')
+         JOIN [dbo].[Cinema] c ON ch.CinemaID = c.CinemaID
+         WHERE b.Status = 'COMPLETED'
          GROUP BY c.CinemaName
        `);
      return result.recordset;
@@ -120,27 +100,5 @@ export class AdminModel {
       .input('accountId', sql.Int, accountId)
       .input('status', sql.Bit, isActive)
       .query('UPDATE [dbo].[Account] SET IsActive = @status WHERE AccountID = @accountId');
-  }
-
-  static async getAccounts() {
-    const pool = getPool();
-    const result = await pool.request()
-      .query(`
-        SELECT TOP 200
-          a.AccountID,
-          a.Email,
-          a.AccountType,
-          a.IsActive,
-          a.IsVerified,
-          a.CreatedAt,
-          c.CustomerID,
-          c.FullName,
-          c.PhoneNumber,
-          c.LoyaltyPoints
-        FROM [dbo].[Account] a
-        LEFT JOIN [dbo].[Customer] c ON a.AccountID = c.AccountID
-        ORDER BY a.CreatedAt DESC, a.AccountID DESC
-      `);
-    return result.recordset;
   }
 }

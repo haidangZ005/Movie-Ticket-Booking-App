@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,70 +8,17 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
-  ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Movie, movieService } from '../../services/movieService';
-import { Cinema, cinemaService } from '../../services/cinemaService';
 
 const { width, height } = Dimensions.get('window');
 const HERO_HEIGHT = height * 0.45;
 
 export default function MovieDetailScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const initialMovie = route.params?.movie as Movie | undefined;
-  const [movie, setMovie] = useState<Movie | undefined>(initialMovie);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(initialMovie?.id));
-  const [cinemas, setCinemas] = useState<Cinema[]>([]);
-  const [isLoadingCinemas, setIsLoadingCinemas] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadMovieDetail = async () => {
-      if (!initialMovie?.id) return;
-      setIsLoadingDetail(true);
-      try {
-        const response = await movieService.getMovieById(initialMovie.id);
-        if (isMounted) setMovie(response.data);
-      } catch (err) {
-        if (__DEV__) console.log('[MovieDetail] Could not refresh detail', err);
-      } finally {
-        if (isMounted) setIsLoadingDetail(false);
-      }
-    };
-
-    loadMovieDetail();
-    return () => {
-      isMounted = false;
-    };
-  }, [initialMovie?.id]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadCinemas = async () => {
-      setIsLoadingCinemas(true);
-      try {
-        const response = await cinemaService.getCinemas({ page: 1, limit: 5 });
-        if (isMounted) setCinemas(response.data || []);
-      } catch (err) {
-        if (__DEV__) console.log('[MovieDetail] Could not load cinemas', err);
-        if (isMounted) setCinemas([]);
-      } finally {
-        if (isMounted) setIsLoadingCinemas(false);
-      }
-    };
-
-    loadCinemas();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const navigation = useNavigation();
 
   const directors = [
     { id: '1', name: 'Anthony\nRusso', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop' },
@@ -84,6 +31,12 @@ export default function MovieDetailScreen() {
     { id: '3', name: 'Chris\nEvans', image: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150&h=150&fit=crop' },
   ];
 
+  const cinemas = [
+    { id: '1', name: 'Vincom Ocean Park CGV', distance: '4.55 km', address: 'Da Ton, Gia Lam, Ha Noi', type: 'cgv' },
+    { id: '2', name: 'Aeon Mall CGV', distance: '9.32 km', address: '27 Co Linh, Long Bien, Ha Noi', type: 'cgv' },
+    { id: '3', name: 'Lotte Cinema Long Bien', distance: '14.3 km', address: '7-9 Nguyen Van Linh, Long Bien, Ha Noi', type: 'lotte' },
+  ];
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -92,7 +45,7 @@ export default function MovieDetailScreen() {
         {/* Hero Section */}
         <View style={styles.heroContainer}>
           <Image 
-            source={{ uri: movie?.image || 'https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_.jpg' }} 
+            source={{ uri: 'https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_.jpg' }} 
             style={styles.heroImage} 
             resizeMode="cover"
           />
@@ -112,15 +65,14 @@ export default function MovieDetailScreen() {
         {/* Info Overlay Card */}
         <View style={styles.infoCardContainer}>
           <View style={styles.infoCard}>
-            <Text style={styles.movieTitle}>{movie?.title || 'Avengers: Infinity War'}</Text>
-            <Text style={styles.movieMeta}>{movie?.duration || '2h29m'} | {movie?.releaseDate?.slice(0, 10) || 'Updating'}</Text>
-            {isLoadingDetail ? <ActivityIndicator color={Colors.primary} style={styles.detailLoader} /> : null}
+            <Text style={styles.movieTitle}>Avengers: Infinity War</Text>
+            <Text style={styles.movieMeta}>2h29m • 16.12.2022</Text>
             
             <View style={styles.ratingRow}>
               <View style={styles.ratingLeft}>
                 <Text style={styles.reviewLabel}>Review</Text>
                 <Ionicons name="star" size={16} color={Colors.primary} style={{ marginHorizontal: 6 }} />
-                <Text style={styles.ratingText}>{movie?.rating?.split(' ')?.[0] || '4.8'}</Text>
+                <Text style={styles.ratingText}>4.8</Text>
                 <Text style={styles.ratingCount}>(1.222)</Text>
               </View>
               <View style={styles.starsRow}>
@@ -142,7 +94,7 @@ export default function MovieDetailScreen() {
         <View style={styles.detailsSection}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Movie genre:</Text>
-            <Text style={styles.detailValue}>{movie?.genre || 'Action, adventure, sci-fi'}</Text>
+            <Text style={styles.detailValue}>Action, adventure, sci-fi</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Language:</Text>
@@ -154,7 +106,7 @@ export default function MovieDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Movie Description</Text>
           <Text style={styles.storylineText}>
-            {movie?.description || 'Movie description is being updated.'}{' '}
+            As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos....{' '}
             <Text style={styles.seeMoreText}>See more</Text>
           </Text>
         </View>
@@ -166,7 +118,7 @@ export default function MovieDetailScreen() {
             {directors.map(dir => (
               <View key={dir.id} style={styles.personCardSmall}>
                 <Image source={{ uri: dir.image }} style={styles.personImageSmall} />
-                <Text style={styles.personName}>{movie?.director || dir.name}</Text>
+                <Text style={styles.personName}>{dir.name}</Text>
               </View>
             ))}
           </ScrollView>
@@ -179,7 +131,7 @@ export default function MovieDetailScreen() {
             {actors.map(actor => (
               <View key={actor.id} style={styles.personCardLarge}>
                 <Image source={{ uri: actor.image }} style={styles.personImageLarge} />
-                <Text style={styles.personName}>{movie?.actor || actor.name}</Text>
+                <Text style={styles.personName}>{actor.name}</Text>
               </View>
             ))}
           </ScrollView>
@@ -188,12 +140,6 @@ export default function MovieDetailScreen() {
         {/* Cinema */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cinema</Text>
-          {isLoadingCinemas ? (
-            <ActivityIndicator color={Colors.primary} style={styles.cinemaLoader} />
-          ) : null}
-          {!isLoadingCinemas && cinemas.length === 0 ? (
-            <Text style={styles.cinemaEmptyText}>Cinema list is updating.</Text>
-          ) : null}
           {cinemas.map((cinema, index) => (
             <TouchableOpacity 
               key={cinema.id} 
@@ -205,11 +151,12 @@ export default function MovieDetailScreen() {
               <View style={styles.cinemaInfo}>
                 <Text style={styles.cinemaTitle}>{cinema.name}</Text>
                 <Text style={styles.cinemaAddress}>
-                  {[cinema.district, cinema.city].filter(Boolean).join(', ') || 'Location updating'} | {cinema.address}
+                  {cinema.distance} | {cinema.address}
                 </Text>
               </View>
+              {/* Dummy Logo Placeholder */}
               <View style={styles.cinemaLogoPlaceholder}>
-                <Text style={styles.cinemaLogoText}>CINE</Text>
+                <Text style={styles.cinemaLogoText}>{cinema.type === 'cgv' ? 'CGV' : 'LOTTE'}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -219,7 +166,7 @@ export default function MovieDetailScreen() {
 
       {/* Fixed Bottom Button */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.continueButton} onPress={() => navigation.navigate('Ticket')}>
+        <TouchableOpacity style={styles.continueButton}>
           <Text style={styles.continueButtonText}>Continue</Text>
         </TouchableOpacity>
       </View>
@@ -283,10 +230,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#A1A1AA',
     marginBottom: 20,
-  },
-  detailLoader: {
-    alignSelf: 'flex-start',
-    marginBottom: 12,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -435,15 +378,6 @@ const styles = StyleSheet.create({
   },
   cinemaCardActive: {
     borderColor: Colors.primary,
-  },
-  cinemaLoader: {
-    alignSelf: 'flex-start',
-    marginBottom: 12,
-  },
-  cinemaEmptyText: {
-    color: '#A1A1AA',
-    fontSize: 14,
-    marginBottom: 12,
   },
   cinemaInfo: {
     flex: 1,

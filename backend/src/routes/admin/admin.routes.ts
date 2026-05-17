@@ -43,7 +43,6 @@ router.get('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN'])
 // router.put('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.updateSettings); // TODO: Tạo controller method
 
 // === Quản lý tài khoản ===
-router.get('/accounts', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getAccounts);
-router.put('/accounts/:id/status', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.patchAccountStatus);
+router.put('/accounts/:id/status', authMiddleware, roleMiddleware(['SUPER_ADMIN']), AdminController.patchAccountStatus);
 
 export default router;

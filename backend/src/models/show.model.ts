@@ -33,41 +33,6 @@ interface SeatInfo {
 }
 
 class ShowModel {
-  static async getByCinemaId(cinemaId: number, filters: any = {}) {
-    const pool = await connectDB();
-    const request = pool.request().input('cinemaId', mssql.Int, cinemaId);
-    const whereConditions = ['c.CinemaID = @cinemaId', 'm.IsActive = 1'];
-
-    if (filters.movieId) {
-      whereConditions.push('s.MovieID = @movieId');
-      request.input('movieId', mssql.Int, filters.movieId);
-    }
-    if (filters.showDate) {
-      whereConditions.push('s.ShowDate = @showDate');
-      request.input('showDate', mssql.Date, filters.showDate);
-    }
-    if (filters.format) {
-      whereConditions.push('s.Format = @format');
-      request.input('format', mssql.NVarChar, filters.format);
-    }
-
-    const result = await request.query(`
-      SELECT
-        s.ShowID, s.MovieID, s.HallID, s.ShowDate, s.ShowTime, s.EndTime, s.Format, s.BasePrice,
-        m.MovieTitle, m.MovieRuntime, m.MovieImage,
-        ch.HallName, ch.TotalSeats,
-        c.CinemaID, c.CinemaName
-      FROM Showtime s
-      INNER JOIN Movie m ON s.MovieID = m.MovieID
-      INNER JOIN CinemaHall ch ON s.HallID = ch.HallID
-      INNER JOIN CinemaComplex c ON ch.CinemaID = c.CinemaID
-      WHERE ${whereConditions.join(' AND ')}
-      ORDER BY s.ShowDate, s.ShowTime
-    `);
-
-    return result.recordset;
-  }
-
   /**
    * Lấy chi tiết suất chiếu
    */
@@ -129,7 +94,7 @@ class ShowModel {
   /**
    * Lấy sơ đồ ghế theo suất chiếu kèm trạng thái từ Redis
    */
-  static async getSeatsByShowId(showId: number): Promise<{ seats: SeatInfo[]; showInfo: Show }> {
+  static async getSeats(showId: number): Promise<{ seats: SeatInfo[]; show: Show }> {
     const pool = await connectDB();
     
     // Lấy thông tin suất chiếu
@@ -152,7 +117,7 @@ class ShowModel {
                END as Status,
                bs.HoldUntil,
                bs.BookingID
-        FROM Seat cs
+        FROM CinemaHallSeat cs
         LEFT JOIN BookingSeat bs ON cs.SeatID = bs.SeatID 
           AND bs.ShowID = @showId 
           AND bs.Status IN ('HOLDING', 'BOOKED')
@@ -162,7 +127,7 @@ class ShowModel {
     
     return {
       seats: seatsResult.recordset,
-      showInfo: show
+      show
     };
   }
 

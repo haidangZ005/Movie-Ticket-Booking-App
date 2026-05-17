@@ -13,14 +13,30 @@ const redisClient = new Redis({
   password: process.env.REDIS_PASSWORD || undefined,
   // lazyConnect = true để Redis không chặn ứng dụng nếu server dev chưa bật Redis
   lazyConnect: true,
+  // Giới hạn retry để không treo request khi Redis chưa cài
+  maxRetriesPerRequest: 1,
+  retryStrategy(times) {
+    if (times > 3) {
+      // Sau 3 lần thử, dừng reconnect (giảm spam log)
+      return null;
+    }
+    return Math.min(times * 500, 3000);
+  }
 });
 
+let redisErrorLogged = false;
+
 redisClient.on('connect', () => {
+  redisErrorLogged = false;
   console.log('[📦 Redis]   Kết nối thành công (Ready)');
 });
 
 redisClient.on('error', (err) => {
-  console.error('[❌ Redis]   Lỗi kết nối:', err.message);
+  if (!redisErrorLogged) {
+    console.warn('[⚠️ Redis]   Chưa kết nối Redis — một số tính năng (OTP, blacklist token) sẽ không hoạt động.');
+    redisErrorLogged = true;
+  }
 });
 
 export default redisClient;
+

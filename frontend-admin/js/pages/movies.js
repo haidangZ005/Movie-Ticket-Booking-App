@@ -1,95 +1,89 @@
 /**
- * Movies Logic - API backed table and admin actions.
+ * Movies Logic - Handles table rendering, CRUD operations and Modal
  */
 
-let movies = [];
-let editingMovieId = null;
-
 document.addEventListener('DOMContentLoaded', () => {
-  new Sidebar('sidebar-container');
+  // Init Sidebar
+  const sidebar = new Sidebar('sidebar-container');
+  
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebarEl = document.getElementById('sidebar-container');
   if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => sidebarEl.classList.toggle('show'));
+    sidebarToggle.addEventListener('click', () => {
+      sidebarEl.classList.toggle('show');
+    });
   }
 
+  // Bind events
   bindModalEvents();
-  bindSearch();
-  loadMovies();
+  
+  // Render Data
+  renderMoviesTable();
 });
 
-const normalizeMovie = (movie) => {
-  const releaseDate = movie.MovieReleaseDate ? new Date(movie.MovieReleaseDate) : null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (releaseDate) releaseDate.setHours(0, 0, 0, 0);
-
-  return {
-    id: movie.MovieID,
-    title: movie.MovieTitle || 'Chưa có tên',
-    genre: movie.MovieGenre || 'Đang cập nhật',
-    language: movie.MovieLanguage || 'Đang cập nhật',
-    duration: movie.MovieRuntime || 0,
-    releaseDate: movie.MovieReleaseDate ? movie.MovieReleaseDate.slice(0, 10) : '',
-    description: movie.MovieDescription || '',
-    poster: movie.MovieImage || 'https://picsum.photos/seed/movie-placeholder/120/180',
-    isFeatured: Boolean(movie.IsFeatured),
-    isActive: Boolean(movie.IsActive),
-    status: !movie.IsActive ? 'INACTIVE' : releaseDate && releaseDate > today ? 'UPCOMING' : 'ACTIVE'
-  };
-};
-
-const getItems = (payload) => {
-  if (Array.isArray(payload?.data?.items)) return payload.data.items;
-  if (Array.isArray(payload?.data)) return payload.data;
-  return [];
-};
-
-async function loadMovies() {
-  const tbody = document.getElementById('movie-table-body');
-  if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-secondary">Đang tải dữ liệu phim...</td></tr>`;
-
-  try {
-    const response = await api.get('/movies?limit=100');
-    movies = getItems(response).map(normalizeMovie);
-    renderMoviesTable(movies);
-  } catch (error) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-secondary">Không tải được phim: ${error.message}</td></tr>`;
+/**
+ * Dữ liệu giả lập (Mock Data)
+ */
+const mockMovies = [
+  {
+    id: 1,
+    title: 'Dune: Hành Tinh Cát - Phần 2',
+    genre: 'Hành động, Viễn tưởng',
+    duration: 166,
+    format: '2D, IMAX',
+    poster: 'https://image.tmdb.org/t/p/w200/8b8R8l88ILtNq3vjD1y3gJOKfA5.jpg',
+    status: 'ACTIVE',
+    isFeatured: true
+  },
+  {
+    id: 2,
+    title: 'Lật Mặt 7: Một Điều Ước',
+    genre: 'Gia đình, Tâm lý',
+    duration: 138,
+    format: '2D',
+    poster: 'https://image.tmdb.org/t/p/w200/xY3o4F3X2I2D3gC3Z69F0xO63W1.jpg',
+    status: 'ACTIVE',
+    isFeatured: true
+  },
+  {
+    id: 3,
+    title: 'Godzilla x Kong: Đế Chế Mới',
+    genre: 'Hành động, Phiêu lưu',
+    duration: 115,
+    format: '2D, 3D',
+    poster: 'https://image.tmdb.org/t/p/w200/w7rA11J1U3T4pZ6k5B6W5L4vEa.jpg',
+    status: 'INACTIVE',
+    isFeatured: false
+  },
+  {
+    id: 4,
+    title: 'Deadpool & Wolverine',
+    genre: 'Hành động, Hài',
+    duration: 127,
+    format: '2D, IMAX',
+    poster: 'https://image.tmdb.org/t/p/w200/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg',
+    status: 'UPCOMING',
+    isFeatured: true
   }
-}
+];
 
-function bindSearch() {
-  const searchInput = document.querySelector('.search-input');
-  if (!searchInput) return;
-  searchInput.addEventListener('input', () => {
-    const keyword = searchInput.value.trim().toLowerCase();
-    const filtered = movies.filter((movie) =>
-      movie.title.toLowerCase().includes(keyword) ||
-      movie.genre.toLowerCase().includes(keyword)
-    );
-    renderMoviesTable(filtered);
-  });
-}
-
-function getStatusBadge(status) {
-  switch (status) {
-    case 'ACTIVE': return `<span class="badge active">Đang chiếu</span>`;
-    case 'UPCOMING': return `<span class="badge upcoming">Sắp chiếu</span>`;
-    case 'INACTIVE': return `<span class="badge inactive">Ngừng chiếu</span>`;
-    default: return `<span class="badge inactive">Chưa rõ</span>`;
-  }
-}
-
-function renderMoviesTable(data) {
+/**
+ * Render Movies Table
+ */
+function renderMoviesTable() {
   const tbody = document.getElementById('movie-table-body');
   if (!tbody) return;
 
-  if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-secondary">Không có phim phù hợp.</td></tr>`;
-    return;
-  }
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'ACTIVE': return `<span class="badge active">Đang chiếu</span>`;
+      case 'UPCOMING': return `<span class="badge upcoming">Sắp chiếu</span>`;
+      case 'INACTIVE': return `<span class="badge inactive">Ngừng chiếu</span>`;
+      default: return `<span class="badge inactive">Chưa rõ</span>`;
+    }
+  };
 
-  tbody.innerHTML = data.map(movie => `
+  const html = mockMovies.map(movie => `
     <tr>
       <td>
         <div class="movie-info">
@@ -100,7 +94,7 @@ function renderMoviesTable(data) {
           </div>
         </div>
       </td>
-      <td>${movie.language}</td>
+      <td>${movie.format}</td>
       <td>${movie.duration} phút</td>
       <td>${getStatusBadge(movie.status)}</td>
       <td>
@@ -122,9 +116,17 @@ function renderMoviesTable(data) {
     </tr>
   `).join('');
 
-  if (window.lucide) lucide.createIcons();
+  tbody.innerHTML = html;
+  
+  // Re-init lucide icons for newly added HTML
+  if (window.lucide) {
+    lucide.createIcons();
+  }
 }
 
+/**
+ * Events Cho Modal
+ */
 function bindModalEvents() {
   const modalOverlay = document.getElementById('movie-modal-overlay');
   const btnAdd = document.getElementById('btn-add-movie');
@@ -133,7 +135,6 @@ function bindModalEvents() {
   const btnSave = document.getElementById('btn-save-movie');
   const modalTitle = document.getElementById('modal-title');
   const form = document.getElementById('movie-form');
-  const controls = form ? form.querySelectorAll('.form-control') : [];
 
   const openModal = (title = 'Thêm Phim Mới') => {
     modalTitle.textContent = title;
@@ -142,86 +143,48 @@ function bindModalEvents() {
 
   const closeModal = () => {
     modalOverlay.classList.remove('active');
-    editingMovieId = null;
-    form.reset();
+    form.reset(); // Xóa data cũ đi
   };
 
   if (btnAdd) btnAdd.addEventListener('click', () => openModal('Thêm Phim Mới'));
   if (btnClose) btnClose.addEventListener('click', closeModal);
   if (btnCancel) btnCancel.addEventListener('click', closeModal);
-  if (modalOverlay) modalOverlay.addEventListener('click', (event) => {
-    if (event.target === modalOverlay) closeModal();
-  });
-
+  
   if (btnSave) {
-    btnSave.addEventListener('click', async (event) => {
-      event.preventDefault();
-      const payload = {
-        title: controls[0]?.value.trim(),
-        genre: controls[1]?.value.trim(),
-        runtime: Number(controls[2]?.value || 0),
-        releaseDate: controls[3]?.value,
-        isActive: controls[4]?.value !== 'INACTIVE',
-        language: 'Tiếng Việt',
-        description: controls[5]?.value.trim()
-      };
-
-      if (!payload.title || !payload.genre || !payload.runtime || !payload.releaseDate) {
-        alert('Vui lòng nhập đầy đủ tên phim, thể loại, thời lượng và ngày khởi chiếu.');
-        return;
-      }
-
-      try {
-        if (editingMovieId) {
-          await api.put(`/admin/movies/${editingMovieId}`, payload);
-        } else {
-          await api.post('/admin/movies', payload);
-        }
-        closeModal();
-        await loadMovies();
-      } catch (error) {
-        alert(`Không lưu được phim: ${error.message}`);
-      }
+    btnSave.addEventListener('click', (e) => {
+      e.preventDefault(); // Ngăn submit form reload trang
+      alert('Chức năng lưu đã được kích hoạt! (Sẽ gọi HTTP API POST sau này)');
+      closeModal();
     });
   }
+
+  // Overlay click to close
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeModal();
+  });
 }
 
+/**
+ * Xử lý click Sửa/Xóa/Nổi bật
+ */
 window.editMovie = (id) => {
-  const movie = movies.find((item) => item.id === id);
   const modalOverlay = document.getElementById('movie-modal-overlay');
+  if(!modalOverlay) return;
+  
   const modalTitle = document.getElementById('modal-title');
-  const form = document.getElementById('movie-form');
-  const controls = form ? form.querySelectorAll('.form-control') : [];
-  if (!movie || !modalOverlay) return;
-
-  editingMovieId = id;
   modalTitle.textContent = 'Chỉnh sửa Phim';
-  controls[0].value = movie.title;
-  controls[1].value = movie.genre;
-  controls[2].value = movie.duration;
-  controls[3].value = movie.releaseDate;
-  controls[4].value = movie.status;
-  controls[5].value = movie.description;
   modalOverlay.classList.add('active');
+  // Thực tế sẽ fetch API để lấy data đổ vào form
 };
 
-window.deleteMovie = async (id) => {
-  if (!confirm('Bạn có chắc chắn muốn xóa bộ phim này không?')) return;
-  try {
-    await api.delete(`/admin/movies/${id}`);
-    await loadMovies();
-  } catch (error) {
-    alert(`Không xóa được phim: ${error.message}`);
+window.deleteMovie = (id) => {
+  if(confirm('Bạn có chắc chắn muốn xóa bộ phim này không? Mọi lịch chiếu liên quan cũng sẽ bị ảnh hưởng.')) {
+    alert('Đã giả lập xóa thành công (Id: ' + id + ')');
   }
 };
 
-window.toggleFeatured = async (id, checkboxInfo) => {
-  const originalValue = checkboxInfo.checked;
-  try {
-    await api.put(`/admin/movies/${id}/featured`, {});
-    await loadMovies();
-  } catch (error) {
-    checkboxInfo.checked = !originalValue;
-    alert(`Không cập nhật nổi bật: ${error.message}`);
-  }
+window.toggleFeatured = (id, checkboxInfo) => {
+  const isChecked = checkboxInfo.checked;
+  // Thực tế sẽ gọi API: PUT /api/admin/movies/:id/featured
+  console.log(`Movie ${id} set featured to ${isChecked}`);
 };

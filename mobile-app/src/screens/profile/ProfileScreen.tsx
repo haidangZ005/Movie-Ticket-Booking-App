@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,19 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { AuthContext } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
 
 // Dummy profile image
 const PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
 
 export default function ProfileScreen() {
-  const navigation = useNavigation<any>();
-  const { user, logout } = useContext(AuthContext);
   const [isFaceIdEnabled, setIsFaceIdEnabled] = useState(false);
-  const displayName = user?.FullName || user?.Email?.split('@')?.[0] || 'Guest';
-  const phoneNumber = user?.PhoneNumber || 'Not updated';
-  const email = user?.Email || 'Not updated';
 
   const toggleFaceId = () => setIsFaceIdEnabled((previousState) => !previousState);
 
@@ -56,16 +49,16 @@ export default function ProfileScreen() {
           <View style={styles.userInfoRow}>
             <Image source={{ uri: PROFILE_IMAGE_URL }} style={styles.avatar} />
             <View style={styles.userDetails}>
-              <Text style={styles.userName}>{displayName}</Text>
+              <Text style={styles.userName}>Angelina</Text>
               
               <View style={styles.contactRow}>
                 <Feather name="phone" size={14} color="#A1A1AA" />
-                <Text style={styles.contactText}>{phoneNumber}</Text>
+                <Text style={styles.contactText}>(704) 555-0127</Text>
               </View>
               
               <View style={styles.contactRow}>
                 <Feather name="mail" size={14} color="#A1A1AA" />
-                <Text style={styles.contactText}>{email}</Text>
+                <Text style={styles.contactText}>angelina@example.com</Text>
               </View>
             </View>
           </View>
@@ -80,7 +73,7 @@ export default function ProfileScreen() {
           {renderMenuItem(
             <MaterialCommunityIcons name="ticket-confirmation-outline" size={24} color="#FFFFFF" />,
             'My ticket',
-            () => navigation.navigate('Ticket')
+            () => console.log('My ticket')
           )}
           {renderMenuItem(
             <Ionicons name="cart-outline" size={24} color="#FFFFFF" />,
@@ -94,8 +87,8 @@ export default function ProfileScreen() {
           )}
           {renderMenuItem(
             <Feather name="lock" size={24} color="#FFFFFF" />,
-            'Logout',
-            logout
+            'Change password',
+            () => console.log('Change password')
           )}
         </View>
 

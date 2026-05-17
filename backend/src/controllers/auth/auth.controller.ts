@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { AuthenticatedRequest } from '../middlewares/auth.middleware';
-import { AuthService } from '../services/auth.service';
-import { asyncHandler } from '../utils/helpers/async.handler';
-import { ApiResponse } from '../utils/dto/api.response';
-import { ResponseCode } from '../utils/constants/response.code';
+import { AuthenticatedRequest } from '../../middlewares/auth.middleware';
+import { AuthService } from '../../services/auth.service';
+import { asyncHandler } from '../../utils/helpers/async.handler';
+import { ApiResponse } from '../../utils/dto/api.response';
+import { ResponseCode } from '../../utils/constants/response.code';
 
 export class AuthController {
   /**

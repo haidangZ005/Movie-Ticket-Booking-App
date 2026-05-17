@@ -7,7 +7,7 @@ export const authValidator = {
   validateRegister: (req: Request, res: Response, next: NextFunction) => {
     const schema = Joi.object({
       email: Joi.string().email().required(),
-      password: Joi.string().min(6).required()
+      password: Joi.string().min(8).required()
     });
 
     const { error } = schema.validate(req.body);
@@ -20,7 +20,7 @@ export const authValidator = {
   validateLogin: (req: Request, res: Response, next: NextFunction) => {
     const schema = Joi.object({
       email: Joi.string().email().required(),
-      password: Joi.string().min(6).required()
+      password: Joi.string().min(8).required()
     });
 
     const { error } = schema.validate(req.body);
@@ -95,7 +95,7 @@ export const authValidator = {
   validateResetPassword: (req: Request, res: Response, next: NextFunction) => {
     const schema = Joi.object({
       email: Joi.string().email().required(),
-      newPassword: Joi.string().min(6).required()
+      newPassword: Joi.string().min(8).required()
     });
 
     const { error } = schema.validate(req.body);
@@ -108,7 +108,7 @@ export const authValidator = {
   validateChangePassword: (req: Request, res: Response, next: NextFunction) => {
     const schema = Joi.object({
       oldPassword: Joi.string().required(),
-      newPassword: Joi.string().min(6).required(),
+      newPassword: Joi.string().min(8).required(),
       refreshToken: Joi.string().optional()
     });
 

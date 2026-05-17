@@ -1,17 +1,41 @@
-const { mssql } = require('../config/db');
+import * as mssql from 'mssql';
+import { connectDB } from '../config/database';
 
-class MovieModel {
+export interface MovieData {
+  title: string;
+  genre: string;
+  language: string;
+  runtime: number;
+  releaseDate: Date;
+  actor?: string;
+  director?: string;
+  description?: string;
+  trailerUrl?: string;
+  rating?: number;
+  isFeatured?: boolean;
+  featuredOrder?: number;
+  isActive?: boolean;
+}
+
+export interface MovieFilters {
+  genre?: string;
+  language?: string;
+  isActive?: boolean;
+  isFeatured?: boolean;
+}
+
+export class MovieModel {
   /**
    * Lấy danh sách phim có phân trang và bộ lọc
    */
-  static async findAll({ offset = 0, limit = 20, filters = {} }) {
-    const pool = await mssql.connect();
+  static async findAll({ offset = 0, limit = 20, filters = {} }: { offset?: number; limit?: number; filters?: MovieFilters }) {
+    const pool = await connectDB();
     
     // Tạo request riêng cho count và data (tránh xung đột input params)
     const countRequest = pool.request();
     const dataRequest = pool.request();
     
-    let whereConditions = [];
+    let whereConditions: string[] = [];
     
     if (filters.genre) {
       whereConditions.push('MovieGenre LIKE @genre');
@@ -73,7 +97,7 @@ class MovieModel {
    * Lấy danh sách phim nổi bật (đang chiếu)
    */
   static async findFeatured() {
-    const pool = await mssql.connect();
+    const pool = await connectDB();
     const result = await pool.request()
       .query(`
         SELECT * FROM Movie 
@@ -86,8 +110,8 @@ class MovieModel {
   /**
    * Tìm kiếm phim theo từ khóa (tên, thể loại, ngôn ngữ)
    */
-  static async search(query, { offset = 0, limit = 20 }) {
-    const pool = await mssql.connect();
+  static async search(query: string, { offset = 0, limit = 20 }: { offset?: number; limit?: number }) {
+    const pool = await connectDB();
     
     // Đếm tổng số kết quả
     const countResult = await pool.request()
@@ -123,8 +147,8 @@ class MovieModel {
   /**
    * Lấy chi tiết phim theo ID
    */
-  static async findById(id) {
-    const pool = await mssql.connect();
+  static async findById(id: number) {
+    const pool = await connectDB();
     const result = await pool.request()
       .input('id', mssql.Int, id)
       .query('SELECT * FROM Movie WHERE MovieID = @id');
@@ -134,8 +158,8 @@ class MovieModel {
   /**
    * Thêm phim mới
    */
-  static async create(movieData) {
-    const pool = await mssql.connect();
+  static async create(movieData: MovieData) {
+    const pool = await connectDB();
     const result = await pool.request()
       .input('title', mssql.NVarChar, movieData.title)
       .input('genre', mssql.NVarChar, movieData.genre)
@@ -169,8 +193,8 @@ class MovieModel {
   /**
    * Cập nhật thông tin phim
    */
-  static async update(id, movieData) {
-    const pool = await mssql.connect();
+  static async update(id: number, movieData: Partial<MovieData>) {
+    const pool = await connectDB();
     await pool.request()
       .input('id', mssql.Int, id)
       .input('title', mssql.NVarChar, movieData.title)
@@ -209,8 +233,8 @@ class MovieModel {
   /**
    * Xóa mềm phim (chỉ set IsActive = 0)
    */
-  static async softDelete(id) {
-    const pool = await mssql.connect();
+  static async softDelete(id: number) {
+    const pool = await connectDB();
     await pool.request()
       .input('id', mssql.Int, id)
       .query('UPDATE Movie SET IsActive = 0 WHERE MovieID = @id');
@@ -220,8 +244,8 @@ class MovieModel {
   /**
    * Bật/tắt trạng thái phim nổi bật
    */
-  static async toggleFeatured(id) {
-    const pool = await mssql.connect();
+  static async toggleFeatured(id: number) {
+    const pool = await connectDB();
     
     // Lấy thông tin phim hiện tại
     const movieResult = await pool.request()
@@ -263,7 +287,7 @@ class MovieModel {
    * Lấy thứ tự nổi bật lớn nhất (dùng cho admin)
    */
   static async getMaxFeaturedOrder() {
-    const pool = await mssql.connect();
+    const pool = await connectDB();
     const result = await pool.request()
       .query('SELECT ISNULL(MAX(FeaturedOrder), 0) AS maxOrder FROM Movie WHERE IsFeatured = 1');
     return result.recordset[0].maxOrder;
@@ -272,8 +296,8 @@ class MovieModel {
   /**
    * Thích/bỏ thích phim (toggle)
    */
-  static async toggleLike(movieId, customerId) {
-    const pool = await mssql.connect();
+  static async toggleLike(movieId: number, customerId: number) {
+    const pool = await connectDB();
     
     // Kiểm tra đã thích chưa
     const existing = await pool.request()
@@ -304,8 +328,8 @@ class MovieModel {
   /**
    * Lấy trạng thái thích phim của khách hàng
    */
-  static async getLikeStatus(movieId, customerId) {
-    const pool = await mssql.connect();
+  static async getLikeStatus(movieId: number, customerId: number) {
+    const pool = await connectDB();
     const result = await pool.request()
       .input('movieId', mssql.Int, movieId)
       .input('customerId', mssql.Int, customerId)
@@ -315,4 +339,4 @@ class MovieModel {
   }
 }
 
-module.exports = MovieModel;
+export default MovieModel;

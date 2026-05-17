@@ -92,3 +92,4 @@ style.textContent = `
   .spin { animation: spin 1s linear infinite; display: inline-block; }
 `;
 document.head.appendChild(style);
+ Joseph

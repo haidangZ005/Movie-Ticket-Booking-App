@@ -1,73 +1,55 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import { useNavigation } from '@react-navigation/native';
-import { Movie, movieService } from '../../services/movieService';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 60) / 2; // 20px padding left, 20px padding right, 20px gap between columns = 60
 
+const MOCK_MOVIES = [
+  {
+    id: '1',
+    title: 'Shang chi: Legend of the Ten Rings',
+    rating: '4.0 (982)',
+    duration: '2 hour 5 minutes',
+    genre: 'Action, Sci-fi',
+    image: 'https://m.media-amazon.com/images/M/MV5BNTliYjlkNDQtMjFlOS00NjQwLWEzYWEtNDg1MTRlNzhhYjg2XkEyXkFqcGc@._V1_.jpg',
+  },
+  {
+    id: '2',
+    title: 'Batman v Superman: Dawn of Justice',
+    rating: '4.0 (982)',
+    duration: '2 hour 10 minutes',
+    genre: 'Action, Sci-fi',
+    image: 'https://m.media-amazon.com/images/M/MV5BYThjYzE4NDctZTViZC00MDM0LWEwMTAtYjc0MjI5ZTBkNTQ1XkEyXkFqcGc@._V1_.jpg',
+  },
+  {
+    id: '3',
+    title: 'Avengers: Infinity War',
+    rating: '4.8 (1200)',
+    duration: '2 hour 29 minutes',
+    genre: 'Action, Sci-fi',
+    image: 'https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_.jpg',
+  },
+  {
+    id: '4',
+    title: 'Guardians of the Galaxy',
+    rating: '4.5 (890)',
+    duration: '2 hour 1 minutes',
+    genre: 'Action, Sci-fi',
+    image: 'https://m.media-amazon.com/images/M/MV5BMTAwMjU5OTgxNjZeQTJeQWpwZ15BbWU4MDIzMDg0Njcx._V1_.jpg',
+  },
+];
+
 export default function MovieScreen() {
   const [activeTab, setActiveTab] = useState('NowPlaying');
-  const [allMovies, setAllMovies] = useState<Movie[]>([]);
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState('');
   const navigation = useNavigation<any>();
 
-  const splitMoviesByReleaseDate = (items: Movie[], tab: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return items.filter((movie) => {
-      if (!movie.releaseDate) return tab === 'NowPlaying';
-
-      const releaseDate = new Date(movie.releaseDate);
-      if (Number.isNaN(releaseDate.getTime())) return tab === 'NowPlaying';
-      releaseDate.setHours(0, 0, 0, 0);
-
-      return tab === 'ComingSoon' ? releaseDate > today : releaseDate <= today;
-    });
-  };
-
-  const loadMovies = useCallback(async (refresh = false) => {
-    if (refresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-    setError('');
-
-    try {
-      const response = await movieService.getMovies({ page: 1, limit: 60 });
-      const items = response.data || [];
-
-      setAllMovies(items);
-      setMovies(splitMoviesByReleaseDate(items, activeTab));
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Could not load movies from API.');
-      setAllMovies([]);
-      setMovies([]);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    loadMovies();
-  }, [loadMovies]);
-
-  useEffect(() => {
-    setMovies(splitMoviesByReleaseDate(allMovies, activeTab));
-  }, [activeTab, allMovies]);
-
-  const renderMovie = ({ item }: { item: Movie }) => (
-    <TouchableOpacity style={styles.movieCard} onPress={() => navigation.navigate('MovieDetail', { movie: item })}>
+  const renderMovie = ({ item }: { item: typeof MOCK_MOVIES[0] }) => (
+    <TouchableOpacity style={styles.movieCard} onPress={() => navigation.navigate('MovieDetail')}>
       <Image source={{ uri: item.image }} style={styles.poster} />
       <Text style={styles.movieTitle} numberOfLines={2}>{item.title}</Text>
       
@@ -108,33 +90,16 @@ export default function MovieScreen() {
         </View>
       </View>
 
-      {isLoading ? (
-        <View style={styles.stateContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={movies}
-          renderItem={renderMovie}
-          keyExtractor={item => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.gridContainer}
-          columnWrapperStyle={movies.length > 1 ? styles.columnWrapper : undefined}
-          showsVerticalScrollIndicator={false}
-          refreshing={isRefreshing}
-          onRefresh={() => loadMovies(true)}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>
-                {error || (activeTab === 'ComingSoon' ? 'No upcoming movies yet' : 'No now playing movies found')}
-              </Text>
-              <TouchableOpacity style={styles.retryButton} onPress={() => loadMovies()}>
-                <Text style={styles.retryButtonText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        />
-      )}
+      {/* Movie Grid */}
+      <FlatList
+        data={MOCK_MOVIES}
+        renderItem={renderMovie}
+        keyExtractor={item => item.id}
+        numColumns={2}
+        contentContainerStyle={styles.gridContainer}
+        columnWrapperStyle={styles.columnWrapper}
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* Bottom Nav */}
       <BottomNavBar />
@@ -184,35 +149,6 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: 'space-between',
     marginBottom: 24,
-  },
-  stateContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 120,
-  },
-  emptyState: {
-    minHeight: 360,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  retryButtonText: {
-    color: '#000000',
-    fontWeight: '700',
   },
   
   // Movie Card
