@@ -72,6 +72,10 @@ const startServer = async () => {
     const { seedAdmin } = require('./utils/seed');
     await seedAdmin();
 
+    // Khởi động BullMQ Worker xử lý gửi email ngầm (Dành cho dự án trường học)
+    require('./workers/email.worker');
+    console.log('[📦 Worker]  Hàng đợi gửi Email (BullMQ) đã sẵn sàng');
+
     app.listen(PORT, () => {
       console.log(`[🚀 Server]  Đang chạy tại http://localhost:${PORT}`);
       console.log(`[📋 Health]  http://localhost:${PORT}/api/health`);
