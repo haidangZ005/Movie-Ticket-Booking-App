@@ -10,13 +10,14 @@ dotenv.config();
  */
 const dbConfig: sql.config = {
   server: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 1433,
+  port: process.env.DB_INSTANCE ? undefined : Number(process.env.DB_PORT) || 1433,
   user: process.env.DB_USER || 'sa',
   password: process.env.DB_PASSWORD || '123456',
   database: process.env.DB_NAME || 'appDatvexemPhim',
   options: {
     encrypt: false,
     trustServerCertificate: true,
+    instanceName: process.env.DB_INSTANCE || undefined,
     //instanceName: process.env.DB_INSTANCE // Thêm dòng này
   },
   pool: {

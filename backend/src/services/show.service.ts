@@ -92,6 +92,8 @@ export const deleteShow = async (id: number) => {
   return show;
 };
 
+export const deleteById = deleteShow;
+
 /**
  * Tính giá vé (BasePrice + Surcharges theo SystemSettings)
  */
@@ -136,4 +138,14 @@ export const calculateTicketPrice = async (showId: number, seatId: number) => {
     totalPrice: totalPrice,
     seatType: seat.SeatType
   };
+};
+
+export default {
+  getById,
+  getSeatsByShowId,
+  getByCinemaId,
+  create,
+  update,
+  delete: deleteShow,
+  calculateTicketPrice
 };
