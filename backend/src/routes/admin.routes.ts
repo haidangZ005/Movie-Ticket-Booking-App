@@ -18,6 +18,7 @@ router.get('/audit-logs', AdminController.getAuditLogs);
 router.get('/settings', AdminController.getSettings);
 
 // Quản lý tài khoản
+router.get('/accounts', AdminController.getAccounts);
 router.put('/accounts/:id/status', AdminController.patchAccountStatus);
 
 export default router;
