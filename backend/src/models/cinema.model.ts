@@ -98,6 +98,27 @@ class CinemaModel {
     };
   }
 
+  static async getHallById(hallId: number) {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('hallId', mssql.Int, hallId)
+      .query(`
+        SELECT h.*, c.CinemaName
+        FROM CinemaHall h
+        INNER JOIN CinemaComplex c ON h.CinemaID = c.CinemaID
+        WHERE h.HallID = @hallId
+      `);
+    return result.recordset[0] || null;
+  }
+
+  static async softDelete(id: number) {
+    const pool = await connectDB();
+    await pool.request()
+      .input('id', mssql.Int, id)
+      .query('UPDATE CinemaComplex SET IsActive = 0 WHERE CinemaID = @id');
+    return { CinemaID: id };
+  }
+
   /**
    * Lấy lịch chiếu theo cụm rạp
    */
