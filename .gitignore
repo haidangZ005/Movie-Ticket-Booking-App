@@ -5,16 +5,16 @@ node_modules/
 jspm_packages/
 .npm
 .eslintcache
+.yarn/
+package-lock.json
 
 # =========================
 # Environment Variables
 # (QUAN TRỌNG: KHÔNG BAO GIỜ COMMIT FILE NÀY LÊN GIT)
 # =========================
 .env
-.env.development
-.env.production
-.env.test
-.env.local
+.env.*
+!.env.example
 
 # =========================
 # Build & Output files
@@ -23,6 +23,10 @@ jspm_packages/
 backend/dist/
 backend/build/
 backend/temp/
+
+# Payment Gateway
+payment-gateway/dist/
+payment-gateway/build/
 
 # Frontend Admin
 frontend-admin/dist/
@@ -39,7 +43,25 @@ mobile-app/*.key
 mobile-app/*.mobileprovision
 mobile-app/*.orig.*
 mobile-app/android/app/build/
+mobile-app/android/.gradle/
 mobile-app/ios/build/
+mobile-app/ios/Pods/
+
+# =========================
+# Postman & API Testing
+# =========================
+postman/
+.postman/
+*.postman_collection.json
+*.postman_environment.json
+
+# =========================
+# AI & Editor Tools
+# =========================
+.gemini/
+.cursor/
+.copilot/
+.aider*
 
 # =========================
 # Logs
@@ -58,7 +80,7 @@ coverage/
 .nyc_output
 
 # =========================
-# System & IDE files
+# System & OS files
 # =========================
 .DS_Store
 .DS_Store?
@@ -67,6 +89,11 @@ coverage/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
+
+# =========================
+# IDE & Editor files
+# =========================
 .idea/
 .vscode/
 *.suo
@@ -74,3 +101,12 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
+
+# =========================
+# Misc
+# =========================
+*.tsbuildinfo
+.cache/
+tmp/
+temp/

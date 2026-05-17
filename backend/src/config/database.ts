@@ -12,12 +12,12 @@ const dbConfig: sql.config = {
   server: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT) || 1433,
   user: process.env.DB_USER || 'sa',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'MovieTicketDB',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'appDatvexemPhim',
   options: {
     encrypt: false,
     trustServerCertificate: true,
-    instanceName: process.env.DB_INSTANCE // Thêm dòng này
+    //instanceName: process.env.DB_INSTANCE // Thêm dòng này
   },
   pool: {
     max: 10,
@@ -36,7 +36,7 @@ export const connectDB = async (): Promise<sql.ConnectionPool> => {
   try {
     if (!pool) {
       pool = await new sql.ConnectionPool(dbConfig).connect();
-      
+
       // Harden session settings for filtered indexes and triggers
       try {
         await pool.request().query(`

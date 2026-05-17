@@ -42,4 +42,23 @@ export class ApiResponse<T> {
     }
     return new ApiResponse<T[]>(responseCode.code, responseCode.message, data);
   }
+
+  /**
+   * Tạo Response phân trang (dành cho danh sách)
+   */
+  public static paginate<T>(
+    responseCode: ResponseCodeType, 
+    data: T[], 
+    pagination: { page: number; limit: number; total: number }
+  ): ApiResponse<{ items: T[]; pagination: any }> {
+    return new ApiResponse(responseCode.code, responseCode.message, {
+      items: data,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        totalPages: Math.ceil(pagination.total / pagination.limit)
+      }
+    });
+  }
 }

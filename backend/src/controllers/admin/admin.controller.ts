@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { AdminModel } from '../models/admin.model';
-import { asyncHandler } from '../utils/helpers/async.handler';
+import { AdminModel } from '../../models/admin.model';
+import { asyncHandler } from '../../utils/helpers/async.handler';
 
 /**
  * Admin Controller (TV5)

@@ -11,6 +11,7 @@
     "worker:email": "ts-node-dev --respawn --transpile-only src/workers/email.worker.ts"
   },
   "dependencies": {
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.76.10",
     "cors": "^2.8.5",

@@ -23,8 +23,13 @@ export class TokenUtil {
     const ttl = this.getRedisTTLFromExp(exp, fallback);
     
     if (ttl > 0) {
-      const key = `jwt:blacklist:${type}:${token}`;
-      await redisClient.setex(key, ttl, 'blacklisted');
+      try {
+        const key = `jwt:blacklist:${type}:${token}`;
+        await redisClient.setex(key, ttl, 'blacklisted');
+      } catch (err) {
+        // Redis không khả dụng — bỏ qua blacklist (chấp nhận rủi ro ở môi trường dev)
+        console.warn('[⚠️ Redis] Không thể blacklist token (Redis chưa kết nối)');
+      }
     }
   }
 
@@ -32,9 +37,15 @@ export class TokenUtil {
    * Kiểm tra xem token có nằm trong blacklist không
    */
   static async isTokenBlacklisted(token: string, type: 'access' | 'refresh'): Promise<boolean> {
-    const key = `jwt:blacklist:${type}:${token}`;
-    const result = await redisClient.get(key);
-    return result !== null;
+    try {
+      const key = `jwt:blacklist:${type}:${token}`;
+      const result = await redisClient.get(key);
+      return result !== null;
+    } catch (err) {
+      // Redis không khả dụng — coi như token chưa bị blacklist (cho phép qua)
+      console.warn('[⚠️ Redis] Không thể kiểm tra blacklist (Redis chưa kết nối)');
+      return false;
+    }
   }
   
   /**

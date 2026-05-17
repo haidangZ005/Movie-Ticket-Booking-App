@@ -1,9 +1,9 @@
 import { Response } from 'express';
-import { CustomerService } from '../services/customer.service';
-import { asyncHandler } from '../utils/helpers/async.handler';
-import { ApiResponse } from '../utils/dto/api.response';
-import { ResponseCode } from '../utils/constants/response.code';
-import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { CustomerService } from '../../services/customer.service';
+import { asyncHandler } from '../../utils/helpers/async.handler';
+import { ApiResponse } from '../../utils/dto/api.response';
+import { ResponseCode } from '../../utils/constants/response.code';
+import { AuthenticatedRequest } from '../../middlewares/auth.middleware';
 
 export class CustomerController {
   /**
