@@ -13,12 +13,14 @@ export class AdminController {
     try {
       const summary = await AdminModel.getRevenueStats();
       const marketShare = await AdminModel.getMarketShare();
+      const topMovies = await AdminModel.getTopMovies();
       
       res.status(200).json({
         success: true,
         data: {
           summary,
-          marketShare
+          marketShare,
+          topMovies
         }
       });
     } catch (error) {
@@ -69,6 +71,18 @@ export class AdminController {
       res.status(200).json({
         success: true,
         message: 'Cập nhật trạng thái tài khoản thành công'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getAccounts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const accounts = await AdminModel.getAccounts();
+      res.status(200).json({
+        success: true,
+        data: accounts
       });
     } catch (error) {
       next(error);
