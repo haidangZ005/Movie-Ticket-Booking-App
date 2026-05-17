@@ -14,6 +14,10 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import VerifyResetOtpScreen from '../screens/auth/VerifyResetOtpScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
+import MovieScreen from '../screens/movie/MovieScreen';
+import MovieDetailScreen from '../screens/movie/MovieDetailScreen';
+import TicketScreen from '../screens/ticket/TicketScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -37,6 +41,10 @@ function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="Home" component={HomeScreen} />
+      <MainStack.Screen name="Movie" component={MovieScreen} />
+      <MainStack.Screen name="MovieDetail" component={MovieDetailScreen} />
+      <MainStack.Screen name="Ticket" component={TicketScreen} />
+      <MainStack.Screen name="Profile" component={ProfileScreen} />
     </MainStack.Navigator>
   );
 }
