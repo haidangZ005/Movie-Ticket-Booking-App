@@ -129,7 +129,7 @@ export class AuthService {
       isTransactionActive = true;
 
       const createdAccount = await AccountModel.create(accountPayload, transaction);
-      const createdCustomer = await CustomerModel.create(createdAccount.AccountID, transaction);
+      const createdCustomer = await CustomerModel.create(createdAccount.AccountID, createdAccount.Email, undefined, transaction);
 
       await transaction.commit();
       isTransactionActive = false;
