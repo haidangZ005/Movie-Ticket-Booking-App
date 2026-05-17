@@ -4,6 +4,37 @@ import { ErrorCode } from './error.code';
 import { ApiResponse } from '../dto/api.response';
 
 /**
+ * Helper to recursively mask sensitive keys in request bodies
+ */
+const sanitizeBody = (body: any): any => {
+  if (!body || typeof body !== 'object') {
+    return body;
+  }
+  
+  if (Array.isArray(body)) {
+    return body.map(sanitizeBody);
+  }
+  
+  const sanitized: any = {};
+  const sensitiveKeys = ['password', 'newpassword', 'oldpassword', 'refreshtoken', 'accesstoken', 'otp'];
+  
+  for (const key of Object.keys(body)) {
+    const value = body[key];
+    const lowerKey = key.toLowerCase();
+    
+    if (sensitiveKeys.includes(lowerKey)) {
+      sanitized[key] = '***MASKED***';
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeBody(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+};
+
+/**
  * Express Global Error Handling Middleware
  * (Lưu ý: Luôn add middleware này vào bước cuối cùng sau khi set up toàn bộ routes)
  */
@@ -39,7 +70,7 @@ export const globalExceptionHandler = (
   console.error('[Request Info]:', {
     method: req.method,
     url: req.url,
-    body: req.body,
+    body: sanitizeBody(req.body),
     user: (req as any).user
   });
 

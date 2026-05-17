@@ -1,4 +1,4 @@
-import Joi from('joi');
+import Joi from 'joi';
 
 // Schema cho tạo/cập nhật cụm rạp
 const cinemaSchema = Joi.object({
@@ -37,7 +37,7 @@ const validateCreateCinema = (req: any, res: any, next: any) => {
 const validateUpdateCinema = (req: any, res: any, next: any) => {
   const updateSchema = cinemaSchema.fork(
     ['cinemaName', 'cityId'],
-    (schema) => schema.optional()
+    (schema: any) => schema.optional()
   );
   
   const { error } = updateSchema.validate(req.body, { abortEarly: false });

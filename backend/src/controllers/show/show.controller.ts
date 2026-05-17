@@ -27,7 +27,7 @@ export const getShowSeats = asyncHandler(async (req: Request, res: Response) => 
   return res.status(200).json({ 
     success: true, 
     data: {
-      showInfo: seatData.showInfo,
+      showInfo: seatData.show,
       seats: seatData.seats
     }
   });

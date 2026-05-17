@@ -22,8 +22,8 @@ export class ApiResponse<T> {
   /**
    * Khởi tạo Response thành công
    */
-  public static success<T>(responseCode: ResponseCodeType, data?: T): ApiResponse<T> {
-    return new ApiResponse<T>(responseCode.code, responseCode.message, data);
+  public static success<T>(responseCode: ResponseCodeType, data?: T, message?: string): ApiResponse<T> {
+    return new ApiResponse<T>(responseCode.code, message || responseCode.message, data);
   }
 
   /**

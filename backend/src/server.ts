@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 
 import { connectDB } from './config/database';
 import { globalExceptionHandler } from './utils/exceptions/global.exception.handler';
+import { ApiResponse } from './utils/dto/api.response';
+import { ErrorCode } from './utils/exceptions/error.code';
 import apiRoutes from './routes';
 
 // Load biến môi trường từ file .env
@@ -42,11 +44,11 @@ app.use('/api', apiRoutes);
 // 3. XỬ LÝ ROUTE KHÔNG TỒN TẠI (404)
 // ==========================================
 app.use('*', (req: Request, res: Response) => {
-  res.status(404).json({
-    code: 404,
-    message: `Route ${req.originalUrl} không tồn tại`,
-    timestamp: new Date().toISOString(),
-  });
+  const routeError = {
+    ...ErrorCode.ROUTE_NOT_FOUND,
+    message: `Route ${req.originalUrl} không tồn tại`
+  };
+  res.status(404).json(ApiResponse.error(routeError));
 });
 
 // ==========================================
@@ -65,6 +67,10 @@ const startServer = async () => {
     // Seed tài khoản admin mặc định
     const { seedAdmin } = require('./utils/seed');
     await seedAdmin();
+
+    // Khởi động BullMQ Worker xử lý gửi email ngầm (Dành cho dự án trường học)
+    require('./workers/email.worker');
+    console.log('[📦 Worker]  Hàng đợi gửi Email (BullMQ) đã sẵn sàng');
 
     app.listen(PORT, () => {
       console.log(`[🚀 Server]  Đang chạy tại http://localhost:${PORT}`);
