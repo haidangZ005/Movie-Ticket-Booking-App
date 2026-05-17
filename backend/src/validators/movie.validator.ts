@@ -1,4 +1,4 @@
-import Joi from('joi');
+import Joi from 'joi';
 
 // Schema cho tạo/cập nhật phim
 const movieSchema = Joi.object({
@@ -55,7 +55,7 @@ const validateCreateMovie = (req: any, res: any, next: any) => {
 const validateUpdateMovie = (req: any, res: any, next: any) => {
   const updateSchema = movieSchema.fork(
     ['title', 'genre', 'language', 'runtime'],
-    (schema) => schema.optional()
+    (schema: any) => schema.optional()
   ).and('title', 'genre', 'language', 'runtime'); // Bỏ required khi update
   
   const { error } = updateSchema.validate(req.body, { abortEarly: false });

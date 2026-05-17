@@ -117,7 +117,7 @@ class ShowModel {
                END as Status,
                bs.HoldUntil,
                bs.BookingID
-        FROM CinemaHallSeat cs
+        FROM Seat cs
         LEFT JOIN BookingSeat bs ON cs.SeatID = bs.SeatID 
           AND bs.ShowID = @showId 
           AND bs.Status IN ('HOLDING', 'BOOKED')
@@ -263,6 +263,47 @@ class ShowModel {
       .query('DELETE FROM Showtime WHERE ShowID = @id');
     
     return { ShowID: id };
+  }
+
+  /**
+   * Alias cho getSeats theo yêu cầu của service
+   */
+  static async getSeatsByShowId(showId: number): Promise<{ seats: SeatInfo[]; show: Show }> {
+    return await this.getSeats(showId);
+  }
+
+  /**
+   * Lấy danh sách suất chiếu theo rạp và bộ lọc
+   */
+  static async getByCinemaId(cinemaId: number, filters: any = {}): Promise<any[]> {
+    const pool = await connectDB();
+    let query = `
+      SELECT s.*, m.MovieTitle, m.MovieGenre, m.MovieRuntime, m.Rating,
+             ch.HallName, c.CinemaName
+      FROM Showtime s
+      INNER JOIN Movie m ON s.MovieID = m.MovieID
+      INNER JOIN CinemaHall ch ON s.HallID = ch.HallID
+      INNER JOIN CinemaComplex c ON ch.CinemaID = c.CinemaID
+      WHERE ch.CinemaID = @cinemaId AND m.IsActive = 1
+    `;
+    const request = pool.request().input('cinemaId', mssql.Int, cinemaId);
+    
+    if (filters.movieId) {
+      query += ' AND s.MovieID = @movieId';
+      request.input('movieId', mssql.Int, filters.movieId);
+    }
+    if (filters.showDate) {
+      query += ' AND s.ShowDate = @showDate';
+      request.input('showDate', mssql.Date, filters.showDate);
+    }
+    if (filters.format) {
+      query += ' AND s.Format = @format';
+      request.input('format', mssql.NVarChar, filters.format);
+    }
+    
+    query += ' ORDER BY s.ShowDate, s.ShowTime';
+    const result = await request.query(query);
+    return result.recordset;
   }
 }
 

@@ -177,6 +177,106 @@ class CinemaModel {
       `);
     return { ...cinemaData, CinemaID: id } as Cinema;
   }
+
+  /**
+   * Xóa mềm cụm rạp (Admin)
+   */
+  static async softDelete(id: number): Promise<boolean> {
+    const pool = await connectDB();
+    await pool.request()
+      .input('id', mssql.Int, id)
+      .query('UPDATE CinemaComplex SET IsActive = 0 WHERE CinemaID = @id');
+    return true;
+  }
+
+  /**
+   * Lấy danh sách phòng chiếu theo rạp
+   */
+  static async getHallsByCinemaId(cinemaId: number): Promise<any[]> {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('cinemaId', mssql.Int, cinemaId)
+      .query('SELECT * FROM CinemaHall WHERE CinemaID = @cinemaId ORDER BY HallName');
+    return result.recordset;
+  }
+
+  /**
+   * Lấy chi tiết phòng chiếu kèm sơ đồ ghế
+   */
+  static async getHallById(hallId: number): Promise<any | null> {
+    const pool = await connectDB();
+    const hallResult = await pool.request()
+      .input('hallId', mssql.Int, hallId)
+      .query('SELECT * FROM CinemaHall WHERE HallID = @hallId');
+    if (hallResult.recordset.length === 0) return null;
+    const hall = hallResult.recordset[0];
+    const seatsResult = await pool.request()
+      .input('hallId', mssql.Int, hallId)
+      .query('SELECT * FROM Seat WHERE HallID = @hallId ORDER BY RowIndex, ColIndex');
+    return {
+      ...hall,
+      seats: seatsResult.recordset
+    };
+  }
+
+  /**
+   * Tạo phòng chiếu mới (Admin)
+   */
+  static async createHall(hallData: any): Promise<any> {
+    const pool = await connectDB();
+    const totalSeats = hallData.totalSeats !== undefined ? hallData.totalSeats : (hallData.totalRows * hallData.totalCols);
+    const result = await pool.request()
+      .input('cinemaId', mssql.Int, hallData.cinemaId)
+      .input('hallName', mssql.NVarChar, hallData.hallName)
+      .input('totalRows', mssql.Int, hallData.totalRows)
+      .input('totalCols', mssql.Int, hallData.totalCols)
+      .input('totalSeats', mssql.Int, totalSeats)
+      .query(`
+        INSERT INTO CinemaHall (CinemaID, HallName, TotalRows, TotalCols, TotalSeats)
+        OUTPUT INSERTED.*
+        VALUES (@cinemaId, @hallName, @totalRows, @totalCols, @totalSeats)
+      `);
+    return result.recordset[0];
+  }
+
+  /**
+   * Cập nhật sơ đồ ghế cho phòng chiếu (Admin)
+   */
+  static async updateSeats(hallId: number, seats: any[]): Promise<boolean> {
+    const pool = await connectDB();
+    const transaction = new mssql.Transaction(pool);
+    await transaction.begin();
+    try {
+      await transaction.request()
+        .input('hallId', mssql.Int, hallId)
+        .query('DELETE FROM Seat WHERE HallID = @hallId');
+      for (const seat of seats) {
+        await transaction.request()
+          .input('hallId', mssql.Int, hallId)
+          .input('seatNumber', mssql.NVarChar(10), seat.seatNumber)
+          .input('seatType', mssql.NVarChar(20), seat.seatType || 'NORMAL')
+          .input('seatPrice', mssql.Decimal(10, 2), seat.seatPrice !== undefined ? seat.seatPrice : null)
+          .input('pairId', mssql.Int, seat.pairId !== undefined ? seat.pairId : null)
+          .input('rowIndex', mssql.Int, seat.rowIndex)
+          .input('colIndex', mssql.Int, seat.colIndex)
+          .input('isAisle', mssql.Bit, seat.isAisle !== undefined ? seat.isAisle : 0)
+          .input('rowVersion', mssql.Int, seat.rowVersion !== undefined ? seat.rowVersion : 1)
+          .query(`
+            INSERT INTO Seat (
+              HallID, SeatNumber, SeatType, SeatPrice, PairID, RowIndex, ColIndex, IsAisle, RowVersion
+            )
+            VALUES (
+              @hallId, @seatNumber, @seatType, @seatPrice, @pairId, @rowIndex, @colIndex, @isAisle, @rowVersion
+            )
+          `);
+      }
+      await transaction.commit();
+      return true;
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  }
 }
 
 export default CinemaModel;

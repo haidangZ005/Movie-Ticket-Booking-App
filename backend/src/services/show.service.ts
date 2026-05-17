@@ -97,17 +97,18 @@ export const deleteShow = async (id: number) => {
  */
 export const calculateTicketPrice = async (showId: number, seatId: number) => {
   // Lấy thông tin suất chiếu
-  const show = await ShowModel.findById(showId);
-  if (!show) {
+  const showData = await ShowModel.findById(showId);
+  if (!showData) {
     throw new AppException(ErrorCode.SHOW_NOT_FOUND);
   }
+  const show = showData.show;
   
   // Lấy thông tin ghế
   const pool = getPool();
   const seatResult = await pool.request()
     .input('hallId', sql.Int, show.HallID)
     .input('seatId', sql.Int, seatId)
-    .query('SELECT * FROM CinemaHallSeat WHERE HallID = @hallId AND SeatID = @seatId');
+    .query('SELECT * FROM Seat WHERE HallID = @hallId AND SeatID = @seatId');
   
   if (!seatResult.recordset[0]) {
     throw new AppException(ErrorCode.USER_NOT_EXISTED); // TODO: Thêm SEAT_NOT_FOUND
@@ -137,3 +138,14 @@ export const calculateTicketPrice = async (showId: number, seatId: number) => {
     seatType: seat.SeatType
   };
 };
+
+export default {
+  getById,
+  getSeatsByShowId,
+  getByCinemaId,
+  create,
+  update,
+  delete: deleteShow,
+  calculateTicketPrice
+};
+
