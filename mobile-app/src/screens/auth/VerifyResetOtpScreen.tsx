@@ -1,25 +1,22 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { authService } from '../../services/authService';
 import { LanguageContext } from '../../context/LanguageContext';
+import { authService } from '../../services/authService';
 
 export default function VerifyResetOtpScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const email = route.params?.email || '';
   const { t } = useContext(LanguageContext);
-
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!email) {
-      navigation.navigate('Login');
-    }
+    if (!email) navigation.navigate('Login');
   }, [email, navigation]);
 
   const handleVerify = async () => {
@@ -27,7 +24,6 @@ export default function VerifyResetOtpScreen() {
       setError(t('validation.otpRequired'));
       return;
     }
-
     if (otp.length !== 6) {
       setError(t('validation.otpSixDigits'));
       return;
@@ -37,19 +33,12 @@ export default function VerifyResetOtpScreen() {
     setIsLoading(true);
     try {
       const res = await authService.verifyResetOtp(email, otp);
-      if (__DEV__) {
-        console.log('[Verify Reset OTP Response]', res);
-      }
-
       if (res && (res.success || (res.code >= 1000 && res.code < 3000))) {
         navigation.navigate('ResetPassword', { email });
       } else {
         setError(res?.message || t('common.error'));
       }
     } catch (err: any) {
-      if (__DEV__) {
-        console.log('[Verify Reset OTP Error]', err);
-      }
       setError(err.response?.data?.message || t('common.serverConnectionError'));
     } finally {
       setIsLoading(false);
@@ -74,19 +63,14 @@ export default function VerifyResetOtpScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonArea}>
-              <Text style={styles.backButton}>←</Text>
+              <Text style={styles.backButton}>{'<'}</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.content}>
             <Text style={styles.stepText}>{t('resetOtp.step')}</Text>
             <Text style={styles.title}>{t('resetOtp.title')}</Text>
             <Text style={styles.subtitle}>{t('resetOtp.subtitle')}</Text>
-
-            <View style={styles.emailChip}>
-              <Text style={styles.emailText}>{email}</Text>
-            </View>
-
+            <View style={styles.emailChip}><Text style={styles.emailText}>{email}</Text></View>
             <View style={styles.inputGroup}>
               <TextInput
                 style={[styles.otpInput, error ? styles.inputError : null]}
@@ -103,17 +87,9 @@ export default function VerifyResetOtpScreen() {
               />
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
-
-            <TouchableOpacity 
-              style={[styles.primaryButton, isLoading && styles.disabledButton]} 
-              onPress={handleVerify}
-              disabled={isLoading}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isLoading ? t('common.processing') : t('resetOtp.continue')}
-              </Text>
+            <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleVerify} disabled={isLoading}>
+              <Text style={styles.primaryButtonText}>{isLoading ? t('common.processing') : t('resetOtp.continue')}</Text>
             </TouchableOpacity>
-
             <View style={styles.resendArea}>
               <Text style={styles.resendLabel}>{t('resetOtp.resendQuestion')}</Text>
               <TouchableOpacity onPress={handleResendOtp} disabled={isLoading}>

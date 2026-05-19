@@ -9,7 +9,6 @@ const apiClient = axios.create({
   },
 });
 
-// Request Interceptor
 apiClient.interceptors.request.use(
   async (config) => {
     if (__DEV__) {
@@ -21,16 +20,11 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response Interceptor
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   async (error) => {
     if (__DEV__) {
       if (error.response) {
@@ -49,7 +43,7 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshToken = await getRefreshToken();
-        
+
         if (!refreshToken) {
           throw new Error('No refresh token available');
         }

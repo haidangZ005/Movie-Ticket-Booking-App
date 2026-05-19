@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, Dimensions } from 'react-native';
 import { Colors } from '../../constants/colors';
 
@@ -44,13 +44,7 @@ export default function WelcomeCarousel() {
         <Text style={styles.welcomeSubtitle}>Enjoy your favorite movies</Text>
         <View style={styles.dotsRow}>
           {MOVIE_POSTERS.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                currentSlide === i && styles.dotActive
-              ]}
-            />
+            <View key={i} style={[styles.dot, currentSlide === i && styles.dotActive]} />
           ))}
         </View>
       </View>
@@ -62,11 +56,12 @@ const styles = StyleSheet.create({
   carouselContainer: { marginTop: 20, height: height * 0.38 },
   carouselContent: { paddingHorizontal: 30 },
   posterWrapper: {
-    width: width - 60, borderRadius: 16, overflow: 'hidden',
+    width: width - 60,
+    borderRadius: 16,
+    overflow: 'hidden',
     marginRight: 0,
   },
   posterImage: { width: '100%', height: '100%', borderRadius: 16 },
-
   welcomeTextContainer: { alignItems: 'center', marginTop: 16 },
   welcomeTitle: { fontSize: 26, fontWeight: '700', color: Colors.white },
   welcomeSubtitle: { fontSize: 16, color: Colors.textSecondary, marginTop: 4 },

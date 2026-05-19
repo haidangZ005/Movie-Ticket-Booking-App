@@ -1,26 +1,22 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { authService } from '../../services/authService';
 import { LanguageContext } from '../../context/LanguageContext';
+import { authService } from '../../services/authService';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
   const { t } = useContext(LanguageContext);
-  
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSendOtp = async () => {
     const trimmedEmail = email.trim().toLowerCase();
-    
     if (!trimmedEmail) {
       setError(t('validation.emailRequired'));
       return;
@@ -33,18 +29,11 @@ export default function ForgotPasswordScreen() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await authService.forgotPassword(trimmedEmail);
-      if (__DEV__) {
-        console.log('[Forgot Password Response]', res);
-      }
-      
+      await authService.forgotPassword(trimmedEmail);
       Alert.alert('', t('forgot.neutralSuccess'), [
-        { text: 'OK', onPress: () => navigation.navigate('VerifyResetOtp', { email: trimmedEmail }) }
+        { text: 'OK', onPress: () => navigation.navigate('VerifyResetOtp', { email: trimmedEmail }) },
       ]);
     } catch (err: any) {
-      if (__DEV__) {
-        console.log('[Forgot Password Error]', err);
-      }
       setError(err.response?.data?.message || t('common.serverConnectionError'));
     } finally {
       setIsLoading(false);
@@ -57,7 +46,7 @@ export default function ForgotPasswordScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonArea}>
-              <Text style={styles.backButton}>←</Text>
+              <Text style={styles.backButton}>{'<'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -83,14 +72,8 @@ export default function ForgotPasswordScreen() {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, isLoading && styles.disabledButton]} 
-              onPress={handleSendOtp}
-              disabled={isLoading}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isLoading ? t('common.processing') : t('forgot.sendOtp')}
-              </Text>
+            <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleSendOtp} disabled={isLoading}>
+              <Text style={styles.primaryButtonText}>{isLoading ? t('common.processing') : t('forgot.sendOtp')}</Text>
             </TouchableOpacity>
 
             <Text style={styles.noteText}>{t('forgot.note')}</Text>

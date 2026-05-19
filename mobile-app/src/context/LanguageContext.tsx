@@ -9,7 +9,7 @@ interface LanguageContextType {
 }
 
 export const LanguageContext = createContext<LanguageContextType>({
-  language: 'en',
+  language: 'vi',
   setLanguage: async () => {},
   t: (key: string) => key,
 });
@@ -17,7 +17,7 @@ export const LanguageContext = createContext<LanguageContextType>({
 const LANG_STORAGE_KEY = '@app_language';
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLangState] = useState('en');
+  const [language, setLangState] = useState('vi');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
           setLangState(savedLang);
         }
       } catch (e) {
-        console.error('Failed to load language', e);
+        console.log('Không thể tải ng?n ng?', e);
       } finally {
         setIsReady(true);
       }
@@ -42,14 +42,14 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
       try {
         await AsyncStorage.setItem(LANG_STORAGE_KEY, lang);
       } catch (e) {
-        console.error('Failed to save language', e);
+        console.log('Không thể lưu ngôn ngữ', e);
       }
     }
   };
 
   const t = (key: string, params?: Record<string, string>) => {
     const dict = translations[language] || translations['en'];
-    let value = dict[key] || translations['en'][key] || key;
+    let value = dict[key] || translations['vi'][key] || translations['en'][key] || key;
 
     if (params) {
       Object.keys(params).forEach((p) => {

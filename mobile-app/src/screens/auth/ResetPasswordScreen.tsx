@@ -1,26 +1,23 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { authService } from '../../services/authService';
 import { LanguageContext } from '../../context/LanguageContext';
+import { authService } from '../../services/authService';
 
 export default function ResetPasswordScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const email = route.params?.email || '';
   const { t } = useContext(LanguageContext);
-  
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!email) {
-      navigation.navigate('Login');
-    }
+    if (!email) navigation.navigate('Login');
   }, [email, navigation]);
 
   const handleResetPassword = async () => {
@@ -44,18 +41,9 @@ export default function ResetPasswordScreen() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await authService.resetPassword(email, newPassword);
-      if (__DEV__) {
-        console.log('[Reset Password Response]', res);
-      }
-      
-      Alert.alert('', t('reset.success'), [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      await authService.resetPassword(email, newPassword);
+      Alert.alert('', t('reset.success'), [{ text: 'OK', onPress: () => navigation.navigate('Login') }]);
     } catch (err: any) {
-      if (__DEV__) {
-        console.log('[Reset Password Error]', err);
-      }
       setError(err.response?.data?.message || t('common.serverConnectionError'));
     } finally {
       setIsLoading(false);
@@ -68,7 +56,7 @@ export default function ResetPasswordScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonArea}>
-              <Text style={styles.backButton}>←</Text>
+              <Text style={styles.backButton}>{'<'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -114,14 +102,8 @@ export default function ResetPasswordScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, isLoading && styles.disabledButton]} 
-              onPress={handleResetPassword}
-              disabled={isLoading}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isLoading ? t('common.processing') : t('newPassword.update')}
-              </Text>
+            <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleResetPassword} disabled={isLoading}>
+              <Text style={styles.primaryButtonText}>{isLoading ? t('common.processing') : t('newPassword.update')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

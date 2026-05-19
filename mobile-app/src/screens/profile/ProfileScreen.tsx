@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { AuthContext } from '../../context/AuthContext';
 
 // Dummy profile image
 const PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
 
 export default function ProfileScreen() {
+  const { user, logout } = useContext(AuthContext);
   const [isFaceIdEnabled, setIsFaceIdEnabled] = useState(false);
+  const displayName = user?.FullName || user?.Email?.split('@')[0] || 'Người dùng';
+  const email = user?.CustomerEmail || user?.Email || 'khachhang@example.com';
+  const phone = user?.PhoneNumber || 'Chưa có SĐT';
 
   const toggleFaceId = () => setIsFaceIdEnabled((previousState) => !previousState);
 
@@ -49,16 +54,16 @@ export default function ProfileScreen() {
           <View style={styles.userInfoRow}>
             <Image source={{ uri: PROFILE_IMAGE_URL }} style={styles.avatar} />
             <View style={styles.userDetails}>
-              <Text style={styles.userName}>Angelina</Text>
+              <Text style={styles.userName}>{displayName}</Text>
               
               <View style={styles.contactRow}>
                 <Feather name="phone" size={14} color="#A1A1AA" />
-                <Text style={styles.contactText}>(704) 555-0127</Text>
+                <Text style={styles.contactText}>{phone}</Text>
               </View>
               
               <View style={styles.contactRow}>
                 <Feather name="mail" size={14} color="#A1A1AA" />
-                <Text style={styles.contactText}>angelina@example.com</Text>
+                <Text style={styles.contactText}>{email}</Text>
               </View>
             </View>
           </View>
@@ -72,23 +77,29 @@ export default function ProfileScreen() {
         <View style={styles.menuSection}>
           {renderMenuItem(
             <MaterialCommunityIcons name="ticket-confirmation-outline" size={24} color="#FFFFFF" />,
-            'My ticket',
+            'Vé của tôi',
             () => console.log('My ticket')
           )}
           {renderMenuItem(
             <Ionicons name="cart-outline" size={24} color="#FFFFFF" />,
-            'Payment history',
+            'Lịch sử thanh toán',
             () => console.log('Payment history')
           )}
           {renderMenuItem(
             <MaterialIcons name="translate" size={24} color="#FFFFFF" />,
-            'Change language',
+            'Đổi ngôn ngữ',
             () => console.log('Change language')
           )}
           {renderMenuItem(
             <Feather name="lock" size={24} color="#FFFFFF" />,
-            'Change password',
+            'Đổi mật khẩu',
             () => console.log('Change password')
+          )}
+          {renderMenuItem(
+            <Feather name="log-out" size={24} color="#FFFFFF" />,
+            'Đăng xuất',
+            logout,
+            true
           )}
         </View>
 
@@ -99,7 +110,7 @@ export default function ProfileScreen() {
               <View style={styles.menuIconContainer}>
                 <MaterialCommunityIcons name="face-recognition" size={24} color="#FFFFFF" />
               </View>
-              <Text style={styles.menuLabel}>Face ID / Touch ID</Text>
+              <Text style={styles.menuLabel}>Sinh trắc học</Text>
             </View>
             <Switch
               trackColor={{ false: '#27272A', true: Colors.primary }}

@@ -1,12 +1,12 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useContext, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { authService } from '../../services/authService';
-import { customerService } from '../../services/customerService';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
+import { authService } from '../../services/authService';
+import { customerService } from '../../services/customerService';
 import { saveAuthSession } from '../../utils/token';
 
 export default function CompleteProfileScreen() {
@@ -14,63 +14,57 @@ export default function CompleteProfileScreen() {
   const route = useRoute<any>();
   const { setSession } = useContext(AuthContext);
   const { t } = useContext(LanguageContext);
-  
   const email = route.params?.email;
   const password = route.params?.password;
-
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [gender, setGender] = useState<string | null>(null);
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
-  const [tempDate, setTempDate] = useState<Date>(new Date(2000, 0, 1));
+  const [tempDate, setTempDate] = useState(new Date(2000, 0, 1));
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const validatePhone = (phone: string) => {
-    const vnf_regex = /^(0|\+84)(3|5|7|8|9|1[2|6|8|9])([0-9]{8})$/;
-    return vnf_regex.test(phone.replace(/\s/g, ''));
+  const validatePhoneNumber = (phone: string) => /^(0|\+84)(3|5|7|8|9|1[2|6|8|9])([0-9]{8})$/.test(phone.replace(/\s/g, ''));
+  const translateOrFallback = (key: string, fallback: string) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
   };
 
+  const genderOptions = [
+    { value: 'MALE', labelKey: 'completeProfile.genderMale', fallback: 'Nam' },
+    { value: 'FEMALE', labelKey: 'completeProfile.genderFemale', fallback: 'Nữ' },
+    { value: 'OTHER', labelKey: 'completeProfile.genderOther', fallback: 'Khác' },
+  ];
+
   const formatDateDisplay = (date: Date) => {
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}/${month}/${date.getFullYear()}`;
   };
 
   const formatDatePayload = (date: Date) => {
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const y = date.getFullYear();
-    return `${y}-${m}-${d}`;
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
   };
 
   const handleComplete = async () => {
     if (!email || !password) {
-      setError(t('register.invalidSession') || 'Phiên đăng ký không hợp lệ. Vui lòng đăng nhập.');
+      setError(translateOrFallback('register.invalidSession', 'Phiên đăng ký không hợp lệ.'));
       setTimeout(() => navigation.navigate('Login'), 2000);
       return;
     }
 
     const trimmedName = fullName.trim();
     const trimmedPhone = phoneNumber.trim();
-
-    if (!trimmedName) {
+    if (!trimmedName || trimmedName.length < 2) {
       setError(t('validation.fullNameRequired'));
       return;
     }
-    if (trimmedName.length < 2) {
-      setError(t('validation.fullNameTooShort'));
-      return;
-    }
-    if (!trimmedPhone) {
-      setError(t('validation.phoneRequired'));
-      return;
-    }
-    if (!validatePhone(trimmedPhone)) {
-      setError(t('validation.invalidPhone'));
+    if (!trimmedPhone || !validatePhoneNumber(trimmedPhone)) {
+      setError(translateOrFallback('validation.invalidPhoneNumber', 'Số điện thoại không hợp lệ.'));
       return;
     }
     if (!gender) {
@@ -85,43 +79,25 @@ export default function CompleteProfileScreen() {
     setError('');
     setIsLoading(true);
     try {
-      if (__DEV__) console.log('[CompleteProfile] Attempting auto-login for:', email);
       const loginRes = await authService.login(email, password);
-      
-      if (!loginRes || (loginRes.code < 1000 || loginRes.code >= 3000) || !loginRes.data) {
-        throw new Error('AUTO_LOGIN_FAILED');
-      }
+      if (!loginRes?.data) throw new Error('AUTO_LOGIN_FAILED');
 
       const { accessToken, refreshToken } = loginRes.data;
       await saveAuthSession(accessToken, refreshToken);
 
-      const payload = {
+      const profileRes = await customerService.updateProfile({
         FullName: trimmedName,
         PhoneNumber: trimmedPhone,
         Gender: gender,
-        DateOfBirth: formatDatePayload(dateOfBirth)
-      };
-
-      if (__DEV__) {
-          console.log('[CompleteProfile] API payload:', JSON.stringify(payload, null, 2));
-      }
-
-      const profileRes = await customerService.updateProfile(payload);
-      
-      if (__DEV__) console.log('[CompleteProfile] Response:', profileRes);
+        DateOfBirth: formatDatePayload(dateOfBirth),
+      });
 
       if (profileRes && (profileRes.success || profileRes.code === 1000)) {
         await setSession(accessToken, refreshToken, profileRes.data);
       } else {
-        if (profileRes.code === 1006) {
-          setError(t('profile.phoneExisted'));
-        } else {
-          setError(profileRes.message || t('profile.updateFailed'));
-        }
+        setError(profileRes?.message || t('profile.updateFailed'));
       }
     } catch (err: any) {
-      if (__DEV__) console.log('[CompleteProfile] Error:', err.response?.data || err.message);
-      
       if (err.message === 'AUTO_LOGIN_FAILED') {
         setError(t('auth.autoLoginFailed'));
         setTimeout(() => navigation.navigate('Login'), 3000);
@@ -135,32 +111,16 @@ export default function CompleteProfileScreen() {
     }
   };
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateChange = (_event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
-      if (event.type === 'set' && selectedDate) {
-        if (__DEV__) console.log('[CompleteProfile] selected date (Android):', formatDatePayload(selectedDate));
-        setDateOfBirth(selectedDate);
-      }
-    } else {
-      if (selectedDate) {
-        setTempDate(selectedDate);
-      }
+      if (selectedDate) setDateOfBirth(selectedDate);
+    } else if (selectedDate) {
+      setTempDate(selectedDate);
     }
   };
 
-  const handleIosConfirm = () => {
-    if (__DEV__) console.log('[CompleteProfile] selected date (iOS):', formatDatePayload(tempDate));
-    setDateOfBirth(tempDate);
-    setShowDatePicker(false);
-  };
-
-  const handleIosCancel = () => {
-    setShowDatePicker(false);
-  };
-
   const openPicker = () => {
-    if (__DEV__) console.log('[CompleteProfile] opening date picker');
     setTempDate(dateOfBirth || new Date(2000, 0, 1));
     setShowDatePicker(true);
   };
@@ -169,11 +129,7 @@ export default function CompleteProfileScreen() {
     <View style={styles.inputGroup}>
       <Text style={styles.label}>{label} *</Text>
       <TextInput
-        style={[
-          styles.input, 
-          focusedField === fieldKey && styles.inputFocused,
-          error && !value && styles.inputError
-        ]}
+        style={[styles.input, focusedField === fieldKey && styles.inputFocused, error && !value && styles.inputError]}
         placeholder={options.placeholder}
         placeholderTextColor={COLORS.muted}
         value={value}
@@ -191,7 +147,7 @@ export default function CompleteProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonContainer}>
-              <Text style={styles.backButtonText}>←</Text>
+              <Text style={styles.backButtonText}>{'<'}</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{t('completeProfile.title')}</Text>
             <View style={{ width: 40 }} />
@@ -201,30 +157,15 @@ export default function CompleteProfileScreen() {
             <Text style={styles.title}>{t('completeProfile.title')}</Text>
             <Text style={styles.subtitle}>{t('completeProfile.subtitle')}</Text>
 
-            {renderInput(t('completeProfile.fullName'), fullName, setFullName, 'fullName', {
-              placeholder: t('completeProfile.fullNamePlaceholder')
-            })}
-
-            {renderInput(t('completeProfile.phoneNumber'), phoneNumber, setPhoneNumber, 'phoneNumber', {
-              placeholder: t('completeProfile.phonePlaceholder'),
-              keyboardType: 'phone-pad'
-            })}
+            {renderInput(t('completeProfile.fullName'), fullName, setFullName, 'fullName', { placeholder: t('completeProfile.fullNamePlaceholder') })}
+            {renderInput(t('completeProfile.phoneNumber'), phoneNumber, setPhoneNumber, 'phoneNumber', { placeholder: t('completeProfile.phonePlaceholder'), keyboardType: 'phone-pad' })}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{t('completeProfile.gender')} *</Text>
               <View style={styles.genderContainer}>
-                {['Male', 'Female', 'Other'].map((g) => (
-                  <TouchableOpacity 
-                    key={g} 
-                    style={[
-                      styles.genderButton, 
-                      gender === g && styles.genderButtonActive
-                    ]} 
-                    onPress={() => setGender(g)}
-                  >
-                    <Text style={[styles.genderText, gender === g && styles.genderTextActive]}>
-                      {t(`completeProfile.gender${g}`)}
-                    </Text>
+                {genderOptions.map((option) => (
+                  <TouchableOpacity key={option.value} style={[styles.genderButton, gender === option.value && styles.genderButtonActive]} onPress={() => setGender(option.value)}>
+                    <Text style={[styles.genderText, gender === option.value && styles.genderTextActive]}>{translateOrFallback(option.labelKey, option.fallback)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -232,68 +173,40 @@ export default function CompleteProfileScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{t('completeProfile.dateOfBirth')} *</Text>
-              <TouchableOpacity 
-                style={[styles.input, styles.dateInput]} 
-                onPress={openPicker}
-              >
-                <Text style={[styles.dateText, !dateOfBirth && { color: COLORS.muted }]}>
-                  {dateOfBirth ? formatDateDisplay(dateOfBirth) : t('completeProfile.datePlaceholder')}
-                </Text>
+              <TouchableOpacity style={[styles.input, styles.dateInput]} onPress={openPicker}>
+                <Text style={[styles.dateText, !dateOfBirth && { color: COLORS.muted }]}>{dateOfBirth ? formatDateDisplay(dateOfBirth) : t('completeProfile.datePlaceholder')}</Text>
               </TouchableOpacity>
-              
+
               {Platform.OS === 'android' && showDatePicker && (
-                <DateTimePicker
-                  value={dateOfBirth || new Date(2000, 0, 1)}
-                  mode="date"
-                  display="default"
-                  maximumDate={new Date()}
-                  onChange={onDateChange}
-                />
+                <DateTimePicker value={dateOfBirth || new Date(2000, 0, 1)} mode="date" display="default" maximumDate={new Date()} onChange={onDateChange} />
               )}
 
-              <Modal
-                transparent={true}
-                animationType="slide"
-                visible={Platform.OS === 'ios' && showDatePicker}
-                onRequestClose={handleIosCancel}
-              >
+              <Modal transparent animationType="slide" visible={Platform.OS === 'ios' && showDatePicker} onRequestClose={() => setShowDatePicker(false)}>
                 <View style={styles.modalOverlay}>
                   <View style={styles.pickerContainer}>
                     <View style={styles.pickerHeader}>
-                      <TouchableOpacity onPress={handleIosCancel}>
+                      <TouchableOpacity onPress={() => setShowDatePicker(false)}>
                         <Text style={styles.pickerCancelText}>{t('completeProfile.cancel')}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={handleIosConfirm}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setDateOfBirth(tempDate);
+                          setShowDatePicker(false);
+                        }}
+                      >
                         <Text style={styles.pickerConfirmText}>{t('completeProfile.confirm')}</Text>
                       </TouchableOpacity>
                     </View>
-                    <DateTimePicker
-                      value={tempDate}
-                      mode="date"
-                      display="spinner"
-                      maximumDate={new Date()}
-                      onChange={onDateChange}
-                      textColor={COLORS.text}
-                    />
+                    <DateTimePicker value={tempDate} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} textColor={COLORS.text} />
                   </View>
                 </View>
               </Modal>
             </View>
 
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+            {error ? <View style={styles.errorContainer}><Text style={styles.errorText}>{error}</Text></View> : null}
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, isLoading && styles.disabledButton]} 
-              onPress={handleComplete}
-              disabled={isLoading}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isLoading ? t('common.loading') : t('completeProfile.done')}
-              </Text>
+            <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleComplete} disabled={isLoading}>
+              <Text style={styles.primaryButtonText}>{isLoading ? t('common.loading') : t('completeProfile.done')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -305,20 +218,8 @@ export default function CompleteProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { flexGrow: 1 },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 16, 
-    paddingTop: 16, 
-    paddingBottom: 24 
-  },
-  backButtonContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
+  backButtonContainer: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   backButtonText: { color: COLORS.text, fontSize: 24 },
   headerTitle: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
   content: { paddingHorizontal: 24, flex: 1, paddingTop: 10, paddingBottom: 32 },
@@ -326,74 +227,24 @@ const styles = StyleSheet.create({
   subtitle: { color: COLORS.muted, fontSize: 15, marginBottom: 32, lineHeight: 22 },
   inputGroup: { marginBottom: 20 },
   label: { color: COLORS.text, fontSize: 14, fontWeight: '600', marginBottom: 10 },
-  input: { 
-    backgroundColor: '#1C1C1C', 
-    borderRadius: 12, 
-    padding: 16, 
-    color: COLORS.text, 
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: 'transparent'
-  },
+  input: { backgroundColor: '#1C1C1C', borderRadius: 12, padding: 16, color: COLORS.text, fontSize: 16, borderWidth: 1, borderColor: 'transparent' },
   inputFocused: { borderColor: COLORS.primary },
   inputError: { borderColor: COLORS.error },
   dateInput: { justifyContent: 'center' },
   dateText: { color: COLORS.text, fontSize: 16 },
   genderContainer: { flexDirection: 'row', justifyContent: 'space-between' },
-  genderButton: { 
-    flex: 0.31, 
-    backgroundColor: '#1C1C1C', 
-    paddingVertical: 14, 
-    borderRadius: 12, 
-    alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: 'transparent' 
-  },
+  genderButton: { flex: 0.31, backgroundColor: '#1C1C1C', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
   genderButtonActive: { borderColor: COLORS.primary, backgroundColor: '#1C1C1C' },
   genderText: { color: COLORS.muted, fontSize: 15 },
   genderTextActive: { color: COLORS.primary, fontWeight: 'bold' },
-  errorContainer: {
-    backgroundColor: 'rgba(255, 77, 77, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 77, 77, 0.3)'
-  },
+  errorContainer: { backgroundColor: 'rgba(255, 77, 77, 0.1)', padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255, 77, 77, 0.3)' },
   errorText: { color: COLORS.error, fontSize: 14, textAlign: 'center' },
-  primaryButton: { 
-    backgroundColor: COLORS.primary, 
-    paddingVertical: 16, 
-    borderRadius: 30, 
-    alignItems: 'center', 
-    marginTop: 10,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5
-  },
+  primaryButton: { backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: 30, alignItems: 'center', marginTop: 10 },
   disabledButton: { opacity: 0.6 },
   primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: 'bold' },
-  
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  pickerContainer: {
-    backgroundColor: '#1C1C1C',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
+  pickerContainer: { backgroundColor: '#1C1C1C', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'ios' ? 40 : 20 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#333333' },
   pickerCancelText: { color: COLORS.muted, fontSize: 16 },
   pickerConfirmText: { color: COLORS.primary, fontSize: 16, fontWeight: 'bold' },
 });

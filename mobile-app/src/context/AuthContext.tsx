@@ -3,6 +3,10 @@ import { loadAuthSession, clearAuthSession, saveAuthSession } from '../utils/tok
 import { customerService } from '../services/customerService';
 import { authService } from '../services/authService';
 
+const isSuccessResponse = (response: any) => {
+  return response?.success === true || (typeof response?.code === 'number' && response.code >= 1000 && response.code < 3000);
+};
+
 interface AuthState {
   user: any;
   accessToken: string | null;
@@ -44,14 +48,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const session = await loadAuthSession();
         if (session.accessToken) {
           accessToken = session.accessToken;
-          // Attempt to fetch fresh profile
+          user = session.profile;
+          isAuthenticated = true;
+
           const profileRes = await customerService.getProfile();
-          if (profileRes.success) {
+          if (isSuccessResponse(profileRes)) {
             user = profileRes.data;
-            isAuthenticated = true;
-          } else {
-             // Let interceptor handle refresh if it was 401
-             // If completely failed, session will be cleared by interceptor
           }
         }
       } catch (e) {
@@ -102,11 +104,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshProfile = async () => {
     try {
       const profileRes = await customerService.getProfile();
-      if (profileRes.success) {
+      if (isSuccessResponse(profileRes)) {
         setState((prev) => ({ ...prev, user: profileRes.data }));
       }
     } catch (e) {
-      console.log('Refresh profile failed', e);
+      console.log('Làm mới profile failed', e);
     }
   };
 
