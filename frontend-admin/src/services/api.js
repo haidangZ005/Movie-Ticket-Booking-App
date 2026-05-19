@@ -1,4 +1,5 @@
 const BASE_URL = 'http://localhost:3000/api';
+export const API_ORIGIN = BASE_URL.replace(/\/api\/?$/, '');
 
 const handleResponse = async (response) => {
   const data = await response.json().catch(() => ({}));
@@ -26,6 +27,11 @@ const getHeaders = () => {
   };
 };
 
+const getFormHeaders = () => {
+  const token = localStorage.getItem('accessToken');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 export const apiClient = {
   get: async (endpoint) => {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -40,6 +46,15 @@ export const apiClient = {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(body),
+    });
+    return handleResponse(response);
+  },
+
+  postForm: async (endpoint, formData) => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: getFormHeaders(),
+      body: formData,
     });
     return handleResponse(response);
   },

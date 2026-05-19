@@ -125,9 +125,9 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Top Selling Movies */}
+        {/* Top Selling Phim */}
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h3 className="font-label-md text-label-md text-text-muted uppercase tracking-wider mb-4">Top Selling Movies</h3>
+          <h3 className="font-label-md text-label-md text-text-muted uppercase tracking-wider mb-4">Top Selling Phim</h3>
           <div className="space-y-5">
             <div>
               <div className="flex justify-between items-center mb-1">

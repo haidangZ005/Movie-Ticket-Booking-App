@@ -7,17 +7,17 @@ const Bookings = () => {
         <h2 className="font-headline-sm text-headline-sm text-text-primary">Bookings</h2>
         <div className="relative w-64">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">search</span>
-          <input className="w-full h-10 pl-9 pr-4 rounded-lg bg-surface border border-border-default focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-body-md shadow-sm" placeholder="Search bookings..." type="text"/>
+          <input className="w-full h-10 pl-9 pr-4 rounded-lg bg-surface border border-border-default focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-body-md shadow-sm" placeholder="Tìm kiếm đặt vé..." type="text"/>
         </div>
       </div>
-      
+
       <div className="bg-surface rounded-xl border border-border-default shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed text-left border-collapse">
             <thead className="bg-surface-container-low border-b border-border-default">
               <tr>
                 <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[15%]">Movie Name <span className="material-symbols-outlined text-[12px] align-middle ml-1 cursor-pointer">arrow_drop_down</span></th>
-                <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[15%]">Customer</th>
+                <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[15%]">Khách hàng</th>
                 <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[12%]">Theatre Name</th>
                 <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[10%]">Screen</th>
                 <th className="py-3 px-4 font-label-md text-[13px] font-bold text-text-secondary uppercase w-[8%]">Seat</th>
@@ -61,7 +61,7 @@ const Bookings = () => {
                 </td>
                 <td className="py-3 px-4 text-right font-medium">$234</td>
                 <td className="py-3 px-4 text-center">
-                  <span className="inline-flex items-center px-2 py-1 rounded-[20px] bg-warning-bg text-warning font-label-sm text-[10px] uppercase tracking-wide font-semibold">Pending</span>
+                  <span className="inline-flex items-center px-2 py-1 rounded-[20px] bg-warning-bg text-warning font-label-sm text-[10px] uppercase tracking-wide font-semibold">Chờ xác minh</span>
                 </td>
               </tr>
               <tr className="hover:bg-surface-container-low transition-colors">

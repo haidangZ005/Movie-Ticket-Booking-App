@@ -45,7 +45,7 @@ const Dashboard = () => {
         {/* Metric 2 */}
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-sm relative overflow-hidden">
           <div className="flex justify-between items-start mb-2">
-            <h3 className="font-headline-sm text-headline-sm text-text-primary">User Registration</h3>
+            <h3 className="font-headline-sm text-headline-sm text-text-primary">Người dùng đăng ký</h3>
             <div className="w-10 h-10 rounded-lg bg-warning-bg flex items-center justify-center">
               <span className="material-symbols-outlined text-warning">group_add</span>
             </div>
@@ -97,10 +97,10 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="font-headline-sm text-headline-sm text-text-primary">Sales Details</h2>
+            <h2 className="font-headline-sm text-headline-sm text-text-primary">Chi tiết bán vé</h2>
             <div className="flex gap-2">
               <select className="text-sm border border-border-default rounded-md px-2 py-1 text-text-secondary bg-surface focus:ring-0 focus:border-primary-container">
-                <option>April</option>
+                <option>Tháng 4</option>
               </select>
               <select className="text-sm border border-border-default rounded-md px-2 py-1 text-text-secondary bg-surface focus:ring-0 focus:border-primary-container">
                 <option>2021</option>
@@ -109,7 +109,7 @@ const Dashboard = () => {
           </div>
           <div className="relative mb-4">
             <div className="inline-block border border-border-default rounded-lg p-3 bg-surface shadow-sm relative z-10">
-              <p className="text-xs text-text-muted mb-1">April Bookings</p>
+              <p className="text-xs text-text-muted mb-1">Tháng 4 Bookings</p>
               <p className="font-display-md text-display-md text-text-primary leading-none">345,678</p>
             </div>
           </div>
@@ -120,13 +120,13 @@ const Dashboard = () => {
                 <path className="sparkline-line" d="M0,100 Q40,110 80,80 T160,90 T240,60 T320,100 L400,70"></path>
               </svg>
               <div className="absolute bottom-0 left-0 w-full flex justify-between text-[10px] text-text-muted pt-2 border-t border-border-light border-dashed">
-                <div className="text-center"><span>Mon</span><br/>10</div>
-                <div className="text-center"><span>Tue</span><br/>11</div>
-                <div className="text-center"><span>Wed</span><br/>12</div>
-                <div className="text-center"><span>Thu</span><br/>13</div>
-                <div className="text-center"><span>Fri</span><br/>14</div>
-                <div className="text-center"><span>Sat</span><br/>15</div>
-                <div className="text-center"><span>Sun</span><br/>16</div>
+                <div className="text-center"><span>T2</span><br/>10</div>
+                <div className="text-center"><span>T3</span><br/>11</div>
+                <div className="text-center"><span>T4</span><br/>12</div>
+                <div className="text-center"><span>T5</span><br/>13</div>
+                <div className="text-center"><span>T6</span><br/>14</div>
+                <div className="text-center"><span>T7</span><br/>15</div>
+                <div className="text-center"><span>CN</span><br/>16</div>
               </div>
             </div>
           </div>
@@ -134,7 +134,7 @@ const Dashboard = () => {
 
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="font-headline-sm text-headline-sm text-text-primary">Total Revenue</h2>
+            <h2 className="font-headline-sm text-headline-sm text-text-primary">Tổng doanh thu</h2>
             <select className="text-sm border border-border-default rounded-md px-2 py-1 text-text-secondary bg-surface focus:ring-0 focus:border-primary-container">
               <option>2021</option>
             </select>
@@ -151,18 +151,18 @@ const Dashboard = () => {
             <div className="w-full bg-danger rounded-t-sm h-[45%] relative z-10"></div>
             <div className="w-full bg-danger rounded-t-sm h-[35%] relative z-10"></div>
             <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-text-muted mt-2">
-              <span className="w-full text-center">Jan</span>
-              <span className="w-full text-center">Feb</span>
-              <span className="w-full text-center">Mar</span>
-              <span className="w-full text-center">Apr</span>
-              <span className="w-full text-center">May</span>
-              <span className="w-full text-center">Jun</span>
-              <span className="w-full text-center">July</span>
+              <span className="w-full text-center">Th1</span>
+              <span className="w-full text-center">Th2</span>
+              <span className="w-full text-center">Th3</span>
+              <span className="w-full text-center">Th4</span>
+              <span className="w-full text-center">Th5</span>
+              <span className="w-full text-center">Th6</span>
+              <span className="w-full text-center">Th7</span>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2">
             <span className="text-success font-semibold">+4.5%</span>
-            <span className="text-xs text-text-muted">Your sales performance is 30% better compare to last month</span>
+            <span className="text-xs text-text-muted">Hiệu suất bán vé tốt hơn 30% so với tháng trước</span>
           </div>
         </div>
       </div>
@@ -171,10 +171,10 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-sm lg:col-span-2">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="font-headline-sm text-headline-sm text-text-primary">Top Selling Movies</h2>
+            <h2 className="font-headline-sm text-headline-sm text-text-primary">Phim bán chạy</h2>
             <div className="flex gap-2">
               <select className="text-sm border border-border-default rounded-md px-2 py-1 text-text-secondary bg-surface focus:ring-0 focus:border-primary-container">
-                <option>April</option>
+                <option>Tháng 4</option>
               </select>
               <select className="text-sm border border-border-default rounded-md px-2 py-1 text-text-secondary bg-surface focus:ring-0 focus:border-primary-container">
                 <option>2021</option>
@@ -185,7 +185,7 @@ const Dashboard = () => {
             <div className="relative w-48 h-48 rounded-full border-8 border-surface flex items-center justify-center" style={{ background: "conic-gradient(#EF4444 0% 40%, #2346d5 40% 65%, #F59E0B 65% 85%, #EC4899 85% 100%)" }}>
               <div className="w-32 h-32 bg-surface rounded-full absolute"></div>
               <div className="absolute top-4 left-4 bg-surface px-2 py-1 rounded shadow-sm text-xs border border-border-light z-10 text-text-primary font-medium text-center">
-                20%<br/><span className="text-text-muted font-normal">Marvel</span>
+                20%<br/><span className="text-text-muted font-normal">Th3vel</span>
               </div>
               <div className="absolute bottom-4 right-2 bg-surface px-2 py-1 rounded shadow-sm text-xs border border-border-light z-10 text-text-primary font-medium text-center">
                 40%<br/><span className="text-text-muted font-normal">Iron Man</span>
@@ -209,7 +209,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between gap-8">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-warning"></span>
-                  <span className="text-sm text-text-secondary">Marvel</span>
+                  <span className="text-sm text-text-secondary">Th3vel</span>
                 </div>
                 <span className="text-sm font-semibold text-text-primary">4,870,040.6</span>
               </div>
@@ -225,14 +225,14 @@ const Dashboard = () => {
         </div>
 
         <div className="bg-surface rounded-xl border border-border-default p-card-padding shadow-sm">
-          <h2 className="font-headline-sm text-headline-sm text-text-primary mb-6">Upcoming Movies</h2>
+          <h2 className="font-headline-sm text-headline-sm text-text-primary mb-6">Phim sắp chiếu</h2>
           <div className="flex flex-col gap-4 h-[250px] overflow-y-auto pr-2">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center gap-4 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
                 <img alt="The Real Gosht" className="w-14 h-14 rounded-lg object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIQusthBdeNVttWSeaHH8bgEKW_fsSkuHjaVWMa3BGo3niSpEFgMX_yYqnIJlmtHorMgn6lWPBiWKv3q4kZRsUWUhGqwlOwuTZvytsDowwZ6S2iqYnKt96vEW6hbkZzDJ0B7Zf4ai7du0vMYFeqNlN0MI_gM_SM2tdx7Tn_H71JrYZ1qFoBkzJlxVfzQ26XYPbCRPuQNHPnHAA74OZ8IZlGz0D2oHHMz3BI0So2xtyDslPXJSVAVvcuEx7qjJEECZcYcoId6443kyT" />
                 <div className="flex-1">
                   <h4 className="font-body-md text-body-md font-semibold text-text-primary">The Real Gosht {i}</h4>
-                  <p className="text-xs text-text-muted mt-0.5">April 12th, Monday</p>
+                  <p className="text-xs text-text-muted mt-0.5">Tháng 4 12th, T2day</p>
                 </div>
               </div>
             ))}

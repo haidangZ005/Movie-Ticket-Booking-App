@@ -41,9 +41,9 @@ const Transactions = () => {
           <p className="mt-1 text-sm text-text-muted">Theo doi thanh toan, giam gia, hoan tien va trang thai gateway.</p>
         </div>
         <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-lg border border-border-default bg-surface-container-low px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-          <option value="ALL">All status</option>
+          <option value="ALL">Tất cả trạng thái</option>
           <option value="SUCCESS">Success</option>
-          <option value="PENDING">Pending</option>
+          <option value="PENDING">Chờ xác minh</option>
           <option value="REFUNDED">Refunded</option>
           <option value="FAILED">Failed</option>
         </select>

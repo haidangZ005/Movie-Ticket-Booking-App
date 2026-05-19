@@ -40,7 +40,7 @@ const Settings = () => {
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="font-semibold text-text-primary">{setting.SettingKey}</div>
-                    <div className="mt-1 text-sm text-text-muted">{setting.Description || 'No description'}</div>
+                    <div className="mt-1 text-sm text-text-muted">{setting.Description || 'Chưa có mô tả'}</div>
                   </div>
                   <input className="h-10 rounded-lg border border-border-default bg-surface px-3 text-sm font-semibold text-primary outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 md:w-56" value={setting.SettingValue} readOnly />
                 </div>

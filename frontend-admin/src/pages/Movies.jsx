@@ -1,31 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import apiClient from '../services/api';
+import React, { useEffect, useState } from 'react';
+import apiClient, { API_ORIGIN } from '../services/api';
+
+const resolvePosterUrl = (posterUrl) => {
+  if (!posterUrl) return '';
+  if (/^https?:\/\//i.test(posterUrl)) return posterUrl;
+  return `${API_ORIGIN}${posterUrl.startsWith('/') ? posterUrl : `/${posterUrl}`}`;
+};
+
+const emptyForm = {
+  title: '',
+  genre: '',
+  language: '',
+  runtime: '',
+  posterUrl: '',
+  releaseDate: '',
+  actor: '',
+  director: '',
+  description: '',
+  isActive: true,
+};
 
 const Movies = () => {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMovie, setCurrentMovie] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    genre: '',
-    language: '',
-    runtime: '',
-    releaseDate: '',
-    actor: '',
-    director: '',
-    description: '',
-    isActive: true
-  });
+  const [selectedPosterFile, setSelectedPosterFile] = useState(null);
+  const [formData, setFormData] = useState(emptyForm);
 
   const fetchMovies = async () => {
     try {
       setLoading(true);
       const res = await apiClient.get('/movies?limit=100');
-      // res.data.items chứa danh sách phim
       setMovies(res.data?.items || []);
     } catch (err) {
       setError(err.message);
@@ -40,23 +47,22 @@ const Movies = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
   const openAddModal = () => {
     setCurrentMovie(null);
-    setFormData({
-      title: '', genre: '', language: '', runtime: '', releaseDate: '',
-      actor: '', director: '', description: '', isActive: true
-    });
+    setSelectedPosterFile(null);
+    setFormData(emptyForm);
     setIsModalOpen(true);
   };
 
   const openEditModal = (movie) => {
     setCurrentMovie(movie);
+    setSelectedPosterFile(null);
     setFormData({
       title: movie.MovieTitle || '',
       genre: movie.MovieGenre || '',
@@ -66,7 +72,8 @@ const Movies = () => {
       actor: movie.MovieActor || '',
       director: movie.MovieDirector || '',
       description: movie.MovieDescription || '',
-      isActive: movie.IsActive !== false
+      posterUrl: movie.PosterUrl || '',
+      isActive: movie.IsActive !== false,
     });
     setIsModalOpen(true);
   };
@@ -74,12 +81,27 @@ const Movies = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setCurrentMovie(null);
+    setSelectedPosterFile(null);
+  };
+
+  const handlePosterFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedPosterFile(file);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...formData, runtime: parseInt(formData.runtime) || 0 };
+      let posterUrl = formData.posterUrl;
+
+      if (selectedPosterFile) {
+        const uploadForm = new FormData();
+        uploadForm.append('poster', selectedPosterFile);
+        const uploadRes = await apiClient.postForm('/admin/uploads/movie-poster', uploadForm);
+        posterUrl = uploadRes.data?.posterUrl || posterUrl;
+      }
+
+      const payload = { ...formData, posterUrl, runtime: parseInt(formData.runtime, 10) || 0 };
       if (currentMovie) {
         await apiClient.put(`/admin/movies/${currentMovie.MovieID}`, payload);
       } else {
@@ -93,30 +115,28 @@ const Movies = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa phim này?')) {
-      try {
-        await apiClient.delete(`/admin/movies/${id}`);
-        fetchMovies();
-      } catch (err) {
-        alert(err.message);
-      }
+    if (!window.confirm('Bạn có chắc chắn muốn xóa phim này?')) return;
+    try {
+      await apiClient.delete(`/admin/movies/${id}`);
+      fetchMovies();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN');
+    return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
   return (
     <div className="card" style={{ padding: 0 }}>
       <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Movies Management</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Quản lý phim</h2>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <input type="text" placeholder="Search movies..." style={{ height: '36px', borderRadius: '6px', border: '1px solid var(--border)', padding: '0 12px' }} />
+          <input type="text" placeholder="Tìm kiếm phim..." style={{ height: '36px', borderRadius: '6px', border: '1px solid var(--border)', padding: '0 12px' }} />
           <button onClick={openAddModal} style={{ background: 'var(--accent)', color: 'white', padding: '0 16px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', border: 'none' }}>
-            Add Movie
+            Thêm phim
           </button>
         </div>
       </div>
@@ -131,35 +151,43 @@ const Movies = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--surface-low)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>MOVIE TITLE</th>
-              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>GENRE</th>
-              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>LANGUAGE</th>
-              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>RELEASE DATE</th>
-              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>STATUS</th>
-              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600', textAlign: 'right' }}>ACTION</th>
+              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>Tên phim</th>
+              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>Thể loại</th>
+              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>Ngôn ngữ</th>
+              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>Ngày phát hành</th>
+              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600' }}>Trạng thái</th>
+              <th style={{ padding: '16px 20px', color: 'var(--textSub)', fontWeight: '600', textAlign: 'right' }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {movies.map(m => (
-              <tr key={m.MovieID} style={{ borderBottom: '1px solid var(--borderLight)' }}>
+            {movies.map((movie) => (
+              <tr key={movie.MovieID} style={{ borderBottom: '1px solid var(--borderLight)' }}>
                 <td style={{ padding: '16px 20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ width: '40px', height: '56px', background: 'var(--purpleBg)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎬</div>
+                  {movie.PosterUrl ? (
+                    <img
+                      src={resolvePosterUrl(movie.PosterUrl)}
+                      alt={movie.MovieTitle}
+                      style={{ width: '40px', height: '56px', objectFit: 'cover', borderRadius: '6px', background: 'var(--surface-low)' }}
+                    />
+                  ) : (
+                    <div style={{ width: '40px', height: '56px', background: 'var(--purpleBg)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--textSub)' }}>No image</div>
+                  )}
                   <div>
-                    <div style={{ fontWeight: '600', color: 'var(--textPrimary)' }}>{m.MovieTitle}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--textSub)' }}>Runtime: {m.MovieRuntime} min</div>
+                    <div style={{ fontWeight: '600', color: 'var(--textPrimary)' }}>{movie.MovieTitle}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--textSub)' }}>Thời lượng: {movie.MovieRuntime} min</div>
                   </div>
                 </td>
-                <td style={{ padding: '16px 20px' }}>{m.MovieGenre}</td>
-                <td style={{ padding: '16px 20px' }}>{m.MovieLanguage}</td>
-                <td style={{ padding: '16px 20px' }}>{formatDate(m.MovieReleaseDate)}</td>
+                <td style={{ padding: '16px 20px' }}>{movie.MovieGenre}</td>
+                <td style={{ padding: '16px 20px' }}>{movie.MovieLanguage}</td>
+                <td style={{ padding: '16px 20px' }}>{formatDate(movie.MovieReleaseDate)}</td>
                 <td style={{ padding: '16px 20px' }}>
-                  <span className={`badge ${m.IsActive ? 'success' : 'gray'}`}>
-                    {m.IsActive ? 'Active' : 'Inactive'}
+                  <span className={`badge ${movie.IsActive ? 'success' : 'gray'}`}>
+                    {movie.IsActive ? 'Hoạt động' : 'Ngừng hoạt động'}
                   </span>
                 </td>
                 <td style={{ padding: '16px 20px', textAlign: 'right', fontSize: '16px' }}>
-                  <button onClick={() => openEditModal(m)} style={{ cursor: 'pointer', marginRight: '8px', background: 'none', border: 'none', fontSize: '16px' }}>✏️</button>
-                  <button onClick={() => handleDelete(m.MovieID)} style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '16px' }}>🗑️</button>
+                  <button onClick={() => openEditModal(movie)} style={{ cursor: 'pointer', marginRight: '8px', background: 'none', border: 'none', fontSize: '16px' }}>✏️</button>
+                  <button onClick={() => handleDelete(movie.MovieID)} style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '16px' }}>🗑️</button>
                 </td>
               </tr>
             ))}
@@ -167,54 +195,69 @@ const Movies = () => {
         </table>
       )}
 
-      {/* Modal CRUD */}
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'var(--surface)', color: 'var(--textPrimary)', border: '1px solid var(--border)', padding: '24px', borderRadius: '8px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: 'bold' }}>
-              {currentMovie ? 'Edit Movie' : 'Add Movie'}
+              {currentMovie ? 'Sửa phim' : 'Thêm phim'}
             </h3>
             <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px', gridTemplateColumns: '1fr 1fr' }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Movie Title</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Tên phim</label>
                 <input required type="text" name="title" value={formData.title} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Genre</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Thể loại</label>
                 <input required type="text" name="genre" value={formData.genre} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Language</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Ngôn ngữ</label>
                 <input required type="text" name="language" value={formData.language} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Runtime (mins)</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Thời lượng (phút)</label>
                 <input required type="number" name="runtime" value={formData.runtime} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Release Date</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Ngày phát hành</label>
                 <input required type="date" name="releaseDate" value={formData.releaseDate} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Description</label>
-                <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }}></textarea>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Mô tả</label>
+                <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Director</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Đạo diễn</label>
                 <input type="text" name="director" value={formData.director} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Actor</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Diễn viên</label>
                 <input type="text" name="actor" value={formData.actor} onChange={handleInputChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
               </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleInputChange} id="isActive" />
-                <label htmlFor="isActive" style={{ fontSize: '14px', fontWeight: '500' }}>Active (Show in app)</label>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Poster phim</label>
+                <input type="file" accept="image/*" onChange={handlePosterFileChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                {(selectedPosterFile || formData.posterUrl) && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img
+                      src={selectedPosterFile ? URL.createObjectURL(selectedPosterFile) : resolvePosterUrl(formData.posterUrl)}
+                      alt="Movie poster preview"
+                      style={{ width: '54px', height: '76px', objectFit: 'cover', borderRadius: '6px', background: 'var(--surface-low)' }}
+                    />
+                    <span style={{ color: 'var(--textSub)', fontSize: '12px' }}>
+                      {selectedPosterFile ? selectedPosterFile.name : 'Poster hiện tại'}
+                    </span>
+                  </div>
+                )}
               </div>
-              
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleInputChange} id="movieIsActive" />
+                <label htmlFor="movieIsActive" style={{ fontSize: '14px', fontWeight: '500' }}>Hoạt động</label>
+              </div>
+
               <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                <button type="button" onClick={closeModal} style={{ padding: '10px 16px', background: 'var(--surface-low)', color: 'var(--textPrimary)', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ padding: '10px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Save Movie</button>
+                <button type="button" onClick={closeModal} style={{ padding: '10px 16px', background: 'var(--surface-low)', color: 'var(--textPrimary)', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer' }}>Hủy</button>
+                <button type="submit" style={{ padding: '10px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Lưu phim</button>
               </div>
             </form>
           </div>
