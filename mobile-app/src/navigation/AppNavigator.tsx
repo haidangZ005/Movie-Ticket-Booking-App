@@ -21,6 +21,9 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import CinemaListScreen from '../screens/cinema/CinemaListScreen';
 import ShowtimeScreen from '../screens/cinema/ShowtimeScreen';
 import SeatSelectionScreen from '../screens/booking/SeatSelectionScreen';
+import ComboScreen from '../screens/booking/ComboScreen';
+
+import PaymentScreen from '../screens/payment/PaymentScreen';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -54,6 +57,8 @@ function MainNavigator() {
       <MainStack.Screen name="Cinemas" component={CinemaListScreen} />
       <MainStack.Screen name="Showtime" component={ShowtimeScreen} />
       <MainStack.Screen name="SeatSelection" component={SeatSelectionScreen} />
+      <MainStack.Screen name="ComboScreen" component={ComboScreen} />
+      <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
     </MainStack.Navigator>
   );
 }

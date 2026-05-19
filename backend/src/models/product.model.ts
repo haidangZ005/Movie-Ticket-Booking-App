@@ -7,6 +7,7 @@ export interface IProduct {
   ProductDescription?: string;
   ProductPrice: number;
   ImageProduct?: string;
+  ProductCategory?: string;
   IsActive?: boolean;
 }
 
@@ -36,11 +37,12 @@ export class ProductModel {
       .input('desc', sql.NVarChar(500), product.ProductDescription || '')
       .input('price', sql.Decimal(10, 2), product.ProductPrice)
       .input('image', sql.NVarChar(500), product.ImageProduct || '')
+      .input('category', sql.NVarChar(50), product.ProductCategory || 'OTHER')
       .input('isActive', sql.Bit, product.IsActive ?? true)
       .query(`
-        INSERT INTO Product (ProductName, ProductDescription, ProductPrice, ImageProduct, IsActive)
+        INSERT INTO Product (ProductName, ProductDescription, ProductPrice, ImageProduct, ProductCategory, IsActive)
         OUTPUT inserted.*
-        VALUES (@name, @desc, @price, @image, @isActive)
+        VALUES (@name, @desc, @price, @image, @category, @isActive)
       `);
     return result.recordset[0];
   }
@@ -67,6 +69,10 @@ export class ProductModel {
     if (product.ImageProduct !== undefined) {
       request.input('image', sql.NVarChar(500), product.ImageProduct);
       updates.push('ImageProduct = @image');
+    }
+    if (product.ProductCategory !== undefined) {
+      request.input('category', sql.NVarChar(50), product.ProductCategory || 'OTHER');
+      updates.push('ProductCategory = @category');
     }
     if (product.IsActive !== undefined) {
       request.input('isActive', sql.Bit, product.IsActive);

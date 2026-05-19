@@ -2,6 +2,7 @@ import apiClient from '../api/apiClient';
 
 export interface Seat {
   SeatID: number;
+  HallID?: number;
   SeatNumber: string;
   SeatType: 'STANDARD' | 'VIP' | 'COUPLE' | 'AISLE' | 'EMPTY';
   SeatPrice: number;
@@ -9,18 +10,26 @@ export interface Seat {
   RowIndex: number;
   ColIndex: number;
   IsAisle: boolean;
+  RowVersion?: any;
   Status: 'AVAILABLE' | 'HOLDING' | 'BOOKED' | 'CANCELLED';
+  HoldUntil?: string | null;
+  BookingID?: number | null;
 }
 
 export interface ShowInfo {
   ShowID: number;
+  MovieID?: number;
   MovieTitle: string;
+  CinemaID?: number;
   CinemaName: string;
+  HallID?: number;
   HallName: string;
   ShowDate: string;
   ShowTime: string;
   EndTime: string;
   BasePrice: number;
+  Format?: string;
+  PosterUrl?: string;
 }
 
 export interface ShowSeatsResponse {
