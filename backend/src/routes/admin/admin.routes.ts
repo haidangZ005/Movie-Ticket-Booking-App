@@ -8,7 +8,7 @@ import * as voucherController from '../../controllers/voucher/voucher.controller
 import { CustomerController } from '../../controllers/customer/customer.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { roleMiddleware } from '../../middlewares/role.middleware';
-import { uploadMoviePoster } from '../../middlewares/upload.middleware';
+import { uploadMoviePoster, uploadProductImage } from '../../middlewares/upload.middleware';
 import * as seatLayoutController from '../../controllers/admin/seat-layout.controller';
 
 const router = Router();
@@ -45,6 +45,7 @@ router.get('/products/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMI
 router.post('/products', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.createProduct);
 router.put('/products/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.updateProduct);
 router.delete('/products/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), productController.deleteProduct);
+router.post('/uploads/product-image', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), uploadProductImage.single('image'), productController.uploadProductImage);
 
 // === Quản lý Khuyến mãi / Voucher (Mới) ===
 router.get('/vouchers', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), voucherController.getAllVouchers);

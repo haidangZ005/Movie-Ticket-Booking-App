@@ -12,6 +12,21 @@ export const getAllProducts = asyncHandler(async (req: Request, res: Response) =
   return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, products));
 });
 
+// POST /api/admin/uploads/product-image
+export const uploadProductImage = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) throw new AppException({ ...ErrorCode.INVALID_DATA, message: 'Không có file nào được tải lên' });
+  const imageUrl = `/uploads/products/${req.file.filename}`;
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, { imageUrl }));
+});
+
+// GET /api/products (Public)
+export const getPublicProducts = asyncHandler(async (req: Request, res: Response) => {
+  const products = await ProductModel.getAll();
+  const activeProducts = products.filter(p => p.IsActive);
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, activeProducts));
+});
+
+
 // GET /api/admin/products/:id
 export const getProductById = asyncHandler(async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
