@@ -28,7 +28,7 @@ const imageFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
     return;
   }
 
-  cb(new Error('Chi cho phep tai len file anh'));
+  cb(new Error('Chỉ cho phép tải lên file ảnh'));
 };
 
 export const uploadMoviePoster = multer({

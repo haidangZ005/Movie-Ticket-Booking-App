@@ -3,8 +3,54 @@ import apiClient, { API_ORIGIN } from '../services/api';
 
 const resolvePosterUrl = (posterUrl) => {
   if (!posterUrl) return '';
-  if (/^https?:\/\//i.test(posterUrl)) return posterUrl;
-  return `${API_ORIGIN}${posterUrl.startsWith('/') ? posterUrl : `/${posterUrl}`}`;
+
+  const normalizedUrl = String(posterUrl).trim().replace(/\\/g, '/');
+  if (!normalizedUrl || ['null', 'undefined'].includes(normalizedUrl.toLowerCase())) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(normalizedUrl)) return normalizedUrl;
+  if (normalizedUrl.startsWith('//')) return `${window.location.protocol}${normalizedUrl}`;
+
+  let localPath = normalizedUrl.replace(/^public\//i, '');
+  if (!localPath.startsWith('/')) {
+    const hasPath = localPath.includes('/');
+    localPath = hasPath ? `/${localPath}` : `/uploads/movies/${localPath}`;
+  }
+
+  if (localPath.startsWith('/movies/')) {
+    localPath = `/uploads${localPath}`;
+  }
+
+  return `${API_ORIGIN}${localPath}`;
+};
+
+const getMoviePosterUrl = (movie) => (
+  resolvePosterUrl(movie.PosterUrl || movie.MovieImage || movie.posterUrl || movie.movieImage)
+);
+
+const PosterPlaceholder = () => (
+  <div style={{ width: '40px', height: '56px', background: 'var(--purpleBg)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', lineHeight: '12px', color: 'var(--textSub)', textAlign: 'center', flexShrink: 0 }}>
+    No image
+  </div>
+);
+
+const MoviePoster = ({ movie }) => {
+  const [failed, setFailed] = useState(false);
+  const posterUrl = getMoviePosterUrl(movie);
+
+  if (!posterUrl || failed) {
+    return <PosterPlaceholder />;
+  }
+
+  return (
+    <img
+      src={posterUrl}
+      alt={movie.MovieTitle || 'Movie poster'}
+      onError={() => setFailed(true)}
+      style={{ width: '40px', height: '56px', objectFit: 'cover', borderRadius: '6px', background: 'var(--surface-low)', flexShrink: 0, display: 'block' }}
+    />
+  );
 };
 
 const emptyForm = {
@@ -163,15 +209,7 @@ const Movies = () => {
             {movies.map((movie) => (
               <tr key={movie.MovieID} style={{ borderBottom: '1px solid var(--borderLight)' }}>
                 <td style={{ padding: '16px 20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  {movie.PosterUrl ? (
-                    <img
-                      src={resolvePosterUrl(movie.PosterUrl)}
-                      alt={movie.MovieTitle}
-                      style={{ width: '40px', height: '56px', objectFit: 'cover', borderRadius: '6px', background: 'var(--surface-low)' }}
-                    />
-                  ) : (
-                    <div style={{ width: '40px', height: '56px', background: 'var(--purpleBg)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--textSub)' }}>No image</div>
-                  )}
+                  <MoviePoster movie={movie} />
                   <div>
                     <div style={{ fontWeight: '600', color: 'var(--textPrimary)' }}>{movie.MovieTitle}</div>
                     <div style={{ fontSize: '11px', color: 'var(--textSub)' }}>Thời lượng: {movie.MovieRuntime} min</div>

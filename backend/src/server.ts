@@ -23,7 +23,9 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 // 1. SYSTEM MIDDLEWARES
 // ==========================================
-app.use(helmet());                              // Bảo mật HTTP headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));                                            // Bảo mật HTTP headers
 app.use(cors());                                // Cho phép Cross-Origin
 app.use(morgan('dev'));                          // Log request ra console
 app.use(express.json());                        // Parse JSON body
