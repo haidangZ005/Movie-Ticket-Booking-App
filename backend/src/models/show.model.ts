@@ -1,4 +1,4 @@
-﻿import * as mssql from 'mssql';
+import * as mssql from 'mssql';
 import { connectDB } from '../config/database';
 import { AppException } from '../utils/exceptions/app.exception';
 import { ErrorCode } from '../utils/exceptions/error.code';
@@ -217,6 +217,7 @@ class ShowModel {
           s.Format,
           s.BasePrice,
           m.MovieTitle,
+          m.PosterUrl,
           ch.HallName,
           c.CinemaID,
           c.CinemaName
