@@ -90,6 +90,87 @@ const SeatSelectionScreen: React.FC = () => {
     return grid;
   }, [seats]);
 
+  const getBookableRows = (seatList: Seat[]) => {
+    const rowMap = new Map<number, Seat[]>();
+
+    seatList.forEach((seat) => {
+      if (seat.IsAisle || seat.SeatType === 'EMPTY') return;
+      const rowSeats = rowMap.get(seat.RowIndex) || [];
+      rowSeats.push(seat);
+      rowMap.set(seat.RowIndex, rowSeats);
+    });
+
+    return Array.from(rowMap.entries()).map(([rowIndex, rowSeats]) => ({
+      rowIndex,
+      seats: rowSeats.sort((a, b) => a.ColIndex - b.ColIndex),
+    }));
+  };
+
+  const findSingleSeatGaps = (selectedSeatIds: Set<number>) => {
+    const gaps: { rowIndex: number; seatNumber: string; seatId: number }[] = [];
+
+    getBookableRows(seats).forEach(({ rowIndex, seats: rowSeats }) => {
+      let availableRun: Seat[] = [];
+
+      const flushRun = () => {
+        if (availableRun.length === 1 && rowSeats.length > 1) {
+          const [gapSeat] = availableRun;
+          gaps.push({
+            rowIndex,
+            seatNumber: gapSeat.SeatNumber,
+            seatId: gapSeat.SeatID,
+          });
+        }
+        availableRun = [];
+      };
+
+      rowSeats.forEach((seat, index) => {
+        const previousSeat = rowSeats[index - 1];
+        const isSeparatedFromPrevious = previousSeat && seat.ColIndex - previousSeat.ColIndex > 1;
+
+        if (isSeparatedFromPrevious) {
+          flushRun();
+        }
+
+        const isOccupied =
+          selectedSeatIds.has(seat.SeatID) ||
+          seat.Status === 'BOOKED' ||
+          seat.Status === 'HOLDING';
+
+        if (isOccupied) {
+          flushRun();
+        } else {
+          availableRun.push(seat);
+        }
+      });
+
+      flushRun();
+    });
+
+    return gaps;
+  };
+
+  const getSingleSeatGapMessage = (nextSelectedSeats: Seat[]) => {
+    const originalGaps = new Set(findSingleSeatGaps(new Set()).map((gap) => gap.seatId));
+    const nextSelectedSeatIds = new Set(nextSelectedSeats.map((seat) => seat.SeatID));
+    const newGaps = findSingleSeatGaps(nextSelectedSeatIds)
+      .filter((gap) => !originalGaps.has(gap.seatId));
+
+    if (newGaps.length === 0) return '';
+
+    return `Không được để trống lẻ ghế ${newGaps.map((gap) => gap.seatNumber).join(', ')}. Vui lòng chọn thêm ghế liền kề hoặc đổi vị trí.`;
+
+  };
+
+  const updateSelectedSeats = (nextSelectedSeats: Seat[]) => {
+    setSelectedSeats(nextSelectedSeats);
+  };
+
+  const singleSeatGapMessage = useMemo(
+    () => getSingleSeatGapMessage(selectedSeats),
+    [selectedSeats, seats]
+  );
+
   const toggleSeat = (seat: Seat) => {
     if (seat.IsAisle || seat.Status === 'BOOKED' || seat.Status === 'HOLDING' || seat.SeatType === 'EMPTY') {
       return; // Không cho click
@@ -108,7 +189,7 @@ const SeatSelectionScreen: React.FC = () => {
 
       if (isSelected) {
         // Deselect both
-        setSelectedSeats(prev => prev.filter(s => s.SeatID !== seat.SeatID && s.SeatID !== pairSeat?.SeatID));
+        updateSelectedSeats(selectedSeats.filter(s => s.SeatID !== seat.SeatID && s.SeatID !== pairSeat?.SeatID));
       } else {
         // Select both
         const newSelection = [...selectedSeats, seat];
@@ -117,20 +198,20 @@ const SeatSelectionScreen: React.FC = () => {
           Alert.alert('Giới hạn', 'Bạn chỉ có thể chọn tối đa 8 ghế.');
           return;
         }
-        setSelectedSeats(newSelection);
+        updateSelectedSeats(newSelection);
       }
       return;
     }
 
     // Normal seats
     if (isSelected) {
-      setSelectedSeats(prev => prev.filter(s => s.SeatID !== seat.SeatID));
+      updateSelectedSeats(selectedSeats.filter(s => s.SeatID !== seat.SeatID));
     } else {
       if (selectedSeats.length >= 8) {
         Alert.alert('Giới hạn', 'Bạn chỉ có thể chọn tối đa 8 ghế.');
         return;
       }
-      setSelectedSeats(prev => [...prev, seat]);
+      updateSelectedSeats([...selectedSeats, seat]);
     }
   };
 
@@ -149,6 +230,10 @@ const SeatSelectionScreen: React.FC = () => {
 
   const handleContinue = () => {
     if (selectedSeats.length === 0 || !showInfo) return;
+    if (singleSeatGapMessage) {
+      Alert.alert('Ràng buộc chọn ghế', singleSeatGapMessage);
+      return;
+    }
     // Đi tiếp màn thanh toán / bắp nước
     navigation.navigate('ComboScreen', {
       showInfo,
@@ -312,17 +397,22 @@ const SeatSelectionScreen: React.FC = () => {
               {selectedSeats.map(s => s.SeatNumber).join(', ')}
             </Text>
           )}
+          {!!singleSeatGapMessage && (
+            <Text style={styles.constraintText} numberOfLines={2}>
+              {singleSeatGapMessage}
+            </Text>
+          )}
         </View>
         <View style={styles.bottomRight}>
           {selectedSeats.length > 0 && (
             <Text style={styles.totalPrice}>{formatCurrency(totalPrice)}</Text>
           )}
           <TouchableOpacity 
-            style={[styles.continueBtn, selectedSeats.length === 0 && styles.continueBtnDisabled]}
+            style={[styles.continueBtn, (selectedSeats.length === 0 || !!singleSeatGapMessage) && styles.continueBtnDisabled]}
             disabled={selectedSeats.length === 0}
             onPress={handleContinue}
           >
-            <Text style={[styles.continueBtnText, selectedSeats.length === 0 && styles.continueBtnTextDisabled]}>Tiếp tục</Text>
+            <Text style={[styles.continueBtnText, (selectedSeats.length === 0 || !!singleSeatGapMessage) && styles.continueBtnTextDisabled]}>Tiếp tục</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -526,6 +616,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.primary,
     marginTop: 4,
+  },
+  constraintText: {
+    fontSize: 11,
+    color: '#ff6b6b',
+    marginTop: 6,
+    lineHeight: 15,
   },
   bottomRight: {
     alignItems: 'flex-end',
