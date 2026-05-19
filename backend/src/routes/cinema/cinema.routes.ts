@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/', cinemaController.getCinemas);
 router.get('/cities', cinemaController.getCities);
+router.get('/:id/show-dates', showController.getShowDatesByCinema);
 router.get('/:id', cinemaController.getCinemaById);
 router.get('/:id/shows', showController.getShowsByCinema);
 

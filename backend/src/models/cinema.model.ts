@@ -5,6 +5,7 @@ interface CinemaFilters {
   offset?: number;
   limit?: number;
   cityId?: number;
+  movieId?: number;
 }
 
 interface CinemaData {
@@ -64,31 +65,45 @@ class CinemaModel {
    */
   static async findAll({ offset = 0, limit = 20, filters = {} }: { offset?: number; limit?: number; filters?: CinemaFilters }): Promise<{ cinemas: Cinema[]; total: number }> {
     const pool = await connectDB();
-    
+
     const countRequest = pool.request();
     const dataRequest = pool.request();
-    
-    let whereConditions: string[] = ['IsActive = 1'];
-    
+
+    let whereConditions: string[] = ['c.IsActive = 1'];
+
     if (filters.cityId) {
-      whereConditions.push('CityID = @cityId');
+      whereConditions.push('c.CityID = @cityId');
       countRequest.input('cityId', mssql.Int, filters.cityId);
       dataRequest.input('cityId', mssql.Int, filters.cityId);
     }
-    
+
+    if (filters.movieId) {
+      whereConditions.push(`
+        EXISTS (
+          SELECT 1
+          FROM CinemaHall ch
+          INNER JOIN [Show] s ON ch.HallID = s.HallID
+          WHERE ch.CinemaID = c.CinemaID
+            AND s.MovieID = @movieId
+        )
+      `);
+      countRequest.input('movieId', mssql.Int, filters.movieId);
+      dataRequest.input('movieId', mssql.Int, filters.movieId);
+    }
+
     const whereSQL = `WHERE ${whereConditions.join(' AND ')}`;
-    
+
     const countResult = await countRequest.query(`
       SELECT COUNT(*) AS total 
-      FROM Cinema 
+      FROM Cinema c
       ${whereSQL}
     `);
-    
+
     const total = countResult.recordset[0].total;
-    
+
     dataRequest.input('offset', mssql.Int, offset);
     dataRequest.input('limit', mssql.Int, limit);
-    
+
     const result = await dataRequest.query(`
       SELECT c.*, ct.CityName 
       FROM Cinema c
@@ -97,7 +112,7 @@ class CinemaModel {
       ORDER BY c.CinemaName
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `);
-    
+
     return {
       cinemas: result.recordset,
       total
@@ -109,19 +124,19 @@ class CinemaModel {
    */
   static async findById(id: number): Promise<{ cinema: Cinema; halls: any[] } | null> {
     const pool = await connectDB();
-    
+
     const cinemaResult = await pool.request()
       .input('id', mssql.Int, id)
       .query('SELECT * FROM Cinema WHERE CinemaID = @id AND IsActive = 1');
-    
+
     if (cinemaResult.recordset.length === 0) return null;
-    
+
     const cinema = cinemaResult.recordset[0];
-    
+
     const hallsResult = await pool.request()
       .input('cinemaId', mssql.Int, id)
       .query('SELECT * FROM CinemaHall WHERE CinemaID = @cinemaId ORDER BY HallName');
-    
+
     return {
       cinema,
       halls: hallsResult.recordset
@@ -133,7 +148,7 @@ class CinemaModel {
    */
   static async getShows(id: number, date?: string): Promise<{ shows: any[] }> {
     const pool = await connectDB();
-    
+
     let query = `
       SELECT s.*, m.MovieTitle, m.MovieGenre, m.MovieRuntime, m.Rating
       FROM [Show] s
@@ -142,18 +157,18 @@ class CinemaModel {
       INNER JOIN Movie m ON s.MovieID = m.MovieID
       WHERE c.CinemaID = @cinemaId AND m.IsActive = 1
     `;
-    
+
     const request = pool.request().input('cinemaId', mssql.Int, id);
-    
+
     if (date) {
       query += ' AND s.ShowDate = @date';
       request.input('date', mssql.Date, date);
     }
-    
+
     query += ' ORDER BY s.ShowDate, s.ShowTime';
-    
+
     const result = await request.query(query);
-    
+
     return { shows: result.recordset };
   }
 
@@ -247,14 +262,20 @@ class CinemaModel {
     const pool = await connectDB();
     const result = await pool.request()
       .input('cinemaId', mssql.Int, hallData.cinemaId)
-      .input('hallName', mssql.NVarChar, hallData.hallName)
-      .input('totalRows', mssql.Int, hallData.totalRows)
-      .input('totalCols', mssql.Int, hallData.totalCols)
+      .input('hallName', mssql.NVarChar(100), hallData.hallName)
+      .input('totalRows', mssql.Int, hallData.totalRows || 0)
+      .input('totalCols', mssql.Int, hallData.totalCols || 0)
+      .input('totalSeats', mssql.Int, 0)
       .query(`
-        INSERT INTO CinemaHall (CinemaID, HallName, TotalRows, TotalCols)
-        OUTPUT INSERTED.*
-        VALUES (@cinemaId, @hallName, @totalRows, @totalCols)
-      `);
+      INSERT INTO CinemaHall (
+        CinemaID, HallName, TotalRows, TotalCols, TotalSeats
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        @cinemaId, @hallName, @totalRows, @totalCols, @totalSeats
+      )
+    `);
+
     return result.recordset[0];
   }
 
@@ -264,6 +285,49 @@ class CinemaModel {
   static async updateSeats(hallId: number, seats: any[]): Promise<boolean> {
     // Logic cập nhật ghế phức tạp, tạm thời trả về true để build pass
     return true;
+  }
+
+  /**
+   * Cập nhật phòng chiếu
+   */
+  static async updateHall(id: number, hallData: any): Promise<any> {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('id', mssql.Int, id)
+      .input('hallName', mssql.NVarChar(100), hallData.hallName)
+      .input('totalRows', mssql.Int, hallData.totalRows || 0)
+      .input('totalCols', mssql.Int, hallData.totalCols || 0)
+      .query(`
+        UPDATE CinemaHall 
+        SET HallName = @hallName, TotalRows = @totalRows, TotalCols = @totalCols 
+        OUTPUT INSERTED.*
+        WHERE HallID = @id
+      `);
+    return result.recordset[0];
+  }
+
+  /**
+   * Xóa phòng chiếu
+   */
+  static async deleteHall(id: number): Promise<void> {
+    const pool = await connectDB();
+    const transaction = new mssql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      await new mssql.Request(transaction)
+        .input('id', mssql.Int, id)
+        .query('DELETE FROM CinemaHallSeat WHERE HallID = @id');
+
+      await new mssql.Request(transaction)
+        .input('id', mssql.Int, id)
+        .query('DELETE FROM CinemaHall WHERE HallID = @id');
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 }
 

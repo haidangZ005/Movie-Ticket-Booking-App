@@ -21,6 +21,7 @@ const movieSchema = Joi.object({
     'number.min': 'Thời lượng phải lớn hơn 0',
     'any.required': 'Thời lượng là bắt buộc'
   }),
+  posterUrl: Joi.string().max(500).allow('', null).optional(),
   releaseDate: Joi.date().optional(),
   actor: Joi.string().max(500).optional(),
   director: Joi.string().max(200).optional(),
@@ -38,7 +39,7 @@ const movieSchema = Joi.object({
 // Middleware validate cho tạo phim
 const validateCreateMovie = (req: any, res: any, next: any) => {
   const { error } = movieSchema.validate(req.body, { abortEarly: false });
-  
+
   if (error) {
     const messages = error.details.map((detail: any) => detail.message);
     return res.status(400).json({
@@ -47,7 +48,7 @@ const validateCreateMovie = (req: any, res: any, next: any) => {
       errors: messages
     });
   }
-  
+
   next();
 };
 
@@ -57,9 +58,9 @@ const validateUpdateMovie = (req: any, res: any, next: any) => {
     ['title', 'genre', 'language', 'runtime'],
     (schema: any) => schema.optional()
   ).and('title', 'genre', 'language', 'runtime'); // Bỏ required khi update
-  
+
   const { error } = updateSchema.validate(req.body, { abortEarly: false });
-  
+
   if (error) {
     const messages = error.details.map((detail: any) => detail.message);
     return res.status(400).json({
@@ -68,7 +69,7 @@ const validateUpdateMovie = (req: any, res: any, next: any) => {
       errors: messages
     });
   }
-  
+
   next();
 };
 
@@ -82,7 +83,7 @@ const searchSchema = Joi.object({
 
 const validateSearch = (req: any, res: any, next: any) => {
   const { error } = searchSchema.validate(req.query, { abortEarly: false });
-  
+
   if (error) {
     const messages = error.details.map((detail: any) => detail.message);
     return res.status(400).json({
@@ -91,7 +92,7 @@ const validateSearch = (req: any, res: any, next: any) => {
       errors: messages
     });
   }
-  
+
   next();
 };
 

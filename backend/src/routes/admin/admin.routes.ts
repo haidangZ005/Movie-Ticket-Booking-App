@@ -8,6 +8,8 @@ import * as voucherController from '../../controllers/voucher/voucher.controller
 import { CustomerController } from '../../controllers/customer/customer.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { roleMiddleware } from '../../middlewares/role.middleware';
+import { uploadMoviePoster } from '../../middlewares/upload.middleware';
+import * as seatLayoutController from '../../controllers/admin/seat-layout.controller';
 
 const router = Router();
 
@@ -21,16 +23,18 @@ router.post('/movies', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']),
 router.put('/movies/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.updateMovie);
 router.delete('/movies/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.deleteMovie);
 router.put('/movies/:id/featured', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.toggleFeaturedMovie);
+router.post('/uploads/movie-poster', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), uploadMoviePoster.single('poster'), movieController.uploadMoviePoster);
 
 // === Quản lý Rạp & Phòng chiếu (M1) ===
 router.post('/cinemas', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.createCinema);
 router.put('/cinemas/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.updateCinema);
 router.delete('/cinemas/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.deleteCinema);
-// router.post('/cinemas/:id/halls', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.createHall);
-// router.put('/cinemas/:id/halls', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.updateHallSeats);
-// router.put('/halls/:id/seats', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.updateHallSeats);
+router.post('/cinemas/:id/halls', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.createHall);
+router.put('/halls/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.updateHall);
+router.delete('/halls/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.deleteHall);
 
 // === Quản lý Suất chiếu (M1) ===
+router.get('/shows', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), showController.getAdminShows);
 router.post('/shows', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), showController.createShow);
 router.put('/shows/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), showController.updateShow);
 router.delete('/shows/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), showController.deleteShow);
@@ -67,5 +71,21 @@ router.put('/customers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADM
 router.delete('/customers/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminDeleteCustomer);
 router.put('/customers/:id/status', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), CustomerController.adminSetCustomerStatus);
 router.put('/accounts/:id/status', authMiddleware, roleMiddleware(['SUPER_ADMIN']), AdminController.patchAccountStatus);
+
+// Ghế + rạp chiếu
+
+router.get(
+    '/halls/:hallId/seats',
+    authMiddleware,
+    roleMiddleware(['ADMIN', 'SUPER_ADMIN']),
+    seatLayoutController.getHallSeatLayout
+);
+
+router.put(
+    '/halls/:hallId/seats',
+    authMiddleware,
+    roleMiddleware(['ADMIN', 'SUPER_ADMIN']),
+    seatLayoutController.updateHallSeatLayout
+);
 
 export default router;

@@ -8,9 +8,10 @@ import { ResponseCode } from '../../utils/constants/response.code';
 
 // GET /api/cinemas — Danh sách cụm rạp (có phân trang)
 export const getCinemas = asyncHandler(async (req: Request, res: Response) => {
-  const { page = 1, limit = 20, cityId } = req.query;
+  const { page = 1, limit = 20, cityId, movieId } = req.query;
   const filters: Record<string, any> = {};
   if (cityId) filters.cityId = Number(cityId);
+  if (movieId) filters.movieId = Number(movieId);
 
   const { cinemas, total } = await CinemaService.getAll({
     page: Number(page),
@@ -52,6 +53,29 @@ export const getCinemaById = asyncHandler(async (req: Request, res: Response) =>
 export const createCinema = asyncHandler(async (req: Request, res: Response) => {
   const cinema = await CinemaService.create(req.body);
   return res.status(201).json(ApiResponse.success(ResponseCode.USER_CREATED, cinema));
+});
+
+// POST /api/admin/cinemas/:id/halls - Them phong chieu cho rap (Admin)
+export const createHall = asyncHandler(async (req: Request, res: Response) => {
+  const cinemaId = Number(req.params.id);
+  const hall = await CinemaService.createHall({
+    ...req.body,
+    cinemaId,
+  });
+
+  return res.status(201).json(ApiResponse.success(ResponseCode.USER_CREATED, hall));
+});
+
+// PUT /api/admin/halls/:id - Sửa thông tin phòng chiếu (Admin)
+export const updateHall = asyncHandler(async (req: Request, res: Response) => {
+  const hall = await CinemaService.updateHall(Number(req.params.id), req.body);
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, hall));
+});
+
+// DELETE /api/admin/halls/:id - Xóa phòng chiếu (Admin)
+export const deleteHall = asyncHandler(async (req: Request, res: Response) => {
+  await CinemaService.deleteHall(Number(req.params.id));
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, null));
 });
 
 // PUT /api/admin/cinemas/:id — Sửa thông tin cụm rạp (Admin)

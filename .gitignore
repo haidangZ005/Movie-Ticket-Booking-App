@@ -23,6 +23,7 @@ jspm_packages/
 backend/dist/
 backend/build/
 backend/temp/
+backend/public/uploads/
 
 # Payment Gateway
 payment-gateway/dist/

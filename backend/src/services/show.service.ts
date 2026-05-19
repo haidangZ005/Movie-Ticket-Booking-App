@@ -38,6 +38,14 @@ export const getByCinemaId = async (cinemaId: number, filters: any = {}) => {
   return shows;
 };
 
+export const getAll = async (filters: any = {}) => {
+  return ShowModel.findAll(filters);
+};
+
+export const getDatesByCinemaId = async (cinemaId: number, filters: any = {}) => {
+  return ShowModel.getDatesByCinemaId(cinemaId, filters);
+};
+
 /**
  * Tạo suất chiếu mới (Admin)
  */
@@ -141,7 +149,9 @@ export const calculateTicketPrice = async (showId: number, seatId: number) => {
 export default {
   getById,
   getSeatsByShowId,
+  getAll,
   getByCinemaId,
+  getDatesByCinemaId,
   create,
   update,
   deleteShow,

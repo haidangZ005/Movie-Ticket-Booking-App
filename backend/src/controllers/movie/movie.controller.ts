@@ -81,6 +81,22 @@ export const createMovie = asyncHandler(async (req: Request, res: Response) => {
   return res.status(201).json(ApiResponse.success(ResponseCode.USER_CREATED, movie));
 });
 
+// POST /api/admin/uploads/movie-poster - Upload poster phim local
+export const uploadMoviePoster = asyncHandler(async (req: Request, res: Response) => {
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({
+      code: 400,
+      message: 'Vui long chon file anh',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  const posterUrl = `/uploads/movies/${file.filename}`;
+  return res.status(201).json(ApiResponse.success(ResponseCode.SUCCESS, { posterUrl }));
+});
+
 // PUT /api/admin/movies/:id — Sửa phim (Admin)
 export const updateMovie = asyncHandler(async (req: Request, res: Response) => {
   const movie = await MovieService.update(parseInt(req.params.id), req.body);

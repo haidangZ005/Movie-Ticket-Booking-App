@@ -1,4 +1,4 @@
-export type ErrorCodeType = {
+﻿export type ErrorCodeType = {
   code: number;
   message: string;
   statusCode: number; // Dành riêng cho Express để định tuyến HTTP Status Code
@@ -22,12 +22,14 @@ export const ErrorCode = {
   FORBIDDEN: { code: 3001, message: 'Forbidden: You do not have permission', statusCode: 403 },
   RESET_OTP_NOT_VERIFIED: { code: 1007, message: 'Reset OTP verification expired. Please request a new OTP.', statusCode: 400 },
   MOVIE_NOT_FOUND: { code: 1008, message: 'Phim không tồn tại', statusCode: 404 },
-  CINEMA_NOT_FOUND: { code: 1009, message: 'Rạp không tồn tai', statusCode: 404 },
+  CINEMA_NOT_FOUND: { code: 1009, message: 'Rạp không tồn tại', statusCode: 404 },
   SHOW_NOT_FOUND: { code: 1010, message: 'Suất chiếu không tồn tại', statusCode: 404 },
   HALL_NOT_FOUND: { code: 1011, message: 'Phòng chiếu không tồn tại', statusCode: 404 },
   SEAT_CONSTRAINT_VIOLATION: { code: 1012, message: 'Vi phạm ràng buộc ghế', statusCode: 422 },
   SEAT_ALREADY_BOOKED: { code: 1013, message: 'Ghế đã được đặt', statusCode: 409 },
   SEAT_ALREADY_HELD: { code: 1014, message: 'Ghế đang được giữ', statusCode: 409 },
+  SHOW_TIME_CONFLICT: { code: 1016, message: 'Suất chiếu bị trùng thời gian với suất khác trong cùng phòng', statusCode: 409 },
 } as const;
 
 export type ErrorCodeKeys = keyof typeof ErrorCode;
+
