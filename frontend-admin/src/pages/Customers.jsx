@@ -35,7 +35,7 @@ const Customers = () => {
       const res = await apiClient.get(`/admin/customers?${params.toString()}`);
       setCustomers(res.data?.items || res.data || []);
     } catch (err) {
-      setError(err.message || 'Khong tai duoc danh sach khach hang.');
+      setError(err.message || 'Không tải được danh sách khách hàng.');
     } finally {
       setLoading(false);
     }
@@ -111,7 +111,7 @@ const Customers = () => {
       closeModal();
       fetchCustomers();
     } catch (err) {
-      alert(err.message || 'Khong luu duoc khach hang.');
+      alert(err.message || 'Không lưu được khách hàng.');
     }
   };
 
@@ -122,17 +122,17 @@ const Customers = () => {
       });
       fetchCustomers();
     } catch (err) {
-      alert(err.message || 'Khong cap nhat duoc trang thai.');
+      alert(err.message || 'Không cập nhật được trạng thái.');
     }
   };
 
   const deleteCustomer = async (customer) => {
-    if (!window.confirm(`Khoa tai khoan ${customer.Email || customer.FullName}?`)) return;
+    if (!window.confirm(`Khóa tài khoản ${customer.Email || customer.FullName}?`)) return;
     try {
       await apiClient.delete(`/admin/customers/${customer.CustomerID}`);
       fetchCustomers();
     } catch (err) {
-      alert(err.message || 'Khong khoa duoc tai khoan.');
+      alert(err.message || 'Không khóa được tài khoản.');
     }
   };
 
@@ -140,14 +140,14 @@ const Customers = () => {
     <>
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="font-headline-sm text-headline-sm text-text-primary">Khach hang</h2>
-          <p className="mt-1 text-sm text-text-muted">Quan ly ho so khach hang va trang thai tai khoan.</p>
+          <h2 className="font-headline-sm text-headline-sm text-text-primary">Khách hàng</h2>
+          <p className="mt-1 text-sm text-text-muted">Quản lý hồ sơ khách hàng và trạng thái tài khoản.</p>
         </div>
         <div className="flex flex-col gap-2 md:flex-row">
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-lg border border-border-default bg-surface-container-low px-3 text-sm outline-none focus:border-primary">
-            <option value="ALL">Tat ca trang thai</option>
-            <option value="ACTIVE">Dang hoat dong</option>
-            <option value="LOCKED">Da khoa</option>
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
           </select>
           <div className="relative w-full md:w-72">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">search</span>
@@ -156,12 +156,12 @@ const Customers = () => {
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && fetchCustomers()}
               className="h-10 w-full rounded-lg border border-border-default bg-surface-container-low pl-9 pr-4 text-body-md outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              placeholder="Tim kiem khach hang..."
+              placeholder="Tìm kiếm khách hàng..."
             />
           </div>
           <button onClick={openAddModal} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-inverse-on-surface transition-colors hover:bg-accent-hover">
             <span className="material-symbols-outlined text-[18px]">add</span>
-            Them
+            Thêm
           </button>
         </div>
       </div>
@@ -173,38 +173,38 @@ const Customers = () => {
           <table className="w-full min-w-[980px] text-left">
             <thead className="border-b border-border-default bg-surface-container-low">
               <tr>
-                {['Khach hang', 'Email tai khoan', 'So dien thoai', 'Gioi tinh', 'Diem thanh vien', 'Xac minh', 'Trang thai', 'Thao tac'].map((heading) => (
+                {['Khách hàng', 'Email tài khoản', 'Số điện thoại', 'Giới tính', 'Điểm thành viên', 'Xác minh', 'Trạng thái', 'Thao tác'].map((heading) => (
                   <th key={heading} className="px-4 py-3 text-[13px] font-bold uppercase text-text-secondary">{heading}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-[13px]">
               {loading ? (
-                <tr><td className="px-4 py-6 text-center text-text-muted" colSpan="8">Dang tai...</td></tr>
+                <tr><td className="px-4 py-6 text-center text-text-muted" colSpan="8">Đang tải...</td></tr>
               ) : filteredCustomers.length === 0 ? (
-                <tr><td className="px-4 py-6 text-center text-text-muted" colSpan="8">Chua co khach hang nao.</td></tr>
+                <tr><td className="px-4 py-6 text-center text-text-muted" colSpan="8">Chưa có khách hàng nào.</td></tr>
               ) : (
                 filteredCustomers.map((customer) => (
                   <tr key={customer.CustomerID} className="transition-colors hover:bg-surface-container-low">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-text-primary">{customer.FullName || `Khach hang #${customer.CustomerID}`}</div>
+                      <div className="font-semibold text-text-primary">{customer.FullName || `Khách hàng #${customer.CustomerID}`}</div>
                       <div className="text-xs text-text-muted">{customer.CustomerEmail || '-'}</div>
                     </td>
                     <td className="px-4 py-3 text-text-secondary">{customer.Email}</td>
                     <td className="px-4 py-3 text-text-secondary">{customer.PhoneNumber || '-'}</td>
                     <td className="px-4 py-3 text-text-secondary">{customer.Gender || '-'}</td>
                     <td className="px-4 py-3 font-semibold text-primary">{Number(customer.LoyaltyPoints || 0).toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3"><span className={`badge ${customer.IsVerified ? 'success' : 'gray'}`}>{customer.IsVerified ? 'Da xac minh' : 'Cho xac minh'}</span></td>
-                    <td className="px-4 py-3"><span className={`badge ${customer.IsActive ? 'success' : 'gray'}`}>{customer.IsActive ? 'Hoat dong' : 'Da khoa'}</span></td>
+                    <td className="px-4 py-3"><span className={`badge ${customer.IsVerified ? 'success' : 'gray'}`}>{customer.IsVerified ? 'Đã xác minh' : 'Chờ xác minh'}</span></td>
+                    <td className="px-4 py-3"><span className={`badge ${customer.IsActive ? 'success' : 'gray'}`}>{customer.IsActive ? 'Hoạt động' : 'Đã khóa'}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => openEditModal(customer)} className="rounded-lg border border-border-default p-2 text-text-secondary hover:text-primary" title="Sua">
+                        <button onClick={() => openEditModal(customer)} className="rounded-lg border border-border-default p-2 text-text-secondary hover:text-primary" title="Sửa">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </button>
-                        <button onClick={() => toggleStatus(customer)} className="rounded-lg border border-border-default p-2 text-text-secondary hover:text-warning" title={customer.IsActive ? 'Khoa' : 'Mo khoa'}>
+                        <button onClick={() => toggleStatus(customer)} className="rounded-lg border border-border-default p-2 text-text-secondary hover:text-warning" title={customer.IsActive ? 'Khóa' : 'Mở khóa'}>
                           <span className="material-symbols-outlined text-[18px]">{customer.IsActive ? 'lock' : 'lock_open'}</span>
                         </button>
-                        <button onClick={() => deleteCustomer(customer)} className="rounded-lg border border-border-default p-2 text-text-secondary hover:text-danger" title="Xoa">
+                        <button onClick={() => deleteCustomer(customer)} className="rounded-lg border border-border-default p-2 text-text-secondary hover:text-danger" title="Xóa">
                           <span className="material-symbols-outlined text-[18px]">delete</span>
                         </button>
                       </div>
@@ -221,7 +221,7 @@ const Customers = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border-default bg-surface p-6 shadow-xl">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-text-primary">{currentCustomer ? 'Sua khach hang' : 'Them khach hang'}</h3>
+              <h3 className="text-lg font-semibold text-text-primary">{currentCustomer ? 'Sửa khách hàng' : 'Thêm khách hàng'}</h3>
               <button onClick={closeModal} className="rounded-lg p-2 text-text-muted hover:bg-surface-container-low hover:text-text-primary">
                 <span className="material-symbols-outlined">close</span>
               </button>
@@ -229,57 +229,57 @@ const Customers = () => {
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Email tai khoan</span>
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Email tài khoản</span>
                 <input required name="Email" type="email" value={formData.Email} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
               </label>
               {!currentCustomer && (
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-text-secondary">Mat khau</span>
+                  <span className="mb-1.5 block text-sm font-medium text-text-secondary">Mật khẩu</span>
                   <input required name="Password" type="password" value={formData.Password} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
                 </label>
               )}
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Ho ten</span>
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Họ tên</span>
                 <input name="FullName" value={formData.FullName} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Email khach hang</span>
-                <input name="CustomerEmail" type="email" value={formData.CustomerEmail} onChange={handleChange} placeholder="Mac dinh theo email tai khoan" className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Email khách hàng</span>
+                <input name="CustomerEmail" type="email" value={formData.CustomerEmail} onChange={handleChange} placeholder="Mặc định theo email tài khoản" className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">So dien thoai</span>
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Số điện thoại</span>
                 <input name="PhoneNumber" value={formData.PhoneNumber} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Gioi tinh</span>
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Giới tính</span>
                 <select name="Gender" value={formData.Gender} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary">
-                  <option value="">Chua chon</option>
+                  <option value="">Chưa chọn</option>
                   <option value="MALE">Nam</option>
-                  <option value="FEMALE">Nu</option>
-                  <option value="OTHER">Khac</option>
+                  <option value="FEMALE">Nữ</option>
+                  <option value="OTHER">Khác</option>
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Ngay sinh</span>
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Ngày sinh</span>
                 <input name="DateOfBirth" type="date" value={formData.DateOfBirth} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Diem thanh vien</span>
+                <span className="mb-1.5 block text-sm font-medium text-text-secondary">Điểm thành viên</span>
                 <input name="LoyaltyPoints" type="number" min="0" value={formData.LoyaltyPoints} onChange={handleChange} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 outline-none focus:border-primary" />
               </label>
               <div className="flex items-center gap-6 md:col-span-2">
                 <label className="flex items-center gap-2 text-sm text-text-secondary">
                   <input name="IsActive" type="checkbox" checked={formData.IsActive} onChange={handleChange} />
-                  Hoat dong
+                  Hoạt động
                 </label>
                 <label className="flex items-center gap-2 text-sm text-text-secondary">
                   <input name="IsVerified" type="checkbox" checked={formData.IsVerified} onChange={handleChange} />
-                  Da xac minh
+                  Đã xác minh
                 </label>
               </div>
               <div className="flex justify-end gap-3 md:col-span-2">
-                <button type="button" onClick={closeModal} className="rounded-lg border border-border-default bg-surface-container-low px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary">Huy</button>
-                <button type="submit" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-inverse-on-surface hover:bg-accent-hover">Luu</button>
+                <button type="button" onClick={closeModal} className="rounded-lg border border-border-default bg-surface-container-low px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary">Hủy</button>
+                <button type="submit" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-inverse-on-surface hover:bg-accent-hover">Lưu</button>
               </div>
             </form>
           </div>
