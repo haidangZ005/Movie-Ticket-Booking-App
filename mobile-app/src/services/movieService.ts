@@ -34,18 +34,14 @@ export interface MovieFilters {
 // ============================================
 
 const movieService = {
-  /**
-   * Lấy danh sách phim (phân trang + lọc)
-   */
-  getAll: async (params: MovieFilters = {}) => {
+
+  getMovies: async (params = {}) => {
     const response = await apiClient.get('/movies', { params });
-    return response.data;
+    return response.data
   },
 
-  /**
-   * Lấy danh sách phim nổi bật
-   */
-  getFeatured: async () => {
+
+  getFeaturedMovies: async () => {
     const response = await apiClient.get('/movies/featured');
     return response.data;
   },
@@ -61,7 +57,7 @@ const movieService = {
   /**
    * Lấy chi tiết phim theo ID
    */
-  getById: async (movieId: number) => {
+  getMovieById: async (movieId: number) => {
     const response = await apiClient.get(`/movies/${movieId}`);
     return response.data;
   },

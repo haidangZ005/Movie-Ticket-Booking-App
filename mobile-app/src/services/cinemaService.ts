@@ -7,7 +7,9 @@ import apiClient from '../api/apiClient';
 export interface Cinema {
   CinemaID: number;
   CinemaName: string;
-  CinemaAddress: string;
+  CinemaAddress?: string;
+  Address?: string;
+  District?: string;
   CityID: number;
   CityName?: string;
   Latitude?: number;
@@ -19,6 +21,7 @@ export interface CinemaFilters {
   page?: number;
   limit?: number;
   cityId?: number;
+  movieId?: number;
 }
 
 // ============================================
@@ -45,9 +48,21 @@ const cinemaService = {
   /**
    * Lấy lịch chiếu theo cụm rạp (có thể lọc theo ngày)
    */
-  getShows: async (cinemaId: number, date?: string) => {
+  getShows: async (cinemaId: number, date?: string, movieId?: number) => {
     const params = date ? { date } : {};
+    if (movieId) {
+      Object.assign(params, { movieId });
+    }
     const response = await apiClient.get(`/cinemas/${cinemaId}/shows`, { params });
+    return response.data;
+  },
+
+  /**
+   * Lấy danh sách ngày thật sự có suất chiếu theo cụm rạp
+   */
+  getShowDates: async (cinemaId: number, movieId?: number) => {
+    const params = movieId ? { movieId } : {};
+    const response = await apiClient.get(`/cinemas/${cinemaId}/show-dates`, { params });
     return response.data;
   },
 };

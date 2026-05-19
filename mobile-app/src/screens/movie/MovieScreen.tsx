@@ -79,18 +79,18 @@ export default function MovieScreen() {
             style={[styles.tabBtn, activeTab === 'NowPlaying' && styles.tabBtnActive]}
             onPress={() => setActiveTab('NowPlaying')}
           >
-            <Text style={[styles.tabText, activeTab === 'NowPlaying' && styles.tabTextActive]}>Now playing</Text>
+            <Text style={[styles.tabText, activeTab === 'NowPlaying' && styles.tabTextActive]}>Đang chiếu</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tabBtn, activeTab === 'ComingSoon' && styles.tabBtnActive]}
             onPress={() => setActiveTab('ComingSoon')}
           >
-            <Text style={[styles.tabText, activeTab === 'ComingSoon' && styles.tabTextActive]}>Coming soon</Text>
+            <Text style={[styles.tabText, activeTab === 'ComingSoon' && styles.tabTextActive]}>Sắp chiếu</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Movie Grid */}
+      {/* Danh s?ch phim */}
       <FlatList
         data={MOCK_MOVIES}
         renderItem={renderMovie}

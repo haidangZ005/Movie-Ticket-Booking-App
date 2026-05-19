@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,166 +8,276 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import movieService, { Movie } from '../../services/movieService';
+import cinemaService, { Cinema } from '../../services/cinemaService';
+import { API_ORIGIN } from '../../config/api';
 
 const { width, height } = Dimensions.get('window');
 const HERO_HEIGHT = height * 0.45;
+const FALLBACK_MOVIE_IMAGE = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=900&h=1350&fit=crop';
+
+const resolveImageUrl = (image?: string) => {
+  if (!image) return '';
+  if (/^https?:\/\//i.test(image)) return image;
+  return `${API_ORIGIN}${image.startsWith('/') ? image : `/${image}`}`;
+};
+
+const getPosterImage = (movie?: Movie | null) => resolveImageUrl(movie?.PosterUrl) || FALLBACK_MOVIE_IMAGE;
+
+const formatReleaseDate = (date?: string) => {
+  if (!date) return 'Sắp chiếu';
+  return new Date(date).toLocaleDateString('vi-VN');
+};
+
+const formatRuntime = (minutes?: number) => {
+  if (!minutes) return 'Đang cập nhật';
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return hours > 0 ? `${hours}h${remainingMinutes ? ` ${remainingMinutes}m` : ''}` : `${minutes}m`;
+};
+
+const splitPeople = (value?: string) =>
+  value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean) || [];
 
 export default function MovieDetailScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const [movie, setMovie] = useState<Movie | null>(route.params?.movie || null);
+  const [cinemas, setCinemas] = useState<Cinema[]>([]);
+  const [selectedCinema, setSelectedCinema] = useState<Cinema | null>(null);
+  const [cinemasLoading, setCinemasLoading] = useState(false);
+  const [cinemaError, setCinemaError] = useState('');
+  const [loading, setLoading] = useState(!route.params?.movie);
+  const [error, setError] = useState('');
 
-  const directors = [
-    { id: '1', name: 'Anthony\nRusso', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop' },
-    { id: '2', name: 'Joe\nRusso', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop' },
-  ];
+  const movieId = route.params?.movieId || route.params?.movie?.MovieID;
 
-  const actors = [
-    { id: '1', name: 'Robert\nDowney Jr.', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop' },
-    { id: '2', name: 'Chris\nHemsworth', image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&h=150&fit=crop' },
-    { id: '3', name: 'Chris\nEvans', image: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150&h=150&fit=crop' },
-  ];
+  useEffect(() => {
+    if (!movieId || route.params?.movie) return;
 
-  const cinemas = [
-    { id: '1', name: 'Vincom Ocean Park CGV', distance: '4.55 km', address: 'Da Ton, Gia Lam, Ha Noi', type: 'cgv' },
-    { id: '2', name: 'Aeon Mall CGV', distance: '9.32 km', address: '27 Co Linh, Long Bien, Ha Noi', type: 'cgv' },
-    { id: '3', name: 'Lotte Cinema Long Bien', distance: '14.3 km', address: '7-9 Nguyen Van Linh, Long Bien, Ha Noi', type: 'lotte' },
-  ];
+    const loadMovieDetail = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await movieService.getMovieById(movieId);
+        setMovie(response.data || response);
+      } catch (err) {
+        console.log('Không thể tải chi tiết phim:', err);
+        setError('Không tải được chi tiết phim');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMovieDetail();
+  }, [movieId, route.params?.movie]);
+
+  useEffect(() => {
+    if (!movieId) return;
+
+    const loadMovieCinemas = async () => {
+      try {
+        setCinemasLoading(true);
+        setCinemaError('');
+        const response = await cinemaService.getAll({ limit: 100, movieId });
+        const cinemaItems = response.data?.items || response.data || [];
+        setCinemas(cinemaItems);
+        setSelectedCinema(cinemaItems[0] || null);
+      } catch (err) {
+        console.log('Không thể tải rạp chiếu phim:', err);
+        setCinemaError('Không tải được danh sách rạp chiếu phim này');
+        setCinemas([]);
+        setSelectedCinema(null);
+      } finally {
+        setCinemasLoading(false);
+      }
+    };
+
+    loadMovieCinemas();
+  }, [movieId]);
+
+  const directors = splitPeople(movie?.MovieDirector);
+  const actors = splitPeople(movie?.MovieActor);
+
+  const goToShowtime = () => {
+    if (!movieId || !selectedCinema) {
+      setCinemaError('Vui lòng chọn rạp trước khi tiếp tục');
+      return;
+    }
+
+    navigation.navigate('Showtime', {
+      movieId,
+      movieTitle: movie?.MovieTitle,
+      cinemaId: selectedCinema.CinemaID,
+      cinemaName: selectedCinema.CinemaName,
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.centerState}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!movie || error) {
+    return (
+      <View style={styles.centerState}>
+        <TouchableOpacity style={styles.backButtonInline} onPress={() => navigation.goBack()}>
+          <Feather name="arrow-left" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.emptyTitle}>{error || 'Không tìm thấy phim'}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Hero Section */}
         <View style={styles.heroContainer}>
-          <Image 
-            source={{ uri: 'https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_.jpg' }} 
-            style={styles.heroImage} 
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)', '#000000']}
-            style={styles.heroGradient}
-          />
-          
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
+          <Image source={{ uri: getPosterImage(movie) }} style={styles.heroImage} resizeMode="cover" />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)', '#000000']} style={styles.heroGradient} />
+
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Feather name="arrow-left" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Info Overlay Card */}
         <View style={styles.infoCardContainer}>
           <View style={styles.infoCard}>
-            <Text style={styles.movieTitle}>Avengers: Infinity War</Text>
-            <Text style={styles.movieMeta}>2h29m • 16.12.2022</Text>
-            
+            <Text style={styles.movieTitle}>{movie.MovieTitle}</Text>
+            <Text style={styles.movieMeta}>
+              {formatRuntime(movie.MovieRuntime)} - {formatReleaseDate(movie.MovieReleaseDate)}
+            </Text>
+
             <View style={styles.ratingRow}>
               <View style={styles.ratingLeft}>
-                <Text style={styles.reviewLabel}>Review</Text>
+                <Text style={styles.reviewLabel}>Đánh giá</Text>
                 <Ionicons name="star" size={16} color={Colors.primary} style={{ marginHorizontal: 6 }} />
-                <Text style={styles.ratingText}>4.8</Text>
-                <Text style={styles.ratingCount}>(1.222)</Text>
+                <Text style={styles.ratingText}>{movie.Rating || 0}</Text>
               </View>
-              <View style={styles.starsRow}>
-                <Ionicons name="star" size={24} color="#333" />
-                <Ionicons name="star" size={24} color="#333" />
-                <Ionicons name="star" size={24} color="#333" />
-                <Ionicons name="star" size={24} color="#333" />
-                <Ionicons name="star" size={24} color="#333" />
-              </View>
-              <TouchableOpacity style={styles.trailerBtn}>
-                <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.trailerBtnText}>Watch trailer</Text>
-              </TouchableOpacity>
+
+              {movie.TrailerUrl ? (
+                <TouchableOpacity style={styles.trailerBtn}>
+                  <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.trailerBtnText}>Xem trailer</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         </View>
 
-        {/* Details Rows */}
         <View style={styles.detailsSection}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Movie genre:</Text>
-            <Text style={styles.detailValue}>Action, adventure, sci-fi</Text>
+            <Text style={styles.detailLabel}>Thể loại:</Text>
+            <Text style={styles.detailValue}>{movie.MovieGenre || 'Đang cập nhật'}</Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Language:</Text>
-            <Text style={styles.detailValue}>English</Text>
+            <Text style={styles.detailLabel}>Ngôn ngữ:</Text>
+            <Text style={styles.detailValue}>{movie.MovieLanguage || 'Đang cập nhật'}</Text>
           </View>
         </View>
 
-        {/* Movie Description */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Movie Description</Text>
-          <Text style={styles.storylineText}>
-            As the Avengers and their allies have continued to protect the world from threats too large for any one hero to handle, a new danger has emerged from the cosmic shadows: Thanos....{' '}
-            <Text style={styles.seeMoreText}>See more</Text>
-          </Text>
+          <Text style={styles.sectionTitle}>Nội dung phim</Text>
+          <Text style={styles.storylineText}>{movie.MovieDescription || 'Nội dung phim đang được cập nhật.'}</Text>
         </View>
 
-        {/* Director */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Director</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-            {directors.map(dir => (
-              <View key={dir.id} style={styles.personCardSmall}>
-                <Image source={{ uri: dir.image }} style={styles.personImageSmall} />
-                <Text style={styles.personName}>{dir.name}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+        {directors.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Đạo diễn</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+              {directors.map((director) => (
+                <View key={director} style={styles.personCardSmall}>
+                  <View style={styles.personAvatar}>
+                    <Ionicons name="person" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.personName}>{director}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
-        {/* Actor */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Actor</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-            {actors.map(actor => (
-              <View key={actor.id} style={styles.personCardLarge}>
-                <Image source={{ uri: actor.image }} style={styles.personImageLarge} />
-                <Text style={styles.personName}>{actor.name}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+        {actors.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Diễn viên</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+              {actors.map((actor) => (
+                <View key={actor} style={styles.personCardLarge}>
+                  <View style={styles.personAvatarLarge}>
+                    <Ionicons name="person" size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.personName}>{actor}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
-        {/* Cinema */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cinema</Text>
-          {cinemas.map((cinema, index) => (
-            <TouchableOpacity 
-              key={cinema.id} 
-              style={[
-                styles.cinemaCard, 
-                index === 0 && styles.cinemaCardActive // Make first one active for demo
-              ]}
-            >
-              <View style={styles.cinemaInfo}>
-                <Text style={styles.cinemaTitle}>{cinema.name}</Text>
-                <Text style={styles.cinemaAddress}>
-                  {cinema.distance} | {cinema.address}
-                </Text>
-              </View>
-              {/* Dummy Logo Placeholder */}
-              <View style={styles.cinemaLogoPlaceholder}>
-                <Text style={styles.cinemaLogoText}>{cinema.type === 'cgv' ? 'CGV' : 'LOTTE'}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          <Text style={styles.sectionTitle}>Rạp chiếu</Text>
+          {cinemasLoading ? (
+            <View style={styles.cinemaLoading}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={styles.cinemaLoadingText}>Đang tải rạp chiếu...</Text>
+            </View>
+          ) : cinemas.length === 0 ? (
+            <View style={styles.cinemaEmpty}>
+              <Text style={styles.cinemaAddress}>
+                {cinemaError || 'Chưa có rạp nào có lịch chiếu phim này'}
+              </Text>
+            </View>
+          ) : (
+            cinemas.map((cinema) => {
+              const active = selectedCinema?.CinemaID === cinema.CinemaID;
+              return (
+                <TouchableOpacity
+                  key={cinema.CinemaID}
+                  style={[styles.cinemaCard, active && styles.cinemaCardActive]}
+                  onPress={() => {
+                    setSelectedCinema(cinema);
+                    setCinemaError('');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.cinemaInfo}>
+                    <Text style={styles.cinemaTitle}>{cinema.CinemaName}</Text>
+                    <Text style={styles.cinemaAddress} numberOfLines={2}>
+                      {[cinema.Address || cinema.CinemaAddress, cinema.District, cinema.CityName]
+                        .filter(Boolean)
+                        .join(' | ') || 'Địa chỉ đang cập nhật'}
+                    </Text>
+                  </View>
+                  <View style={[styles.cinemaCheck, active && styles.cinemaCheckActive]}>
+                    {active ? <Feather name="check" size={14} color="#000000" /> : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+          {cinemaError && cinemas.length > 0 ? <Text style={styles.cinemaError}>{cinemaError}</Text> : null}
         </View>
-
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.continueButton}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+        <TouchableOpacity
+          style={[styles.continueButton, !selectedCinema && styles.continueButtonDisabled]}
+          onPress={goToShowtime}
+        >
+          <Text style={styles.continueButtonText}>Tiếp tục</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -179,16 +289,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  centerState: {
+    flex: 1,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  backButtonInline: {
+    position: 'absolute',
+    top: 52,
+    left: 20,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // space for bottom button
+    paddingBottom: 100,
   },
-
-  // Hero Image
   heroContainer: {
-    width: width,
+    width,
     height: HERO_HEIGHT,
     position: 'relative',
   },
@@ -209,11 +339,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Info Card overlapping hero
   infoCardContainer: {
     paddingHorizontal: 20,
-    marginTop: -80, // Overlap
+    marginTop: -80,
   },
   infoCard: {
     backgroundColor: '#1C1B1B',
@@ -235,13 +363,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
     flexWrap: 'wrap',
   },
   ratingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 12,
   },
   reviewLabel: {
     fontSize: 16,
@@ -252,15 +379,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  ratingCount: {
-    fontSize: 12,
-    color: '#A1A1AA',
-    marginLeft: 4,
-  },
-  starsRow: {
-    flexDirection: 'row',
-    gap: 4,
   },
   trailerBtn: {
     flexDirection: 'row',
@@ -276,8 +394,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-
-  // Details
   detailsSection: {
     paddingHorizontal: 20,
     marginTop: 32,
@@ -297,8 +413,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
-  // Generic Sections
   section: {
     paddingHorizontal: 20,
     marginTop: 32,
@@ -309,24 +423,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 16,
   },
-  
-  // Storyline
   storylineText: {
     fontSize: 14,
     lineHeight: 22,
     color: '#FFFFFF',
   },
-  seeMoreText: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-
-  // Horizontal Lists
   horizontalList: {
     gap: 12,
   },
-  
-  // Director Card
   personCardSmall: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,16 +438,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 8,
     paddingRight: 16,
-    width: 140,
+    minWidth: 140,
   },
-  personImageSmall: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  
-  // Actor Card
   personCardLarge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -351,21 +447,32 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 8,
     paddingRight: 16,
-    width: 160,
+    minWidth: 160,
   },
-  personImageLarge: {
+  personAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    backgroundColor: '#2A2A2A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personAvatarLarge: {
     width: 48,
     height: 48,
     borderRadius: 24,
     marginRight: 12,
+    backgroundColor: '#2A2A2A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   personName: {
     color: '#FFFFFF',
     fontSize: 13,
     lineHeight: 18,
+    maxWidth: 100,
   },
-
-  // Cinema List
   cinemaCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,6 +485,7 @@ const styles = StyleSheet.create({
   },
   cinemaCardActive: {
     borderColor: Colors.primary,
+    backgroundColor: '#251F0F',
   },
   cinemaInfo: {
     flex: 1,
@@ -391,21 +499,44 @@ const styles = StyleSheet.create({
   cinemaAddress: {
     color: '#A1A1AA',
     fontSize: 12,
+    lineHeight: 18,
   },
-  cinemaLogoPlaceholder: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  cinemaLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1B1B',
+    borderRadius: 16,
+    padding: 16,
+  },
+  cinemaLoadingText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    marginLeft: 10,
+  },
+  cinemaEmpty: {
+    backgroundColor: '#1C1B1B',
+    borderRadius: 16,
+    padding: 16,
+  },
+  cinemaError: {
+    color: Colors.error,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cinemaCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3A3A3A',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: 12,
   },
-  cinemaLogoText: {
-    color: '#D00000', // CGV red-like
-    fontWeight: '900',
-    fontSize: 10,
+  cinemaCheckActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
-
-  // Bottom Bar
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -414,7 +545,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
-    backgroundColor: '#000000', // Solid black to hide scroll content
+    backgroundColor: '#000000',
   },
   continueButton: {
     backgroundColor: Colors.primary,
@@ -422,6 +553,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    opacity: 0.45,
   },
   continueButtonText: {
     fontSize: 16,

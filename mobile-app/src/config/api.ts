@@ -47,6 +47,7 @@ if (envUrl && envUrl.trim() !== '') {
 }
 
 export const API_BASE_URL = resolvedUrl;
+export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 if (__DEV__) {
   console.log(`[API] Base URL dynamically resolved: ${API_BASE_URL}`);

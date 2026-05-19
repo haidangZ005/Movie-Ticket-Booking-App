@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,29 +13,28 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Movie } from '../../services/movieService';
+import { API_ORIGIN } from '../../config/api';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.7;
 const CARD_MARGIN = 10;
+const FALLBACK_MOVIE_IMAGE = 'https://via.placeholder.com/400x600?text=No+Image';
 
-// ============================================
-// Props Interface
-// ============================================
+const resolveImageUrl = (image?: string) => {
+  if (!image) return '';
+  if (/^https?:\/\//i.test(image)) return image;
+  return `${API_ORIGIN}${image.startsWith('/') ? image : `/${image}`}`;
+};
 
 interface FeaturedCarouselProps {
   movies: Movie[];
   onMoviePress: (movieId: number) => void;
 }
 
-// ============================================
-// FeaturedCarousel Component — Slider phim nổi bật
-// ============================================
-
 const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ movies, onMoviePress }) => {
   const flatListRef = useRef<FlatList<Movie>>(null);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
-  // Auto-scroll carousel mỗi 4 giây
   useEffect(() => {
     if (movies.length <= 1) return;
 
@@ -63,11 +62,10 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ movies, onMoviePres
       onPress={() => onMoviePress(item.MovieID)}
     >
       <Image
-        source={{ uri: item.PosterUrl || 'https://via.placeholder.com/400x600?text=No+Image' }}
+        source={{ uri: resolveImageUrl(item.PosterUrl) || FALLBACK_MOVIE_IMAGE }}
         style={styles.poster}
         resizeMode="cover"
       />
-      {/* Overlay thông tin */}
       <View style={styles.overlay}>
         <Text style={styles.title} numberOfLines={2}>{item.MovieTitle}</Text>
         <View style={styles.metaRow}>
@@ -97,7 +95,6 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ movies, onMoviePres
         onScroll={handleScroll}
         scrollEventThrottle={16}
       />
-      {/* Dot indicators */}
       <View style={styles.dotContainer}>
         {movies.map((_, index) => (
           <View
@@ -109,10 +106,6 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ movies, onMoviePres
     </View>
   );
 };
-
-// ============================================
-// Styles
-// ============================================
 
 const styles = StyleSheet.create({
   container: {
