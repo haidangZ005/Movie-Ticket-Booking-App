@@ -28,7 +28,7 @@
 Hệ thống đặt vé xem phim đa nền tảng bao gồm:
 
 - **Mobile App** (React Native): Giao diện khách hàng — đặt vé, chọn ghế realtime, thanh toán QR/thẻ tín dụng, OTP xác thực.
-- **Admin Panel** (HTML/CSS/JS): Giao diện quản trị — quản lý phim, rạp, khuyến mãi, báo cáo doanh thu, nhật ký thao tác, cài đặt hệ thống.
+- **Admin Panel** (React/Vite): Giao diện quản trị — quản lý phim, rạp, khuyến mãi, báo cáo doanh thu, nhật ký thao tác, cài đặt hệ thống.
 - **Backend API** (Node.js/Express): REST API xử lý business logic, WebSocket realtime, Job Scheduler.
 - **Payment Gateway Service** (Node.js/Express): Web API Service **riêng biệt** — sinh mã QR động, xử lý thanh toán thẻ, webhook callback, bảo mật HMAC.
 - **Database** (SQL Server): Dữ liệu có cấu trúc, hỗ trợ ACID.
@@ -69,7 +69,7 @@ Hệ thống đặt vé xem phim đa nền tảng bao gồm:
        │                                   │
 ┌──────────────┐     REST API              │ HMAC signed      ┌───────────────┐
 │  🖥️ Admin    │ ──── (JWT) ────▶          │◀────────────────▶│ 💰 Payment GW │
-│  HTML/CSS/JS │                           │                  │  Service      │
+│  React/Vite  │                           │                  │  Service      │
 └──────────────┘                           │                  └───────────────┘
                                            │
                               ┌─────────────┼─────────────┐
@@ -133,16 +133,19 @@ da_nen_tang/
 │       ├── services/                   # Payment logic (MoMo, VNPay, Credit Card)
 │       └── utils/                      # HMAC signing, QR code generation
 │
-├── frontend-admin/                     # HTML/CSS/JS Admin Panel
-│   ├── index.html                      # Entry point — Dashboard
-│   ├── css/                            # Stylesheets
-│   ├── js/
-│   │   ├── pages/                      # Logic từng trang admin
-│   │   ├── components/                 # Reusable UI components
-│   │   ├── services/                   # API calls (fetch/axios)
+├── frontend-admin/                     # React/Vite Admin Panel
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html                      # Entry point (Vite)
+│   ├── src/
+│   │   ├── main.jsx                    # React bootstrap
+│   │   ├── App.jsx                     # Layout chính
+│   │   ├── index.css                   # Global styles
+│   │   ├── pages/                      # Các trang (Dashboard, Movies, etc.)
+│   │   ├── components/                 # Reusable UI components (Sidebar, Topbar, SeatMap...)
+│   │   ├── services/                   # API calls (axios)
 │   │   └── utils/                      # Helpers, formatters
-│   ├── pages/                          # HTML pages
-│   └── assets/images/                  # Ảnh, icons
+│   └── public/                         # Ảnh, icons tĩnh
 │
 ├── mobile-app/                         # React Native (iOS + Android)
 │   ├── package.json
@@ -197,7 +200,7 @@ da_nen_tang/
 | Tầng | Công nghệ | Vai trò |
 |------|-----------|---------|
 | Frontend Mobile | **React Native** (Expo hoặc CLI) | Giao diện khách hàng: đặt vé, chọn ghế, thanh toán |
-| Frontend Admin | **HTML / CSS / JavaScript** thuần | Giao diện quản trị: phim, rạp, báo cáo (Chart.js) |
+| Frontend Admin | **React / Vite** | Giao diện quản trị: phim, rạp, báo cáo (Chart.js) |
 | Backend | **Node.js + Express** | REST API, business logic, middleware |
 | Payment Gateway | **Node.js + Express** (port 4000) | 🆕 Web API Service riêng biệt — sinh QR, xử lý thanh toán, HMAC |
 | Realtime | **Socket.IO** (WebSocket) | Cập nhật trạng thái ghế theo thời gian thực |

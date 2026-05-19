@@ -6,6 +6,7 @@ import { ErrorCode } from '../utils/exceptions/error.code';
 
 interface CinemaFilters {
   cityId?: number;
+  movieId?: number;
   name?: string;
   isActive?: boolean;
 }
@@ -45,7 +46,7 @@ class CinemaService {
       .input('cityId', sql.Int, cityId)
       .query(`
         SELECT c.*, ct.CityName 
-        FROM CinemaComplex c
+        FROM Cinema c
         JOIN City ct ON c.CityID = ct.CityID
         WHERE c.CityID = @cityId AND c.IsActive = 1
         ORDER BY c.CinemaName
@@ -57,16 +58,20 @@ class CinemaService {
    * Lấy tất cả thành phố
    */
   static async getAllCities() {
-    const pool = getPool();
-    const result = await pool.request()
-      .query('SELECT * FROM City ORDER BY CityName');
-    return result.recordset;
+    return await CinemaModel.getAllCities();
   }
 
   /**
    * Thêm cụm rạp mới (Admin)
    */
   static async create(cinemaData: any) {
+    if (!cinemaData.cityId && cinemaData.CityID) {
+      cinemaData.cityId = cinemaData.CityID;
+    }
+    if (!cinemaData.cityId && cinemaData.cityName) {
+      const city = await CinemaModel.findOrCreateCity(cinemaData.cityName);
+      cinemaData.cityId = city.CityID;
+    }
     // Kiểm tra thành phố tồn tại
     const pool = getPool();
     const cityCheck = await pool.request()
@@ -133,6 +138,23 @@ class CinemaService {
   }
 
   /**
+   * Cập nhật phòng chiếu (Admin)
+   */
+  static async updateHall(id: number, hallData: any) {
+    await this.getHallById(id); // Kiểm tra tồn tại
+    this.validateHallData(hallData);
+    return await CinemaModel.updateHall(id, hallData);
+  }
+
+  /**
+   * Xóa phòng chiếu (Admin)
+   */
+  static async deleteHall(id: number) {
+    await this.getHallById(id); // Kiểm tra tồn tại
+    return await CinemaModel.deleteHall(id);
+  }
+
+  /**
    * Validate dữ liệu cụm rạp
    */
   private static validateCinemaData(data: any, isCreate: boolean = true) {
@@ -155,7 +177,7 @@ class CinemaService {
    */
   private static validateHallData(data: any) {
     if (!data.hallName) throw this.createValidationError('Tên phòng chiếu là bắt buộc', 'HALL_NAME_REQUIRED');
-    if (!data.cinemaId) throw this.createValidationError('Cụm rạp là bắt buộc', 'CINEMA_REQUIRED');
+    if (data.cinemaId !== undefined && !data.cinemaId) throw this.createValidationError('Cụm rạp là bắt buộc', 'CINEMA_REQUIRED');
     if (!data.totalRows || data.totalRows < 1) throw this.createValidationError('Số hàng phải >= 1', 'INVALID_TOTAL_ROWS');
     if (!data.totalCols || data.totalCols < 1) throw this.createValidationError('Số cột phải >= 1', 'INVALID_TOTAL_COLS');
   }

@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import { connectDB } from './config/database';
 import { globalExceptionHandler } from './utils/exceptions/global.exception.handler';
@@ -19,11 +20,14 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 // 1. SYSTEM MIDDLEWARES
 // ==========================================
-app.use(helmet());                              // Bảo mật HTTP headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));                                            // Bảo mật HTTP headers
 app.use(cors());                                // Cho phép Cross-Origin
 app.use(morgan('dev'));                          // Log request ra console
 app.use(express.json());                        // Parse JSON body
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded body
+app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
 // ==========================================
 // 2. API ROUTES (Các thành viên chèn routes ở đây)

@@ -36,15 +36,40 @@ export const getShowSeats = asyncHandler(async (req: Request, res: Response) => 
 // GET /api/cinemas/:id/shows — Lịch chiếu theo cụm rạp
 export const getShowsByCinema = asyncHandler(async (req: Request, res: Response) => {
   const cinemaId = Number(req.params.id);
-  const { movieId, showDate, format } = req.query;
+  const { movieId, showDate, date, format } = req.query;
   
   const filters: any = {};
   if (movieId) filters.movieId = Number(movieId);
-  if (showDate) filters.showDate = new Date(showDate as string);
+  if (showDate || date) filters.showDate = String(showDate || date);
   if (format) filters.format = format;
   
   const shows = await ShowService.getByCinemaId(cinemaId, filters);
   return res.status(200).json({ success: true, data: shows });
+});
+
+export const getAdminShows = asyncHandler(async (req: Request, res: Response) => {
+  const { cinemaId, hallId, movieId, date, showDate, format } = req.query;
+
+  const filters: any = {};
+  if (cinemaId) filters.cinemaId = Number(cinemaId);
+  if (hallId) filters.hallId = Number(hallId);
+  if (movieId) filters.movieId = Number(movieId);
+  if (date || showDate) filters.showDate = String(date || showDate);
+  if (format) filters.format = String(format);
+
+  const shows = await ShowService.getAll(filters);
+  return res.status(200).json({ success: true, data: shows });
+});
+
+export const getShowDatesByCinema = asyncHandler(async (req: Request, res: Response) => {
+  const cinemaId = Number(req.params.id);
+  const { movieId } = req.query;
+
+  const dates = await ShowService.getDatesByCinemaId(cinemaId, {
+    movieId: movieId ? Number(movieId) : undefined,
+  });
+
+  return res.status(200).json({ success: true, data: dates });
 });
 
 // POST /api/admin/shows — Tạo suất chiếu (Admin, kiểm tra xung đột)
@@ -79,6 +104,6 @@ export const updateShow = asyncHandler(async (req: Request, res: Response) => {
 
 // DELETE /api/admin/shows/:id — Xóa suất chiếu (Admin, kiểm tra không có vé)
 export const deleteShow = asyncHandler(async (req: Request, res: Response) => {
-  await ShowService.delete(Number(req.params.id));
+  await ShowService.deleteShow(Number(req.params.id));
   return res.status(200).json({ success: true, data: null, message: 'Xóa suất chiếu thành công' });
 });

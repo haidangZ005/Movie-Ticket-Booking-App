@@ -1,0 +1,301 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.admin-wrap { display: flex; min-height: 600px; background: var(--color-background-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; border: 0.5px solid var(--color-border-tertiary); }
+.sidebar { width: 200px; background: var(--color-background-primary); border-right: 0.5px solid var(--color-border-tertiary); padding: 16px 0; flex-shrink: 0; }
+.logo { padding: 0 16px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 8px; }
+.logo-text { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.logo-sub { font-size: 11px; color: var(--color-text-tertiary); }
+.nav-section { padding: 8px 0; }
+.nav-label { font-size: 10px; color: var(--color-text-tertiary); padding: 4px 16px 2px; letter-spacing: 0.05em; text-transform: uppercase; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; transition: all 0.15s; }
+.nav-item:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+.nav-item.active { background: var(--color-background-info); color: var(--color-text-info); font-weight: 500; }
+.nav-item i { font-size: 16px; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.page-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.btn-primary { background: var(--color-background-info); color: var(--color-text-info); border: none; padding: 6px 14px; border-radius: var(--border-radius-md); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--color-background-warning); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: var(--color-text-warning); }
+.content { flex: 1; padding: 16px 20px; overflow-y: auto; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.metric { background: var(--color-background-primary); border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); padding: 12px 14px; }
+.metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.metric-change { font-size: 11px; margin-top: 2px; }
+.up { color: var(--color-text-success); }
+.down { color: var(--color-text-danger); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.card { background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 14px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.see-all { font-size: 12px; color: var(--color-text-info); cursor: pointer; }
+.movie-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.movie-row:last-child { border-bottom: none; }
+.movie-thumb { width: 32px; height: 44px; border-radius: 4px; background: var(--color-background-secondary); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--color-text-tertiary); flex-shrink: 0; overflow: hidden; }
+.movie-info { flex: 1; min-width: 0; }
+.movie-name { font-size: 12px; font-weight: 500; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.movie-meta { font-size: 11px; color: var(--color-text-tertiary); }
+.movie-revenue { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+.badge-green { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-amber { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-red { background: var(--color-background-danger); color: var(--color-text-danger); }
+.ticket-list { }
+.ticket-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 12px; }
+.ticket-item:last-child { border-bottom: none; }
+.ticket-id { color: var(--color-text-tertiary); font-family: var(--font-mono); width: 50px; }
+.ticket-user { flex: 1; color: var(--color-text-primary); font-weight: 500; }
+.ticket-film { flex: 1; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticket-price { color: var(--color-text-primary); font-weight: 500; }
+.seat-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; padding: 8px 0; }
+.seat { width: 100%; aspect-ratio: 1; border-radius: 3px; cursor: pointer; }
+.seat-available { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-secondary); }
+.seat-booked { background: var(--color-background-info); }
+.seat-vip { background: var(--color-background-warning); }
+.seat-disabled { background: var(--color-background-danger); opacity: 0.5; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; padding-top: 8px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--color-background-info); min-height: 4px; transition: height 0.3s; }
+.bar-label { font-size: 10px; color: var(--color-text-tertiary); }
+.tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 12px; }
+.tab { font-size: 12px; padding: 6px 12px; color: var(--color-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; }
+.tab.active { color: var(--color-text-info); border-bottom-color: #378ADD; font-weight: 500; }
+.tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--color-border-secondary); color: var(--color-text-secondary); margin-right: 3px; }
+</style>
+
+<h2 class="sr-only">Trang quản trị hệ thống đặt vé xem phim</h2>
+
+<div class="admin-wrap">
+  <div class="sidebar">
+    <div class="logo">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <i class="ti ti-movie" style="font-size:20px;color:var(--color-text-info)" aria-hidden="true"></i>
+        <div>
+          <div class="logo-text">CineAdmin</div>
+          <div class="logo-sub">Quản trị hệ thống</div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Tổng quan</div>
+      <div class="nav-item active"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Dashboard</div>
+      <div class="nav-item"><i class="ti ti-chart-bar" aria-hidden="true"></i> Báo cáo</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Quản lý</div>
+      <div class="nav-item"><i class="ti ti-movie" aria-hidden="true"></i> Phim</div>
+      <div class="nav-item"><i class="ti ti-calendar" aria-hidden="true"></i> Lịch chiếu</div>
+      <div class="nav-item"><i class="ti ti-ticket" aria-hidden="true"></i> Vé đặt</div>
+      <div class="nav-item"><i class="ti ti-building" aria-hidden="true"></i> Rạp & phòng</div>
+      <div class="nav-item"><i class="ti ti-users" aria-hidden="true"></i> Khách hàng</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Hệ thống</div>
+      <div class="nav-item"><i class="ti ti-discount" aria-hidden="true"></i> Khuyến mãi</div>
+      <div class="nav-item"><i class="ti ti-settings" aria-hidden="true"></i> Cài đặt</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title">Dashboard — Hôm nay, 11/05/2026</div>
+      <div class="topbar-right">
+        <button class="btn-primary"><i class="ti ti-plus" style="font-size:14px"></i> Thêm suất chiếu</button>
+        <div class="avatar">AD</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Doanh thu hôm nay</div>
+          <div class="metric-value">48,2M</div>
+          <div class="metric-change up"><i class="ti ti-arrow-up" style="font-size:10px"></i> +12% so với hôm qua</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Vé đã bán</div>
+          <div class="metric-value">1.847</div>
+          <div class="metric-change up"><i class="ti ti-arrow-up" style="font-size:10px"></i> +8%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Tỉ lệ lấp đầy</div>
+          <div class="metric-value">73%</div>
+          <div class="metric-change down"><i class="ti ti-arrow-down" style="font-size:10px"></i> -3%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Suất chiếu</div>
+          <div class="metric-value">34</div>
+          <div class="metric-change" style="color:var(--color-text-tertiary)">Hôm nay</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Phim đang chiếu</span>
+            <span class="see-all">Xem tất cả</span>
+          </div>
+          <div class="tabs">
+            <div class="tab active">Doanh thu</div>
+            <div class="tab">Lượt xem</div>
+          </div>
+          <div class="movie-row">
+            <div class="movie-thumb" style="background:#1a1a2e;color:#7B96FA;font-size:8px;text-align:center;line-height:44px;">🎬</div>
+            <div class="movie-info">
+              <div class="movie-name">Avengers: Kỷ Nguyên Mới</div>
+              <div class="movie-meta">Action · 2h 48m <span class="tag">IMAX</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="movie-revenue">18,4M</div>
+              <span class="badge badge-green">Hot</span>
+            </div>
+          </div>
+          <div class="movie-row">
+            <div class="movie-thumb" style="background:#1e3a2f;color:#5DCAA5;font-size:18px;text-align:center;line-height:44px;">🌿</div>
+            <div class="movie-info">
+              <div class="movie-name">Rừng Xanh Bí Ẩn</div>
+              <div class="movie-meta">Adventure · 2h 10m</div>
+            </div>
+            <div style="text-align:right">
+              <div class="movie-revenue">9,1M</div>
+              <span class="badge badge-amber">TB</span>
+            </div>
+          </div>
+          <div class="movie-row">
+            <div class="movie-thumb" style="background:#2a1a1a;color:#F09595;font-size:18px;text-align:center;line-height:44px;">💀</div>
+            <div class="movie-info">
+              <div class="movie-name">Đêm Kinh Hoàng</div>
+              <div class="movie-meta">Horror · 1h 55m</div>
+            </div>
+            <div style="text-align:right">
+              <div class="movie-revenue">7,3M</div>
+              <span class="badge badge-amber">TB</span>
+            </div>
+          </div>
+          <div class="movie-row">
+            <div class="movie-thumb" style="background:#1a1a3a;color:#AFA9EC;font-size:18px;text-align:center;line-height:44px;">🚀</div>
+            <div class="movie-info">
+              <div class="movie-name">Hành Trình Vũ Trụ</div>
+              <div class="movie-meta">Sci-Fi · 2h 22m <span class="tag">3D</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="movie-revenue">5,8M</div>
+              <span class="badge badge-red">Thấp</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Sơ đồ ghế — Phòng 2 · 19:30</span>
+            <span style="font-size:12px;color:var(--color-text-secondary)">Avengers · 78% lấp đầy</span>
+          </div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);text-align:center;margin-bottom:6px;padding:4px;background:var(--color-background-secondary);border-radius:4px;">— MÀN HÌNH —</div>
+          <div class="seat-grid" id="seat-grid"></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary)"></div>Trống</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-info)"></div>Đã đặt</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-warning)"></div>VIP</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-danger);opacity:0.5"></div>Hỏng</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Doanh thu 7 ngày qua</span>
+          </div>
+          <div class="chart-bars" id="chart"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Đặt vé gần đây</span>
+            <span class="see-all">Xem tất cả</span>
+          </div>
+          <div class="ticket-list">
+            <div class="ticket-item">
+              <span class="ticket-id">#4821</span>
+              <span class="ticket-user">Minh Tuấn</span>
+              <span class="ticket-film">Avengers</span>
+              <span class="badge badge-green">Đã TT</span>
+              <span class="ticket-price">180k</span>
+            </div>
+            <div class="ticket-item">
+              <span class="ticket-id">#4820</span>
+              <span class="ticket-user">Lan Anh</span>
+              <span class="ticket-film">Rừng Xanh</span>
+              <span class="badge badge-amber">Chờ TT</span>
+              <span class="ticket-price">120k</span>
+            </div>
+            <div class="ticket-item">
+              <span class="ticket-id">#4819</span>
+              <span class="ticket-user">Quốc Hùng</span>
+              <span class="ticket-film">Avengers</span>
+              <span class="badge badge-green">Đã TT</span>
+              <span class="ticket-price">240k</span>
+            </div>
+            <div class="ticket-item">
+              <span class="ticket-id">#4818</span>
+              <span class="ticket-user">Thu Hà</span>
+              <span class="ticket-film">Đêm KH</span>
+              <span class="badge badge-red">Hủy</span>
+              <span class="ticket-price">100k</span>
+            </div>
+            <div class="ticket-item">
+              <span class="ticket-id">#4817</span>
+              <span class="ticket-user">Đức Tài</span>
+              <span class="ticket-film">Hành Trình</span>
+              <span class="badge badge-green">Đã TT</span>
+              <span class="ticket-price">160k</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const seatGrid = document.getElementById('seat-grid');
+const rows = 5, cols = 10;
+const booked = [2,3,12,13,14,22,23,24,25,31,32,33,34,35,36,42,43];
+const vip = [20,21,28,29];
+const disabled = [0,9];
+for(let i=0;i<rows*cols;i++){
+  const s = document.createElement('div');
+  s.className = 'seat ';
+  if(disabled.includes(i)) s.className += 'seat-disabled';
+  else if(vip.includes(i)) s.className += 'seat-vip';
+  else if(booked.includes(i)) s.className += 'seat-booked';
+  else s.className += 'seat-available';
+  s.title = 'Ghế ' + String.fromCharCode(65+Math.floor(i/cols)) + (i%cols+1);
+  seatGrid.appendChild(s);
+}
+
+const chartEl = document.getElementById('chart');
+const data = [32,45,38,55,61,48,72];
+const labels = ['T2','T3','T4','T5','T6','T7','CN'];
+const max = Math.max(...data);
+data.forEach((v,i)=>{
+  const col = document.createElement('div');
+  col.className = 'bar-col';
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  bar.style.height = Math.round(v/max*70)+'px';
+  bar.style.opacity = i===6?'1':'0.5';
+  const lbl = document.createElement('div');
+  lbl.className = 'bar-label';
+  lbl.textContent = labels[i];
+  col.appendChild(bar);
+  col.appendChild(lbl);
+  chartEl.appendChild(col);
+});
+</script>

@@ -6,7 +6,7 @@ jspm_packages/
 .npm
 .eslintcache
 .yarn/
-package-lock.json
+# package-lock.json KHÔNG NÊN IGNORE nếu bạn dùng npm
 
 # =========================
 # Environment Variables
@@ -23,6 +23,7 @@ package-lock.json
 backend/dist/
 backend/build/
 backend/temp/
+backend/public/uploads/
 
 # Payment Gateway
 payment-gateway/dist/
@@ -44,8 +45,10 @@ mobile-app/*.mobileprovision
 mobile-app/*.orig.*
 mobile-app/android/app/build/
 mobile-app/android/.gradle/
+mobile-app/android/app/src/main/assets/
 mobile-app/ios/build/
 mobile-app/ios/Pods/
+mobile-app/ios/Index/
 
 # =========================
 # Postman & API Testing
@@ -62,6 +65,7 @@ postman/
 .cursor/
 .copilot/
 .aider*
+.ai/
 
 # =========================
 # Logs
@@ -95,7 +99,9 @@ desktop.ini
 # IDE & Editor files
 # =========================
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 *.suo
 *.ntvs*
 *.njsproj
@@ -108,5 +114,6 @@ desktop.ini
 # =========================
 *.tsbuildinfo
 .cache/
+.npm-cache/
 tmp/
 temp/

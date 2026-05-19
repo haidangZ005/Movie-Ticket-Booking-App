@@ -3,25 +3,21 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingVi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { authService } from '../../services/authService';
 import { LanguageContext } from '../../context/LanguageContext';
+import { authService } from '../../services/authService';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
   const { t } = useContext(LanguageContext);
-  
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSendOtp = async () => {
     const trimmedEmail = email.trim().toLowerCase();
-    
     if (!trimmedEmail) {
       setError(t('validation.emailRequired'));
       return;
@@ -39,15 +35,12 @@ export default function ForgotPasswordScreen() {
       if (__DEV__) {
         console.log('[Forgot Password Response]', res);
       }
-      
+
       setSuccessMessage(t('forgot.neutralSuccess'));
       setTimeout(() => {
         navigation.navigate('VerifyResetOtp', { email: trimmedEmail });
       }, 2000);
     } catch (err: any) {
-      if (__DEV__) {
-        console.log('[Forgot Password Error]', err);
-      }
       setError(err.response?.data?.message || t('common.serverConnectionError'));
     } finally {
       setIsLoading(false);
@@ -60,7 +53,7 @@ export default function ForgotPasswordScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonArea}>
-              <Text style={styles.backButton}>←</Text>
+              <Text style={styles.backButton}>{'<'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -92,8 +85,8 @@ export default function ForgotPasswordScreen() {
               </View>
             ) : null}
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, isLoading && styles.disabledButton]} 
+            <TouchableOpacity
+              style={[styles.primaryButton, isLoading && styles.disabledButton]}
               onPress={handleSendOtp}
               disabled={isLoading || !!successMessage}
             >

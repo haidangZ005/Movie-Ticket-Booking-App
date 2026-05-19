@@ -11,6 +11,7 @@
     "worker:email": "ts-node-dev --respawn --transpile-only src/workers/email.worker.ts"
   },
   "dependencies": {
+    "@types/multer": "^2.1.0",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.76.10",
@@ -23,6 +24,7 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "mssql": "^10.0.0",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.5"
   },
   "devDependencies": {

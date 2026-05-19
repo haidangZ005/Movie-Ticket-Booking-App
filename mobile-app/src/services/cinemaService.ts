@@ -1,13 +1,11 @@
 import apiClient from '../api/apiClient';
 
-// ============================================
-// Interfaces (Định nghĩa kiểu dữ liệu)
-// ============================================
-
 export interface Cinema {
   CinemaID: number;
   CinemaName: string;
-  CinemaAddress: string;
+  CinemaAddress?: string;
+  Address?: string;
+  District?: string;
   CityID: number;
   CityName?: string;
   Latitude?: number;
@@ -19,11 +17,8 @@ export interface CinemaFilters {
   page?: number;
   limit?: number;
   cityId?: number;
+  movieId?: number;
 }
-
-// ============================================
-// Cinema Service — Gọi API Backend
-// ============================================
 
 const cinemaService = {
   /**
@@ -43,11 +38,22 @@ const cinemaService = {
   },
 
   /**
-   * Lấy lịch chiếu theo cụm rạp (có thể lọc theo ngày)
+   * Lấy lịch chiếu theo cụm rạp (có thể lọc theo ngày và phim)
    */
-  getShows: async (cinemaId: number, date?: string) => {
-    const params = date ? { date } : {};
+  getShows: async (cinemaId: number, date?: string, movieId?: number) => {
+    const params: any = {};
+    if (date) params.date = date;
+    if (movieId) params.movieId = movieId;
     const response = await apiClient.get(`/cinemas/${cinemaId}/shows`, { params });
+    return response.data;
+  },
+
+  /**
+   * Lấy danh sách ngày thật sự có suất chiếu theo cụm rạp
+   */
+  getShowDates: async (cinemaId: number, movieId?: number) => {
+    const params = movieId ? { movieId } : {};
+    const response = await apiClient.get(`/cinemas/${cinemaId}/show-dates`, { params });
     return response.data;
   },
 };

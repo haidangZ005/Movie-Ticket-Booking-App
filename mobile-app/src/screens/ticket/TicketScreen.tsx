@@ -34,7 +34,7 @@ export default function TicketScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>My ticket</Text>
+        <Text style={styles.headerTitle}>Vé của tôi</Text>
       </View>
 
       {/* Ticket List */}

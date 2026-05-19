@@ -14,6 +14,13 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import VerifyResetOtpScreen from '../screens/auth/VerifyResetOtpScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
+import MovieScreen from '../screens/movie/MovieScreen';
+import MovieDetailScreen from '../screens/movie/MovieDetailScreen';
+import TicketScreen from '../screens/ticket/TicketScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
+import CinemaListScreen from '../screens/cinema/CinemaListScreen';
+import ShowtimeScreen from '../screens/cinema/ShowtimeScreen';
+import SeatSelectionScreen from '../screens/booking/SeatSelectionScreen';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -35,8 +42,18 @@ function AuthNavigator() {
 
 function MainNavigator() {
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+    <MainStack.Navigator screenOptions={({ route }) => ({
+      headerShown: false,
+      animation: (route.params as any)?.animation || 'default',
+    })}>
       <MainStack.Screen name="Home" component={HomeScreen} />
+      <MainStack.Screen name="Movie" component={MovieScreen} />
+      <MainStack.Screen name="MovieDetail" component={MovieDetailScreen} />
+      <MainStack.Screen name="Ticket" component={TicketScreen} />
+      <MainStack.Screen name="Profile" component={ProfileScreen} />
+      <MainStack.Screen name="Cinemas" component={CinemaListScreen} />
+      <MainStack.Screen name="Showtime" component={ShowtimeScreen} />
+      <MainStack.Screen name="SeatSelection" component={SeatSelectionScreen} />
     </MainStack.Navigator>
   );
 }

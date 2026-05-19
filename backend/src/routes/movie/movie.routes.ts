@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as movieController from '../../controllers/movie/movie.controller';
+// import * as movieValidator from '../../validators/movie.validator';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { roleMiddleware } from '../../middlewares/role.middleware';
 
