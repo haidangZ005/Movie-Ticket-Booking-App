@@ -7,12 +7,9 @@ import path from 'path';
 
 import { connectDB } from './config/database';
 import { globalExceptionHandler } from './utils/exceptions/global.exception.handler';
-import authRoutes from './routes/auth/auth.routes';
-import customerRoutes from './routes/customer/customer.routes';
-import adminRoutes from './routes/admin/admin.routes';
-import movieRoutes from './routes/movie/movie.routes';
-import cinemaRoutes from './routes/cinema/cinema.routes';
-import showRoutes from './routes/show/show.routes';
+import { ApiResponse } from './utils/dto/api.response';
+import { ErrorCode } from './utils/exceptions/error.code';
+import apiRoutes from './routes';
 
 // Load biến môi trường từ file .env
 dotenv.config();
@@ -45,22 +42,17 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
-app.use('/api/auth',         authRoutes);
-app.use('/api/customer',     customerRoutes);
-app.use('/api/admin',        adminRoutes);
-app.use('/api/movies',       movieRoutes);
-app.use('/api/cinemas',     cinemaRoutes);
-app.use('/api/shows',       showRoutes);
+app.use('/api', apiRoutes);
 
 // ==========================================
 // 3. XỬ LÝ ROUTE KHÔNG TỒN TẠI (404)
 // ==========================================
 app.use('*', (req: Request, res: Response) => {
-  res.status(404).json({
-    code: 404,
-    message: `Route ${req.originalUrl} không tồn tại`,
-    timestamp: new Date().toISOString(),
-  });
+  const routeError = {
+    ...ErrorCode.ROUTE_NOT_FOUND,
+    message: `Route ${req.originalUrl} không tồn tại`
+  };
+  res.status(404).json(ApiResponse.error(routeError));
 });
 
 // ==========================================
@@ -79,6 +71,10 @@ const startServer = async () => {
     // Seed tài khoản admin mặc định
     const { seedAdmin } = require('./utils/seed');
     await seedAdmin();
+
+    // Khởi động BullMQ Worker xử lý gửi email ngầm (Dành cho dự án trường học)
+    require('./workers/email.worker');
+    console.log('[📦 Worker]  Hàng đợi gửi Email (BullMQ) đã sẵn sàng');
 
     app.listen(PORT, () => {
       console.log(`[🚀 Server]  Đang chạy tại http://localhost:${PORT}`);

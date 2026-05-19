@@ -144,7 +144,7 @@ class ShowModel {
    */
   static async findById(id: number): Promise<{ show: Show; movie: any; hall: any; cinema: any } | null> {
     const pool = await connectDB();
-    
+
     const result = await pool.request()
       .input('id', mssql.Int, id)
       .query(`
@@ -158,9 +158,9 @@ class ShowModel {
         INNER JOIN Cinema c ON ch.CinemaID = c.CinemaID
         WHERE s.ShowID = @id AND m.IsActive = 1
       `);
-    
+
     if (result.recordset.length === 0) return null;
-    
+
     const row = result.recordset[0];
     return {
       show: {
@@ -202,7 +202,7 @@ class ShowModel {
    */
   static async getSeatsByShowId(showId: number): Promise<{ seats: SeatInfo[]; show: Show }> {
     const pool = await connectDB();
-    
+
     // Lấy thông tin suất chiếu
     const showResult = await pool.request()
       .input('showId', mssql.Int, showId)
@@ -226,11 +226,11 @@ class ShowModel {
         INNER JOIN Cinema c ON ch.CinemaID = c.CinemaID
         WHERE s.ShowID = @showId
       `);
-    
+
     if (showResult.recordset.length === 0) throw new Error('Suất chiếu không tồn tại');
-    
+
     const show = showResult.recordset[0];
-    
+
     // Lấy sơ đồ ghế từ CinemaHallSeat
     const seatsResult = await pool.request()
       .input('hallId', mssql.Int, show.HallID)
@@ -250,7 +250,7 @@ class ShowModel {
         WHERE cs.HallID = @hallId
         ORDER BY cs.RowIndex, cs.ColIndex
       `);
-    
+
     return {
       seats: seatsResult.recordset,
       show
@@ -271,7 +271,7 @@ class ShowModel {
     const runtime = movieResult.recordset[0].MovieRuntime;
     const showTime = normalizeSqlTime(showData.showTime);
     const endTime = addMinutesToTime(showTime, runtime + 15);
-    
+
     // Kiểm tra xung đột thời gian trong cùng phòng chiếu
     const conflictResult = await pool.request()
       .input('hallId', mssql.Int, showData.hallId)
@@ -288,11 +288,11 @@ class ShowModel {
             (ShowTime >= CONVERT(time, @showTime) AND EndTime <= CONVERT(time, @endTime))
           )
       `);
-    
+
     if (conflictResult.recordset[0].cnt > 0) {
       throw new AppException(ErrorCode.SHOW_TIME_CONFLICT);
     }
-    
+
     const result = await pool.request()
       .input('movieId', mssql.Int, showData.movieId)
       .input('hallId', mssql.Int, showData.hallId)
@@ -310,7 +310,7 @@ class ShowModel {
           @movieId, @hallId, @showDate, CONVERT(time, @showTime), CONVERT(time, @endTime), @format, @basePrice
         )
       `);
-    
+
     return result.recordset[0];
   }
 
@@ -319,19 +319,19 @@ class ShowModel {
    */
   static async update(id: number, showData: Partial<ShowData>): Promise<Show> {
     const pool = await connectDB();
-    
+
     // Kiểm tra xem đã có vé đặt chưa
     const bookingResult = await pool.request()
       .input('showId', mssql.Int, id)
       .query('SELECT COUNT(*) as cnt FROM Booking WHERE ShowID = @showId');
-    
+
     if (bookingResult.recordset[0].cnt > 0) {
       throw new Error('Không thể sửa suất chiếu đã có vé đặt');
     }
-    
+
     const updates: string[] = [];
     const request = pool.request().input('id', mssql.Int, id);
-    
+
     if (showData.movieId !== undefined) {
       updates.push('MovieID = @movieId');
       request.input('movieId', mssql.Int, showData.movieId);
@@ -356,14 +356,14 @@ class ShowModel {
       updates.push('BasePrice = @basePrice');
       request.input('basePrice', mssql.Decimal(10, 2), showData.basePrice);
     }
-    
+
     if (updates.length === 0) throw new Error('Không có dữ liệu cập nhật');
-    
+
     await request.query(`
       UPDATE [Show] SET ${updates.join(', ')}
       WHERE ShowID = @id
     `);
-    
+
     return { ...showData, ShowID: id } as Show;
   }
 
@@ -372,19 +372,19 @@ class ShowModel {
    */
   static async delete(id: number): Promise<{ ShowID: number }> {
     const pool = await connectDB();
-    
+
     const bookingResult = await pool.request()
       .input('showId', mssql.Int, id)
       .query('SELECT COUNT(*) as cnt FROM Booking WHERE ShowID = @showId');
-    
+
     if (bookingResult.recordset[0].cnt > 0) {
       throw new Error('Không thể xóa suất chiếu đã có vé đặt');
     }
-    
+
     await pool.request()
       .input('id', mssql.Int, id)
       .query('DELETE FROM [Show] WHERE ShowID = @id');
-    
+
     return { ShowID: id };
   }
 
@@ -423,7 +423,3 @@ class ShowModel {
 }
 
 export default ShowModel;
-
-
-
-

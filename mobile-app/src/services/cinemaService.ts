@@ -1,9 +1,5 @@
 import apiClient from '../api/apiClient';
 
-// ============================================
-// Interfaces (Định nghĩa kiểu dữ liệu)
-// ============================================
-
 export interface Cinema {
   CinemaID: number;
   CinemaName: string;
@@ -24,10 +20,6 @@ export interface CinemaFilters {
   movieId?: number;
 }
 
-// ============================================
-// Cinema Service — Gọi API Backend
-// ============================================
-
 const cinemaService = {
   /**
    * Lấy danh sách cụm rạp (phân trang + lọc theo thành phố)
@@ -46,13 +38,12 @@ const cinemaService = {
   },
 
   /**
-   * Lấy lịch chiếu theo cụm rạp (có thể lọc theo ngày)
+   * Lấy lịch chiếu theo cụm rạp (có thể lọc theo ngày và phim)
    */
   getShows: async (cinemaId: number, date?: string, movieId?: number) => {
-    const params = date ? { date } : {};
-    if (movieId) {
-      Object.assign(params, { movieId });
-    }
+    const params: any = {};
+    if (date) params.date = date;
+    if (movieId) params.movieId = movieId;
     const response = await apiClient.get(`/cinemas/${cinemaId}/shows`, { params });
     return response.data;
   },

@@ -7,11 +7,14 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test:auth": "node scripts/auth-smoke-test.js"
+    "test:auth": "node scripts/auth-smoke-test.js",
+    "worker:email": "ts-node-dev --respawn --transpile-only src/workers/email.worker.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.76.10",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^4.21.0",

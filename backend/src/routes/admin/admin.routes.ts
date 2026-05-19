@@ -73,7 +73,6 @@ router.put('/customers/:id/status', authMiddleware, roleMiddleware(['ADMIN', 'SU
 router.put('/accounts/:id/status', authMiddleware, roleMiddleware(['SUPER_ADMIN']), AdminController.patchAccountStatus);
 
 // Ghế + rạp chiếu
-
 router.get(
     '/halls/:hallId/seats',
     authMiddleware,

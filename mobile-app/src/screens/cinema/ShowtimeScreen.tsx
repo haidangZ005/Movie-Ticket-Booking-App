@@ -130,12 +130,7 @@ const ShowtimeScreen: React.FC = () => {
         <Ionicons name="headset-outline" size={24} color={Colors.white} />
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.dateListContainer}
-        contentContainerStyle={styles.dateList}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateListContainer} contentContainerStyle={styles.dateList}>
         {dates.map((date) => {
           const active = selectedDate === date.value;
           return (
@@ -147,12 +142,7 @@ const ShowtimeScreen: React.FC = () => {
         })}
       </ScrollView>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.timeFilterListContainer}
-        contentContainerStyle={styles.timeFilterList}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeFilterListContainer} contentContainerStyle={styles.timeFilterList}>
         {TIME_FILTERS.map((filter) => {
           const active = selectedTimeFilter.label === filter.label;
           return (
@@ -180,7 +170,6 @@ const ShowtimeScreen: React.FC = () => {
                 <Ionicons name="film-outline" size={24} color={Colors.primary} style={styles.cinemaIcon} />
                 <Text style={styles.cinemaName}>{groupCinemaName}</Text>
               </View>
-
               {Object.entries(formats).map(([format, showtimes]) => (
                 <View key={format} style={styles.formatGroup}>
                   <Text style={styles.formatTitle}>{format}</Text>
@@ -191,11 +180,7 @@ const ShowtimeScreen: React.FC = () => {
                         <TouchableOpacity key={show.ShowID} style={[styles.showtimeCard, active && styles.showtimeCardActive]} onPress={() => openSeatSelection(show)}>
                           <Text style={[styles.showtimeHours, active && styles.textShowtimeActive]}>
                             {formatTime(show.ShowTime)}
-                            {show.EndTime ? (
-                              <Text style={styles.showtimeEnd}>
-                                ~{formatTime(show.EndTime)}
-                              </Text>
-                            ) : null}
+                            {show.EndTime ? <Text style={styles.showtimeEnd}>~{formatTime(show.EndTime)}</Text> : null}
                           </Text>
                           <Text style={[styles.showtimeSeats, active && styles.textShowtimeActiveMuted]}>
                             Còn {show.AvailableSeats ?? '-'}/{show.TotalSeats ?? '-'}

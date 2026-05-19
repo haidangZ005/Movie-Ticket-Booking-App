@@ -1,5 +1,5 @@
-import React, { useContext, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useContext } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
@@ -12,6 +12,7 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -27,12 +28,18 @@ export default function ForgotPasswordScreen() {
     }
 
     setError('');
+    setSuccessMessage('');
     setIsLoading(true);
     try {
-      await authService.forgotPassword(trimmedEmail);
-      Alert.alert('', t('forgot.neutralSuccess'), [
-        { text: 'OK', onPress: () => navigation.navigate('VerifyResetOtp', { email: trimmedEmail }) },
-      ]);
+      const res = await authService.forgotPassword(trimmedEmail);
+      if (__DEV__) {
+        console.log('[Forgot Password Response]', res);
+      }
+
+      setSuccessMessage(t('forgot.neutralSuccess'));
+      setTimeout(() => {
+        navigation.navigate('VerifyResetOtp', { email: trimmedEmail });
+      }, 2000);
     } catch (err: any) {
       setError(err.response?.data?.message || t('common.serverConnectionError'));
     } finally {
@@ -72,8 +79,20 @@ export default function ForgotPasswordScreen() {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
-            <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleSendOtp} disabled={isLoading}>
-              <Text style={styles.primaryButtonText}>{isLoading ? t('common.processing') : t('forgot.sendOtp')}</Text>
+            {successMessage ? (
+              <View style={styles.successContainer}>
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.primaryButton, isLoading && styles.disabledButton]}
+              onPress={handleSendOtp}
+              disabled={isLoading || !!successMessage}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isLoading ? t('common.processing') : t('forgot.sendOtp')}
+              </Text>
             </TouchableOpacity>
 
             <Text style={styles.noteText}>{t('forgot.note')}</Text>
@@ -99,6 +118,15 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#1C1C1C', borderRadius: 16, padding: 18, color: '#FFFFFF', fontSize: 16 },
   inputError: { borderWidth: 1, borderColor: COLORS.error || '#FF4D4D' },
   errorText: { color: COLORS.error || '#FF4D4D', marginTop: 8, fontSize: 13 },
+  successContainer: {
+    backgroundColor: 'rgba(76, 217, 100, 0.1)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 217, 100, 0.3)',
+  },
+  successText: { color: '#4CD964', fontSize: 14, textAlign: 'center', fontWeight: '500' },
   primaryButton: { backgroundColor: COLORS.primary || '#FCC434', paddingVertical: 18, borderRadius: 30, alignItems: 'center', marginTop: 16 },
   disabledButton: { opacity: 0.6 },
   primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: 'bold' },

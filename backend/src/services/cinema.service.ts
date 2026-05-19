@@ -77,7 +77,7 @@ class CinemaService {
     const cityCheck = await pool.request()
       .input('cityId', sql.Int, cinemaData.cityId)
       .query('SELECT 1 FROM City WHERE CityID = @cityId');
-    
+
     if (!cityCheck.recordset[0]) {
       throw new AppException(ErrorCode.USER_NOT_EXISTED); // TODO: Thêm CITY_NOT_FOUND
     }

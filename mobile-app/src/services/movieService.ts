@@ -1,9 +1,5 @@
 import apiClient from '../api/apiClient';
 
-// ============================================
-// Interfaces (Định nghĩa kiểu dữ liệu)
-// ============================================
-
 export interface Movie {
   MovieID: number;
   MovieTitle: string;
@@ -29,18 +25,30 @@ export interface MovieFilters {
   language?: string;
 }
 
-// ============================================
-// Movie Service — Gọi API Backend
-// ============================================
-
 const movieService = {
-
-  getMovies: async (params = {}) => {
+  /**
+   * Lấy danh sách phim (phân trang + lọc)
+   */
+  getAll: async (params: MovieFilters = {}) => {
     const response = await apiClient.get('/movies', { params });
-    return response.data
+    return response.data;
   },
 
+  /** Alias cho getAll (tương thích ngược) */
+  getMovies: async (params = {}) => {
+    const response = await apiClient.get('/movies', { params });
+    return response.data;
+  },
 
+  /**
+   * Lấy danh sách phim nổi bật
+   */
+  getFeatured: async () => {
+    const response = await apiClient.get('/movies/featured');
+    return response.data;
+  },
+
+  /** Alias cho getFeatured (tương thích ngược) */
   getFeaturedMovies: async () => {
     const response = await apiClient.get('/movies/featured');
     return response.data;
@@ -57,6 +65,12 @@ const movieService = {
   /**
    * Lấy chi tiết phim theo ID
    */
+  getById: async (movieId: number) => {
+    const response = await apiClient.get(`/movies/${movieId}`);
+    return response.data;
+  },
+
+  /** Alias cho getById (tương thích ngược) */
   getMovieById: async (movieId: number) => {
     const response = await apiClient.get(`/movies/${movieId}`);
     return response.data;

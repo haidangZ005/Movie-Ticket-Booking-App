@@ -19,16 +19,14 @@ const CinemaListScreen: React.FC = () => {
       const result = await cinemaService.getAll({ limit: 100 });
       setCinemas(result.data?.items || result.data || []);
     } catch {
-      setError('Khong tai duoc danh sach rap.');
+      setError('Không tải được danh sách rạp.');
       setCinemas([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadCinemas();
-  }, []);
+  useEffect(() => { loadCinemas(); }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -47,7 +45,7 @@ const CinemaListScreen: React.FC = () => {
       </View>
       <View style={styles.cinemaInfo}>
         <Text style={styles.cinemaName}>{item.CinemaName}</Text>
-        <Text style={styles.cinemaAddress} numberOfLines={2}>{item.Address || '-'}</Text>
+        <Text style={styles.cinemaAddress} numberOfLines={2}>{item.Address || item.CinemaAddress || '-'}</Text>
         {item.CityName && (
           <View style={styles.cityBadge}>
             <Ionicons name="location-outline" size={12} color={Colors.primary} />
@@ -64,7 +62,7 @@ const CinemaListScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Dang tai danh sach rap...</Text>
+          <Text style={styles.loadingText}>Đang tải danh sách rạp...</Text>
         </View>
       </SafeAreaView>
     );
@@ -77,8 +75,8 @@ const CinemaListScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Rap chieu</Text>
-          <Text style={styles.headerSubtitle}>{cinemas.length} rap chieu</Text>
+          <Text style={styles.headerTitle}>Rạp chiếu</Text>
+          <Text style={styles.headerSubtitle}>{cinemas.length} rạp chiếu</Text>
         </View>
       </View>
 
@@ -94,7 +92,7 @@ const CinemaListScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="film-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>Chua co cum rap nao</Text>
+            <Text style={styles.emptyText}>Chưa có cụm rạp nào</Text>
           </View>
         }
       />

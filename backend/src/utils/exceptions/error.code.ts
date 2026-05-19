@@ -19,8 +19,10 @@ export const ErrorCode = {
   PHONE_NUMBER_EXISTED: { code: 1006, message: 'Phone number already in use', statusCode: 400 },
   TOO_MANY_REQUESTS: { code: 4290, message: 'Too many requests. Please try again later.', statusCode: 429 },
   UNAUTHENTICATED: { code: 3000, message: 'Unauthenticated', statusCode: 401 },
+  UNAUTHORIZED: { code: 3000, message: 'Unauthenticated', statusCode: 401 },
   FORBIDDEN: { code: 3001, message: 'Forbidden: You do not have permission', statusCode: 403 },
   RESET_OTP_NOT_VERIFIED: { code: 1007, message: 'Reset OTP verification expired. Please request a new OTP.', statusCode: 400 },
+  ROUTE_NOT_FOUND: { code: 4040, message: 'Route not found', statusCode: 404 },
   MOVIE_NOT_FOUND: { code: 1008, message: 'Phim không tồn tại', statusCode: 404 },
   CINEMA_NOT_FOUND: { code: 1009, message: 'Rạp không tồn tại', statusCode: 404 },
   SHOW_NOT_FOUND: { code: 1010, message: 'Suất chiếu không tồn tại', statusCode: 404 },
@@ -29,6 +31,8 @@ export const ErrorCode = {
   SEAT_ALREADY_BOOKED: { code: 1013, message: 'Ghế đã được đặt', statusCode: 409 },
   SEAT_ALREADY_HELD: { code: 1014, message: 'Ghế đang được giữ', statusCode: 409 },
   SHOW_TIME_CONFLICT: { code: 1016, message: 'Suất chiếu bị trùng thời gian với suất khác trong cùng phòng', statusCode: 409 },
+  INVALID_HMAC_SIGNATURE: { code: 4001, message: 'Chữ ký HMAC không hợp lệ', statusCode: 401 },
+  MISSING_HMAC_SIGNATURE: { code: 4002, message: 'Thiếu chữ ký HMAC', statusCode: 401 },
 } as const;
 
 export type ErrorCodeKeys = keyof typeof ErrorCode;

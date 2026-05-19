@@ -5,7 +5,7 @@ import { AdminModel } from '../../models/admin.model';
  * Admin Controller (TV5)
  */
 export class AdminController {
-  
+
   /**
    * GET /api/admin/stats/revenue
    */
@@ -13,7 +13,7 @@ export class AdminController {
     try {
       const summary = await AdminModel.getRevenueStats();
       const marketShare = await AdminModel.getMarketShare();
-      
+
       res.status(200).json({
         success: true,
         data: {
@@ -41,9 +41,11 @@ export class AdminController {
     }
   }
 
+
   /**
    * GET /api/admin/settings
    */
+
   static async getSettings(req: Request, res: Response, next: NextFunction) {
     try {
       const settings = await AdminModel.getSystemSettings();
@@ -59,13 +61,14 @@ export class AdminController {
   /**
    * PUT /api/admin/accounts/:id/status
    */
+
   static async patchAccountStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const { isActive } = req.body;
-      
+
       await AdminModel.updateAccountStatus(Number(id), isActive);
-      
+
       res.status(200).json({
         success: true,
         message: 'Cập nhật trạng thái tài khoản thành công'

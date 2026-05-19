@@ -10,8 +10,8 @@ import sql from 'mssql';
 import { getPool } from '../config/database';
 import redisClient from '../config/redis';
 import { jwtConfig } from '../config/jwt';
-import { EmailService } from './email.service';
 import { TokenUtil } from '../utils/token.util';
+import { emailQueue } from '../queues/email.queue';
 
 export class AuthService {
   /**
@@ -70,11 +70,15 @@ export class AuthService {
     const redisKey = `otp:register:${email}`;
     await redisClient.setex(redisKey, 300, payload);
 
-    // 6. Gửi thư điện tử chứa OTP cho khách
+    // 6. Đưa việc gửi email chứa OTP vào hàng đợi Redis (BullMQ)
     try {
-      await EmailService.sendOtpEmail(email, otp);
+      await emailQueue.add('REGISTER_OTP', {
+        email,
+        otp,
+        type: 'REGISTER_OTP'
+      });
     } catch (error: any) {
-      // Gửi mail thất bại thì dọn dẹp Redis để người dùng thử lại ngay lập tức
+      // Đưa vào hàng đợi thất bại thì dọn dẹp Redis để người dùng thử lại ngay lập tức
       await redisClient.del(redisKey);
       await redisClient.decr(throttleKey); // Hoàn lại lượt thử
       throw error;
@@ -129,7 +133,7 @@ export class AuthService {
       isTransactionActive = true;
 
       const createdAccount = await AccountModel.create(accountPayload, transaction);
-      const createdCustomer = await CustomerModel.create(createdAccount.AccountID, transaction);
+      const createdCustomer = await CustomerModel.create(createdAccount.AccountID, createdAccount.Email, undefined, transaction);
 
       await transaction.commit();
       isTransactionActive = false;
@@ -290,9 +294,13 @@ export class AuthService {
     const redisKey = `otp:reset:${email}`;
     await redisClient.setex(redisKey, 300, otpHash);
 
-    // 5. Gửi email
+    // 5. Đưa việc gửi email chứa OTP reset mật khẩu vào hàng đợi Redis (BullMQ)
     try {
-      await EmailService.sendResetPasswordOtpEmail(email, otp);
+      await emailQueue.add('RESET_PASSWORD_OTP', {
+        email,
+        otp,
+        type: 'RESET_PASSWORD_OTP'
+      });
     } catch (error: any) {
       await redisClient.del(redisKey);
       await redisClient.decr(throttleKey);

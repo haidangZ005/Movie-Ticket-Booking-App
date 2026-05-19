@@ -25,14 +25,17 @@ export class CustomerModel {
    * Thường được gọi ngay sau khi tạo Account dành cho user mới (Register).
    * Hỗ trợ Transaction nếu được truyền vào.
    */
-  static async create(accountId: number, connection?: sql.ConnectionPool | sql.Transaction) {
+  static async create(accountId: number, customerEmail: string, customerName?: string, connection?: sql.ConnectionPool | sql.Transaction) {
     const conn = connection || getPool();
+    const defaultName = customerName || customerEmail.split('@')[0] || 'Khách Hàng';
     const result = await conn.request()
       .input('AccountID', sql.Int, accountId)
+      .input('FullName', sql.NVarChar(150), defaultName)
+      .input('CustomerEmail', sql.NVarChar(100), customerEmail)
       .query(`
-        INSERT INTO Customer (AccountID, LoyaltyPoints)
+        INSERT INTO Customer (AccountID, FullName, CustomerEmail, LoyaltyPoints, UpdatedAt)
         OUTPUT INSERTED.CustomerID, INSERTED.AccountID
-        VALUES (@AccountID, 0)
+        VALUES (@AccountID, @FullName, @CustomerEmail, 0, GETDATE())
       `);
       
     return result.recordset[0];
@@ -77,11 +80,11 @@ export class CustomerModel {
     const pool = getPool();
     await pool.request()
       .input('AccountID', sql.Int, accountId)
-      .input('FullName', sql.NVarChar(100), data.FullName)
+      .input('FullName', sql.NVarChar(150), data.FullName)
       .input('PhoneNumber', sql.NVarChar(20), data.PhoneNumber)
-      .input('Gender', sql.NVarChar(20), data.Gender)
+      .input('Gender', sql.NVarChar(10), data.Gender)
       .input('DateOfBirth', sql.Date, data.DateOfBirth)
-      .input('AvatarUrl', sql.NVarChar(sql.MAX), data.AvatarUrl)
+      .input('AvatarUrl', sql.NVarChar(500), data.AvatarUrl)
       .query(`
         SET QUOTED_IDENTIFIER ON;
         SET ANSI_NULLS ON;
@@ -97,7 +100,8 @@ export class CustomerModel {
           PhoneNumber = COALESCE(@PhoneNumber, PhoneNumber),
           Gender = COALESCE(@Gender, Gender),
           DateOfBirth = COALESCE(@DateOfBirth, DateOfBirth),
-          AvatarUrl = COALESCE(@AvatarUrl, AvatarUrl)
+          AvatarUrl = COALESCE(@AvatarUrl, AvatarUrl),
+          UpdatedAt = GETDATE()
         WHERE AccountID = @AccountID
       `);
       

@@ -1,5 +1,5 @@
-import React, { useContext, useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useContext } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
@@ -43,6 +43,10 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSocialLogin = () => {
+    setError(t('social.notAvailable'));
   };
 
   return (

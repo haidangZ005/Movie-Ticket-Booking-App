@@ -34,12 +34,12 @@ export class AccountModel {
     const result = await conn.request()
       .input('Email', sql.NVarChar(100), data.Email)
       .input('PasswordHash', sql.NVarChar(255), data.PasswordHash)
-      .input('AccountType', sql.NVarChar(50), data.AccountType)
+      .input('AccountType', sql.NVarChar(20), data.AccountType)
       .input('IsVerified', sql.Bit, isVerified)
       .query(`
-        INSERT INTO Account (Email, PasswordHash, AccountType, IsActive, IsVerified)
+        INSERT INTO Account (Email, PasswordHash, AccountType, IsActive, IsVerified, CreatedAt, UpdatedAt)
         OUTPUT INSERTED.AccountID, INSERTED.Email, INSERTED.AccountType
-        VALUES (@Email, @PasswordHash, @AccountType, 1, @IsVerified)
+        VALUES (@Email, @PasswordHash, @AccountType, 1, @IsVerified, GETDATE(), GETDATE())
       `);
     
     return result.recordset[0];
@@ -70,7 +70,7 @@ export class AccountModel {
       .input('PasswordHash', sql.NVarChar(255), passwordHash)
       .query(`
         UPDATE Account 
-        SET PasswordHash = @PasswordHash
+        SET PasswordHash = @PasswordHash, UpdatedAt = GETDATE()
         WHERE AccountID = @AccountID
       `);
   }
