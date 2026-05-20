@@ -1,9 +1,17 @@
 require('dotenv').config();
 
+const REQUIRED_ENV_VARS = ['HMAC_SECRET'];
+
+for (const key of REQUIRED_ENV_VARS) {
+  if (!process.env[key]) {
+    throw new Error(`[Config] Thiếu biến môi trường bắt buộc: ${key}`);
+  }
+}
+
 module.exports = {
   port: process.env.PORT || 4000,
   env: process.env.NODE_ENV || 'development',
-  hmacSecret: process.env.HMAC_SECRET || 'default_secret',
+  hmacSecret: process.env.HMAC_SECRET,
   momo: {
     partnerCode: process.env.MOMO_PARTNER_CODE,
     accessKey: process.env.MOMO_ACCESS_KEY,

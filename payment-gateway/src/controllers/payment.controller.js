@@ -1,61 +1,69 @@
 const qrcode = require('qrcode');
 const ApiResponse = require('../utils/apiResponse');
+const AppError = require('../utils/appError');
 const config = require('../config');
 const { sendWebhookToMainApi } = require('../services/webhook.service');
 
-
-// Controller giả lập tạo mã QR động
+/**
+ * POST /api/payment/create-qr
+ * Sinh mã QR thanh toán động. Payload QR chứa orderId, amount và TTL.
+ * Chỉ được gọi từ Main API (có HMAC verify qua middleware).
+ */
 const createQr = async (req, res, next) => {
   try {
     const { orderId, amount, currency } = req.body;
 
-    // Giả lập nội dung mã QR thanh toán (chứa TTL đồng bộ Redis lock)
-    const qrData = JSON.stringify({
+    if (!orderId || !amount) {
+      throw AppError.badRequest('Thiếu thông tin orderId hoặc amount', 'BAD_REQUEST');
+    }
+
+    const qrPayload = JSON.stringify({
       orderId,
       amount,
       currency: currency || 'VND',
       ttl: config.qrTtlSeconds,
-      timestamp: Date.now()
+      issuedAt: Date.now(),
     });
 
-    // Tạo Base64 QR Image
-    const qrImage = await qrcode.toDataURL(qrData);
+    const qrImage = await qrcode.toDataURL(qrPayload);
 
     return ApiResponse.created(res, {
       orderId,
       qrImage,
-      ttl: config.qrTtlSeconds
+      ttl: config.qrTtlSeconds,
     }, 'Tạo mã QR thanh toán thành công');
   } catch (error) {
     next(error);
   }
 };
 
-// Controller giả lập hành động quét QR và thanh toán thành công
+/**
+ * POST /api/payment/mock-pay
+ * Mô phỏng kết quả thanh toán từ nhà cung cấp (dùng trong môi trường dev/staging).
+ * Gửi webhook callback về Main API sau khi nhận kết quả.
+ */
 const mockPay = async (req, res, next) => {
   try {
-    const { orderId, amount } = req.body;
+    const { orderId, amount, status = 'SUCCESS' } = req.body;
 
     if (!orderId || !amount) {
-      return ApiResponse.error(res, 'Thiếu thông tin orderId hoặc amount', 'BAD_REQUEST', 400);
+      throw AppError.badRequest('Thiếu thông tin orderId hoặc amount', 'BAD_REQUEST');
     }
 
-    // Giả lập giao dịch thành công tại cổng thanh toán
-    const mockResult = {
+    const paymentResult = {
       orderId,
       amount,
-      status: 'SUCCESS', // Hoặc 'FAILED' để test luồng lỗi
-      transactionId: `MOCK_TXN_${Date.now()}`
+      status,
+      transactionId: `TXN_${Date.now()}`,
     };
 
-    // Bắn Webhook về Main API
-    const webhookSuccess = await sendWebhookToMainApi(mockResult);
+    const webhookSent = await sendWebhookToMainApi(paymentResult);
 
-    if (webhookSuccess) {
-      return ApiResponse.ok(res, mockResult, 'Thanh toán giả lập thành công và đã gửi Webhook');
-    } else {
-      return ApiResponse.error(res, 'Thanh toán thành công nhưng gửi Webhook thất bại', 'WEBHOOK_FAILED', 500);
+    if (!webhookSent) {
+      throw AppError.internal('Gửi webhook về Main API thất bại', 'WEBHOOK_FAILED');
     }
+
+    return ApiResponse.ok(res, paymentResult, 'Xử lý thanh toán thành công');
   } catch (error) {
     next(error);
   }
@@ -63,5 +71,6 @@ const mockPay = async (req, res, next) => {
 
 module.exports = {
   createQr,
-  mockPay
+  mockPay,
 };
+
