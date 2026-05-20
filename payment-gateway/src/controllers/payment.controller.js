@@ -37,40 +37,8 @@ const createQr = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/payment/mock-pay
- * Mô phỏng kết quả thanh toán từ nhà cung cấp (dùng trong môi trường dev/staging).
- * Gửi webhook callback về Main API sau khi nhận kết quả.
- */
-const mockPay = async (req, res, next) => {
-  try {
-    const { orderId, amount, status = 'SUCCESS' } = req.body;
-
-    if (!orderId || !amount) {
-      throw AppError.badRequest('Thiếu thông tin orderId hoặc amount', 'BAD_REQUEST');
-    }
-
-    const paymentResult = {
-      orderId,
-      amount,
-      status,
-      transactionId: `TXN_${Date.now()}`,
-    };
-
-    const webhookSent = await sendWebhookToMainApi(paymentResult);
-
-    if (!webhookSent) {
-      throw AppError.internal('Gửi webhook về Main API thất bại', 'WEBHOOK_FAILED');
-    }
-
-    return ApiResponse.ok(res, paymentResult, 'Xử lý thanh toán thành công');
-  } catch (error) {
-    next(error);
-  }
-};
-
 module.exports = {
   createQr,
-  mockPay,
 };
+
 
