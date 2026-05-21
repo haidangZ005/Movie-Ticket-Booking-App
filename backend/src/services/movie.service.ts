@@ -1,6 +1,7 @@
 import MovieModel from '../models/movie.model';
 import { AppException } from '../utils/exceptions/app.exception';
 import { ErrorCode } from '../utils/exceptions/error.code';
+import { CacheService } from './cache.service';
 
 interface MovieFilters {
   genre?: string;
@@ -26,9 +27,20 @@ class MovieService {
 
   /**
    * Lấy danh sách phim nổi bật
+   * Cache-Aside: đọc Redis trước (TTL 5 phút), miss thì query DB → set cache
    */
   static async getFeatured() {
-    return await MovieModel.findFeatured();
+    // 1. Thử đọc từ cache
+    const cached = await CacheService.getFeaturedMovies();
+    if (cached) return { movies: cached };
+
+    // 2. Cache miss → query DB
+    const result = await MovieModel.findFeatured();
+
+    // 3. Lưu mảng phim vào cache (không await để không delay response)
+    CacheService.setFeaturedMovies(result.movies);
+
+    return result;
   }
 
   /**
@@ -78,9 +90,13 @@ class MovieService {
 
   /**
    * Bật/tắt phim nổi bật (Admin)
+   * Invalidate cache sau khi thay đổi để lần sau lấy dữ liệu mới từ DB
    */
   static async toggleFeatured(id: number) {
-    return await MovieModel.toggleFeatured(id);
+    const result = await MovieModel.toggleFeatured(id);
+    // Xóa cache để refresh lần sau
+    await CacheService.invalidateFeaturedMovies();
+    return result;
   }
 
   /**
