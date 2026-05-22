@@ -153,8 +153,41 @@ const welcome = (fullName: string): string => {
   return wrapLayout(`Chào mừng đến với ${APP_NAME}`, content);
 };
 
+/**
+ * Template vé điện tử chứa thông tin đặt vé và QR code check-in (mock).
+ */
+const ticket = (bookingData: any): string => {
+  const content = `
+    <h2 style="margin:0 0 8px;color:#222222;font-size:22px;font-weight:700;">
+      Vé Điện Tử Của Bạn 🎟️
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Cảm ơn bạn đã đặt vé tại <strong>${APP_NAME}</strong>. Vui lòng đưa mã QR này cho nhân viên soát vé khi đến rạp.
+    </p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:24px;margin:24px 0;text-align:center;">
+      <p style="margin:0 0 12px;color:#333333;font-weight:600;font-size:16px;">
+        Mã Đơn Hàng: #${bookingData.bookingId}
+      </p>
+      
+      <!-- Giả lập hình ảnh QR code -->
+      <div style="margin:20px auto;width:200px;height:200px;background:#fff;padding:10px;border:1px solid #ddd;border-radius:8px;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${bookingData.bookingId}" alt="QR Check-in" style="width:100%;height:100%;object-fit:cover;" />
+      </div>
+
+      <p style="margin:12px 0 0;color:#555555;font-size:14px;">
+        <strong>Phim:</strong> ${bookingData.movieTitle || 'Đang cập nhật'}<br/>
+        <strong>Ghế:</strong> ${bookingData.seats || 'Đang cập nhật'}<br/>
+        <strong>Tổng tiền:</strong> ${bookingData.amount?.toLocaleString('vi-VN')}đ
+      </p>
+    </div>
+  `;
+  return wrapLayout(`Vé Điện Tử — ${APP_NAME}`, content);
+};
+
 export const EmailTemplates = {
   registerOtp,
   resetPasswordOtp,
   welcome,
+  ticket,
 };

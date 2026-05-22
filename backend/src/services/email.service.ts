@@ -78,5 +78,17 @@ export class EmailService {
       html: EmailTemplates.welcome(fullName),
     });
   }
+
+  /**
+   * Gửi email chứa vé điện tử và mã QR check-in sau khi thanh toán thành công.
+   */
+  static async sendTicketEmail(email: string, bookingData: any): Promise<void> {
+    await EmailService.send({
+      to: email,
+      subject: `CineBook — Vé điện tử #${bookingData.bookingId}`,
+      html: EmailTemplates.ticket(bookingData),
+      fallbackLog: `[Vé điện tử] Đã gửi tới ${email} cho Booking #${bookingData.bookingId}`,
+    });
+  }
 }
 
