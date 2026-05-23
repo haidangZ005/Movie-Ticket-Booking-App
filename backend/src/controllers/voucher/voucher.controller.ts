@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { VoucherModel } from '../../models/voucher.model';
+import { VoucherService } from '../../services/voucher.service';
 import { asyncHandler } from '../../utils/helpers/async.handler';
 import { AppException } from '../../utils/exceptions/app.exception';
 import { ErrorCode } from '../../utils/exceptions/error.code';
@@ -58,6 +59,7 @@ export const deleteVoucher = asyncHandler(async (req: Request, res: Response) =>
 /**
  * GET /api/vouchers?totalAmount=&totalSeats=&showFormat=
  * Lấy danh sách voucher hợp lệ FEFO cho customer hiện tại.
+ * Kèm theo discountAmount tính sẵn cho mỗi voucher.
  */
 export const getAvailableVouchers = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const customerId = req.user!.customerId;
@@ -72,43 +74,59 @@ export const getAvailableVouchers = asyncHandler(async (req: AuthenticatedReques
     showFormat,
   });
 
-  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, vouchers));
+  // Tính sẵn discountAmount cho mỗi voucher để Mobile hiển thị
+  const enriched = vouchers.map(v => ({
+    ...v,
+    discountAmount: VoucherService.calculateDiscount(v, totalAmount),
+    finalAmount: Math.max(totalAmount - VoucherService.calculateDiscount(v, totalAmount), 0),
+  }));
+
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, enriched));
 });
 
 /**
  * POST /api/vouchers/apply
- * Áp dụng voucher vào booking — tăng UsageCount + ghi VoucherUsage.
- * Body: { voucherId, bookingId }
+ * Validate đầy đủ điều kiện → áp dụng voucher → tính giá sau giảm.
+ * Body: { voucherId, bookingId, totalAmount, totalSeats, showFormat }
  */
 export const applyVoucher = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const customerId = req.user!.customerId;
-  const { voucherId, bookingId } = req.body;
+  const { voucherId, bookingId, totalAmount, totalSeats, showFormat } = req.body;
 
-  if (!voucherId || !bookingId) {
+  if (!voucherId || !bookingId || !totalAmount) {
     throw new AppException(ErrorCode.INVALID_DATA);
   }
 
-  // Kiểm tra voucher tồn tại
-  const voucher = await VoucherModel.getById(voucherId);
-  if (!voucher) throw new AppException(ErrorCode.DATA_NOT_FOUND);
-
-  await VoucherModel.applyVoucher(voucherId, customerId, bookingId);
-
-  // Tính số tiền giảm
-  let discountAmount = 0;
-  if (voucher.DiscountType === 'PERCENT') {
-    discountAmount = (voucher.DiscountValue / 100) * req.body.totalAmount;
-    if (voucher.MaxDiscount) {
-      discountAmount = Math.min(discountAmount, voucher.MaxDiscount);
-    }
-  } else {
-    discountAmount = voucher.DiscountValue;
-  }
-
-  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, {
+  const result = await VoucherService.applyAndCalculate(
     voucherId,
-    discountAmount,
-    voucherCode: voucher.Code,
-  }));
+    customerId,
+    bookingId,
+    totalAmount,
+    totalSeats || 1,
+    showFormat || 'ALL'
+  );
+
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
 });
+
+/**
+ * GET /api/vouchers/suggest?totalAmount=&totalSeats=&showFormat=
+ * Auto-suggest voucher tốt nhất (giảm nhiều tiền nhất) cho customer.
+ */
+export const suggestBestVoucher = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const customerId = req.user!.customerId;
+  const totalAmount = parseFloat(req.query.totalAmount as string) || 0;
+  const totalSeats = parseInt(req.query.totalSeats as string) || 1;
+  const showFormat = (req.query.showFormat as string) || 'ALL';
+
+  const suggestion = await VoucherService.suggestBestVoucher({
+    customerId,
+    totalAmount,
+    totalSeats,
+    showFormat,
+  });
+
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, suggestion));
+});
+
 

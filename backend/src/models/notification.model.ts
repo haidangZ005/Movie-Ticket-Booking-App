@@ -1,12 +1,12 @@
 import sql from 'mssql';
 import { getPool } from '../config/database';
 
-export type NotificationType = 'BOOKING' | 'PAYMENT' | 'REMINDER' | 'VOUCHER' | 'SYSTEM';
+export type NotificationType = 'BOOKING' | 'PAYMENT' | 'CANCEL' | 'REFUND' | 'PROMO' | 'SYSTEM';
 
 export interface CreateNotificationPayload {
   customerId: number;
   title: string;
-  body: string;
+  message: string;
   type: NotificationType;
 }
 
@@ -14,10 +14,10 @@ export interface Notification {
   NotificationID: number;
   CustomerID: number;
   Title: string;
-  Body: string;
+  Message: string;
   Type: NotificationType;
+  DateSend: Date;
   IsRead: boolean;
-  CreatedAt: Date;
 }
 
 /**
@@ -33,20 +33,20 @@ export class NotificationModel {
     const pool = getPool();
     const result = await pool.request()
       .input('CustomerID', sql.Int, data.customerId)
-      .input('Title', sql.NVarChar(100), data.title)
-      .input('Body', sql.NVarChar(500), data.body)
+      .input('Title', sql.NVarChar(200), data.title)
+      .input('Message', sql.NVarChar(500), data.message)
       .input('Type', sql.NVarChar(30), data.type)
       .query(`
-        INSERT INTO Notification (CustomerID, Title, Body, Type, IsRead, CreatedAt)
+        INSERT INTO Notification (CustomerID, Title, Message, Type, DateSend, IsRead)
         OUTPUT
           INSERTED.NotificationID,
           INSERTED.CustomerID,
           INSERTED.Title,
-          INSERTED.Body,
+          INSERTED.Message,
           INSERTED.Type,
-          INSERTED.IsRead,
-          INSERTED.CreatedAt
-        VALUES (@CustomerID, @Title, @Body, @Type, 0, GETDATE())
+          INSERTED.DateSend,
+          INSERTED.IsRead
+        VALUES (@CustomerID, @Title, @Message, @Type, GETDATE(), 0)
       `);
 
     return result.recordset[0];
@@ -69,10 +69,10 @@ export class NotificationModel {
       .input('Limit', sql.Int, limit)
       .query(`
         SELECT
-          NotificationID, CustomerID, Title, Body, Type, IsRead, CreatedAt
+          NotificationID, CustomerID, Title, Message, Type, DateSend, IsRead
         FROM Notification
         WHERE CustomerID = @CustomerID
-        ORDER BY CreatedAt DESC
+        ORDER BY DateSend DESC
         OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY
       `);
 
