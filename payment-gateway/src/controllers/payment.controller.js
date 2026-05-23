@@ -69,7 +69,7 @@ const processCreditCard = async (req, res, next) => {
       console.log(`[Payment GW] Processed Credit Card for Order ${orderId}. Status: ${status}`);
     }, 2000);
 
-    return ApiResponse.success(res, {
+    return ApiResponse.ok(res, {
       orderId,
       message: 'Đang xử lý thanh toán. Kết quả sẽ được gửi qua Webhook.',
     });
@@ -78,8 +78,35 @@ const processCreditCard = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/payment/refund
+ * Xử lý hoàn tiền (mock). Nhận orderId + amount, log lại và trả OK.
+ * Chỉ được gọi từ Main API (có HMAC verify qua middleware).
+ */
+const processRefund = async (req, res, next) => {
+  try {
+    const { orderId, amount, action } = req.body;
+
+    if (!orderId || !amount) {
+      throw AppError.badRequest('Thiếu thông tin orderId hoặc amount', 'BAD_REQUEST');
+    }
+
+    console.log(`[Payment GW] 💸 REFUND Order #${orderId} — ${amount.toLocaleString('vi-VN')}đ — Action: ${action}`);
+
+    return ApiResponse.ok(res, {
+      orderId,
+      refundAmount: amount,
+      status: 'REFUNDED',
+      refundedAt: new Date().toISOString(),
+    }, 'Hoàn tiền thành công');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createQr,
-  processCreditCard
+  processCreditCard,
+  processRefund,
 };
 

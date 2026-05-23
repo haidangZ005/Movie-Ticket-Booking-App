@@ -9,5 +9,8 @@ router.post('/create-qr', verifyHmac, paymentController.createQr);
 // POST /api/payment/credit-card — Xử lý thanh toán thẻ tín dụng (yêu cầu HMAC)
 router.post('/credit-card', verifyHmac, paymentController.processCreditCard);
 
+// POST /api/payment/refund — Xử lý hoàn tiền (yêu cầu HMAC)
+router.post('/refund', verifyHmac, paymentController.processRefund);
+
 module.exports = router;
 

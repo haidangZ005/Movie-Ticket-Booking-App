@@ -2,8 +2,11 @@ import axios from 'axios';
 import { PaymentModel } from '../models/payment.model';
 import { LoyaltyService } from './loyalty.service';
 import { EmailService } from './email.service';
+import { NotificationService } from './notification.service';
 import { generateSignature } from '../utils/hmac';
 import { getPool } from '../config/database';
+import { AppException } from '../utils/exceptions/app.exception';
+import { ErrorCode } from '../utils/exceptions/error.code';
 import sql from 'mssql';
 
 const PAYMENT_GW_URL = process.env.PAYMENT_GW_URL || 'http://localhost:4000/api/payment';
@@ -63,45 +66,81 @@ export class PaymentService {
     if (status === 'SUCCESS') {
       await PaymentModel.updateStatus(bookingId, 'SUCCESS');
       
-      // TODO: Cần lấy customerId từ Booking (mock tạm 1 nếu không query DB)
-      // Dưới đây là ví dụ query DB để lấy thông tin booking, email, customerId:
+      // Lấy thông tin booking + customer + phim để cộng điểm & gửi email vé
       const pool = getPool();
       const bookingRes = await pool.request()
         .input('BookingID', sql.Int, bookingId)
         .query(`
-          SELECT b.CustomerID, a.Email, b.TotalAmount 
+          SELECT 
+            b.CustomerID, b.TotalAmount,
+            a.Email,
+            m.MovieTitle,
+            STRING_AGG(CONCAT(s.SeatRow, s.SeatNumber), ', ') AS Seats
           FROM Booking b
           JOIN Customer c ON b.CustomerID = c.CustomerID
           JOIN Account a ON c.AccountID = a.AccountID
+          LEFT JOIN BookingDetail bd ON b.BookingID = bd.BookingID
+          LEFT JOIN Seat s ON bd.SeatID = s.SeatID
+          LEFT JOIN Show_ sh ON b.ShowID = sh.ShowID
+          LEFT JOIN Movie m ON sh.MovieID = m.MovieID
           WHERE b.BookingID = @BookingID
+          GROUP BY b.CustomerID, b.TotalAmount, a.Email, m.MovieTitle
         `);
       
       const booking = bookingRes.recordset[0];
       
       if (booking) {
-        // 1. Cộng LoyaltyPoints
-        await LoyaltyService.addPointsFromPayment(booking.CustomerID, booking.TotalAmount);
-        
-        // 2. Gửi email vé + Push FCM (Push FCM sẽ làm sau nếu cần)
-        await EmailService.sendTicketEmail(booking.Email, {
-          bookingId,
-          amount: booking.TotalAmount,
-        });
+        // Side-effects (loyalty + email) không được phép làm fail webhook
+        try {
+          await LoyaltyService.addPointsFromPayment(booking.CustomerID, booking.TotalAmount);
+          
+          await EmailService.sendTicketEmail(booking.Email, {
+            bookingId,
+            amount: booking.TotalAmount,
+            movieTitle: booking.MovieTitle,
+            seats: booking.Seats,
+          });
+
+          // Tạo notification trong DB + gửi thông báo
+          await NotificationService.notifyBookingSuccess(
+            booking.CustomerID, booking.Email, bookingId, booking.MovieTitle || 'Phim'
+          );
+        } catch (err) {
+          console.error(`[PaymentService] Side-effect error for Booking #${bookingId}:`, err);
+        }
       }
 
     } else if (status === 'FAILED') {
       await PaymentModel.updateStatus(bookingId, 'FAILED');
-      // TODO (Buổi 5 - TV3): release Redis seat lock + broadcast WebSocket ghế → AVAILABLE
+      // TV3 sẽ xử lý: release Redis seat lock + broadcast WebSocket ghế → AVAILABLE
     }
   }
 
   /**
    * Thử lại thanh toán (Retry).
+   * Chỉ cho phép retry khi Payment đang ở trạng thái FAILED hoặc EXPIRED.
    */
   static async retryPayment(bookingId: number, amount: number, method: string) {
-    // Chỉ cập nhật trạng thái chứ không tạo bản ghi mới
+    // 1. Kiểm tra trạng thái hiện tại — chỉ cho retry FAILED hoặc EXPIRED
+    const existing = await PaymentModel.findByBookingId(bookingId);
+    if (!existing) {
+      throw new AppException(ErrorCode.DATA_NOT_FOUND);
+    }
+    if (existing.Status !== 'FAILED' && existing.Status !== 'EXPIRED') {
+      throw new AppException(ErrorCode.INVALID_DATA); // Không thể retry trạng thái khác
+    }
+
+    // 2. Cập nhật trạng thái → PENDING_PAYMENT (không tạo bản ghi mới)
     await PaymentModel.updateStatus(bookingId, 'PENDING_PAYMENT');
-    // ... gọi lại gateway (tương tự initPayment)
+
+    // 3. Gọi lại gateway tùy method
+    if (method === 'CREDIT_CARD') {
+      return {
+        orderId: bookingId,
+        message: 'Vui lòng tiếp tục nhập thông tin thẻ.',
+      };
+    }
+
     const payloadData = {
       orderId: bookingId,
       amount,
@@ -119,5 +158,87 @@ export class PaymentService {
     });
 
     return gwResponse.data.data;
+  }
+
+  /**
+   * Xử lý hoàn tiền khi hủy vé.
+   * Gọi bởi TV3 (cancel.service) khi booking bị hủy.
+   * Flow: cập nhật status → gọi GW refund → thu hồi loyalty → khôi phục voucher → gửi email
+   */
+  static async processRefund(bookingId: number) {
+    // 1. Kiểm tra Payment tồn tại và đang ở trạng thái SUCCESS
+    const payment = await PaymentModel.findByBookingId(bookingId);
+    if (!payment || payment.Status !== 'SUCCESS') {
+      throw new AppException(ErrorCode.INVALID_DATA);
+    }
+
+    const refundAmount = payment.Amount - payment.DiscountAmount;
+
+    // 2. Cập nhật Payment → REFUNDED
+    await PaymentModel.updateStatus(bookingId, 'REFUNDED', {
+      refundAmount,
+      refundAt: new Date(),
+    });
+
+    // 3. Gọi Payment GW refund (mock — GW chỉ log lại)
+    try {
+      const refundPayload = {
+        orderId: bookingId.toString(),
+        amount: refundAmount,
+        action: 'REFUND',
+      };
+      const payloadString = JSON.stringify(refundPayload);
+      const signature = generateSignature(payloadString);
+
+      await axios.post(`${PAYMENT_GW_URL}/refund`, payloadString, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hmac-signature': signature,
+        },
+      });
+    } catch (err) {
+      console.error(`[PaymentService] GW refund failed for Booking #${bookingId}:`, err);
+    }
+
+    // 4. Thu hồi loyalty points + khôi phục voucher + gửi email — side-effects
+    try {
+      const pool = getPool();
+      const bookingRes = await pool.request()
+        .input('BookingID', sql.Int, bookingId)
+        .query(`
+          SELECT b.CustomerID, a.Email, b.TotalAmount
+          FROM Booking b
+          JOIN Customer c ON b.CustomerID = c.CustomerID
+          JOIN Account a ON c.AccountID = a.AccountID
+          WHERE b.BookingID = @BookingID
+        `);
+
+      const booking = bookingRes.recordset[0];
+      if (booking) {
+        // Thu hồi loyalty points
+        await LoyaltyService.addPointsFromPayment(booking.CustomerID, -booking.TotalAmount);
+
+        // Khôi phục voucher (nếu có)
+        if (payment.VoucherID) {
+          const { VoucherService } = await import('./voucher.service');
+          await VoucherService.restoreVoucher(payment.VoucherID, booking.CustomerID, bookingId);
+        }
+
+        // Gửi email thông báo hoàn tiền
+        await EmailService.sendRefundEmail(booking.Email, {
+          bookingId,
+          refundAmount,
+        });
+
+        // Tạo notification trong DB
+        await NotificationService.notifyRefundSuccess(
+          booking.CustomerID, booking.Email, bookingId, refundAmount
+        );
+      }
+    } catch (err) {
+      console.error(`[PaymentService] Refund side-effect error for Booking #${bookingId}:`, err);
+    }
+
+    return { bookingId, refundAmount, status: 'REFUNDED' };
   }
 }
