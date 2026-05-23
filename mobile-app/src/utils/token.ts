@@ -1,8 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
-const ACCESS_TOKEN_KEY = '@accessToken';
-const REFRESH_TOKEN_KEY = '@refreshToken';
-const PROFILE_KEY = '@profile';
+const ACCESS_TOKEN_KEY = 'accessToken'; // SecureStore keys should avoid special characters if possible
+const REFRESH_TOKEN_KEY = 'refreshToken';
+const PROFILE_KEY = '@profile'; // AsyncStorage key
+
+// Fallback cleanup in case old tokens exist in AsyncStorage
+const cleanupLegacyTokens = async () => {
+  try {
+    await AsyncStorage.multiRemove(['@accessToken', '@refreshToken']);
+  } catch (e) {
+    // ignore
+  }
+};
 
 export const saveAuthSession = async (accessToken: string, refreshToken: string, profile?: any) => {
   if (!accessToken || typeof accessToken !== 'string') {
@@ -13,14 +23,13 @@ export const saveAuthSession = async (accessToken: string, refreshToken: string,
   }
 
   try {
-    const pairs: [string, string][] = [
-      [ACCESS_TOKEN_KEY, accessToken],
-      [REFRESH_TOKEN_KEY, refreshToken],
-    ];
+    await cleanupLegacyTokens(); // Clean up on new login just in case
+    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+    
     if (profile) {
-      pairs.push([PROFILE_KEY, JSON.stringify(profile)]);
+      await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
     }
-    await AsyncStorage.multiSet(pairs);
   } catch (error) {
     console.error('Error saving auth session', error);
     throw error;
@@ -29,11 +38,28 @@ export const saveAuthSession = async (accessToken: string, refreshToken: string,
 
 export const loadAuthSession = async () => {
   try {
-    const values = await AsyncStorage.multiGet([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, PROFILE_KEY]);
+    const accessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    const profileString = await AsyncStorage.getItem(PROFILE_KEY);
+    
+    // Attempt to fallback to AsyncStorage if tokens are not in SecureStore (Migration path)
+    let fallbackAccessToken = accessToken;
+    let fallbackRefreshToken = refreshToken;
+    
+    if (!accessToken && !refreshToken) {
+      fallbackAccessToken = await AsyncStorage.getItem('@accessToken');
+      fallbackRefreshToken = await AsyncStorage.getItem('@refreshToken');
+      
+      // If found in legacy storage, migrate them
+      if (fallbackAccessToken && fallbackRefreshToken) {
+        await saveAuthSession(fallbackAccessToken, fallbackRefreshToken);
+      }
+    }
+
     return {
-      accessToken: values[0][1],
-      refreshToken: values[1][1],
-      profile: values[2][1] ? JSON.parse(values[2][1]) : null,
+      accessToken: fallbackAccessToken,
+      refreshToken: fallbackRefreshToken,
+      profile: profileString ? JSON.parse(profileString) : null,
     };
   } catch (error) {
     console.error('Error loading auth session', error);
@@ -43,7 +69,10 @@ export const loadAuthSession = async () => {
 
 export const clearAuthSession = async () => {
   try {
-    await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, PROFILE_KEY]);
+    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+    await AsyncStorage.removeItem(PROFILE_KEY);
+    await cleanupLegacyTokens();
   } catch (error) {
     console.error('Error clearing auth session', error);
   }
@@ -51,7 +80,9 @@ export const clearAuthSession = async () => {
 
 export const getAccessToken = async () => {
   try {
-    return await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+    let token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    if (!token) token = await AsyncStorage.getItem('@accessToken'); // fallback
+    return token;
   } catch (error) {
     return null;
   }
@@ -59,7 +90,9 @@ export const getAccessToken = async () => {
 
 export const getRefreshToken = async () => {
   try {
-    return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    let token = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    if (!token) token = await AsyncStorage.getItem('@refreshToken'); // fallback
+    return token;
   } catch (error) {
     return null;
   }
