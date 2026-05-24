@@ -31,6 +31,45 @@ const getRowLabel = (rowIndex) => {
   return label;
 };
 
+const isNumberedSeat = (seat) => {
+  return !seat.IsAisle && !['AISLE', 'DISABLED', 'EMPTY'].includes(seat.SeatType);
+};
+
+const renumberSeats = (seatList, direction) => {
+  const rowGroups = new Map();
+  seatList.forEach((seat) => {
+    const row = Number(seat.RowIndex);
+    if (!rowGroups.has(row)) rowGroups.set(row, []);
+    rowGroups.get(row).push(seat);
+  });
+
+  const updatedSeatsMap = new Map();
+
+  for (const [row, seatsInRow] of rowGroups.entries()) {
+    const sortedSeats = [...seatsInRow].sort((a, b) => a.ColIndex - b.ColIndex);
+    const numberedSeats = sortedSeats.filter(isNumberedSeat);
+    const totalNumbered = numberedSeats.length;
+    let numberIndex = 1;
+
+    for (const seat of sortedSeats) {
+      const key = `${seat.RowIndex}-${seat.ColIndex}`;
+      if (!isNumberedSeat(seat)) {
+        updatedSeatsMap.set(key, { ...seat, SeatNumber: '' });
+      } else {
+        const rowLabel = getRowLabel(seat.RowIndex);
+        let seatNum = numberIndex;
+        if (direction === 'RIGHT_TO_LEFT') {
+          seatNum = totalNumbered - numberIndex + 1;
+        }
+        updatedSeatsMap.set(key, { ...seat, SeatNumber: `${rowLabel}${seatNum}` });
+        numberIndex++;
+      }
+    }
+  }
+
+  return seatList.map((seat) => updatedSeatsMap.get(`${seat.RowIndex}-${seat.ColIndex}`) || seat);
+};
+
 const createSeat = (row, col) => ({
   SeatNumber: `${getRowLabel(row)}${col}`,
   SeatType: 'STANDARD',
@@ -53,6 +92,7 @@ const SeatLayoutBuilder = () => {
   const [cols, setCols] = useState(0);
   const [seats, setSeats] = useState([]);
   const [currentMode, setCurrentMode] = useState('STANDARD');
+  const [seatNumberDirection, setSeatNumberDirection] = useState('LEFT_TO_RIGHT');
   const [selectedSeatIndex, setSelectedSeatIndex] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -159,10 +199,17 @@ const SeatLayoutBuilder = () => {
         nextSeats.push(createSeat(row, col));
       }
     }
+    const finalSeats = renumberSeats(nextSeats, seatNumberDirection);
     setRows(nextRows);
     setCols(nextCols);
-    setSeats(nextSeats);
+    setSeats(finalSeats);
     setSelectedSeatIndex(null);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSeatNumberDirectionChange = (direction) => {
+    setSeatNumberDirection(direction);
+    setSeats((prev) => renumberSeats(prev, direction));
     setHasUnsavedChanges(true);
   };
 
@@ -192,7 +239,8 @@ const SeatLayoutBuilder = () => {
       nextSeat.SeatNumber = nextSeat.SeatNumber || `${getRowLabel(nextSeat.RowIndex)}${nextSeat.ColIndex}`;
     }
     nextSeats[index] = nextSeat;
-    setSeats(nextSeats);
+    const finalSeats = renumberSeats(nextSeats, seatNumberDirection);
+    setSeats(finalSeats);
     setHasUnsavedChanges(true);
   };
 
@@ -371,6 +419,13 @@ const SeatLayoutBuilder = () => {
         <label className="block w-24">
           <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-secondary">Cols</span>
           <input type="number" min="1" value={inputCols} onChange={(event) => setInputCols(event.target.value)} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 text-sm outline-none focus:border-primary" />
+        </label>
+        <label className="block w-36">
+          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-secondary">Hướng đánh số</span>
+          <select value={seatNumberDirection} onChange={(event) => handleSeatNumberDirectionChange(event.target.value)} className="w-full rounded-lg border border-border-default bg-surface-container-low px-3 py-2 text-sm outline-none focus:border-primary">
+            <option value="LEFT_TO_RIGHT">Trái sang phải</option>
+            <option value="RIGHT_TO_LEFT">Phải sang trái</option>
+          </select>
         </label>
         <button onClick={generateGrid} disabled={saving} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-container-low px-4 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-variant disabled:opacity-50">
           <span className="material-symbols-outlined text-[18px]">grid_on</span>

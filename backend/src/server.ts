@@ -76,11 +76,20 @@ const startServer = async () => {
     require('./workers/email.worker');
     console.log('[📦 Worker]  Hàng đợi gửi Email (BullMQ) đã sẵn sàng');
 
-    app.listen(PORT, () => {
+    // Đăng ký cron jobs (TV4 — Buổi 8)
+    const { registerJobs } = require('./jobs');
+    registerJobs();
+
+    const server = app.listen(PORT, () => {
       console.log(`[🚀 Server]  Đang chạy tại http://localhost:${PORT}`);
       console.log(`[📋 Health]  http://localhost:${PORT}/api/health`);
       console.log(`[🌍 Env]     ${process.env.NODE_ENV || 'development'}`);
     });
+
+    // Khởi tạo Socket.IO realtime
+    const { initSocketIO } = require('./socket');
+    initSocketIO(server);
+    console.log('[🔌 Socket]  Socket.IO đã được khởi tạo');
   } catch (error) {
     console.error('[❌ Startup] Không thể khởi động server:', error);
     process.exit(1);
