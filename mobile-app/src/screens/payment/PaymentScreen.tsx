@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert, SafeAreaView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -71,7 +71,7 @@ export default function PaymentScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<PaymentRouteParams, 'PaymentScreen'>>();
   const { user } = React.useContext(AuthContext);
-  
+
   const params = route.params;
 
   const [voucherCode, setVoucherCode] = useState('');
@@ -79,8 +79,14 @@ export default function PaymentScreen() {
   const [appliedVoucherId, setAppliedVoucherId] = useState<number | undefined>(undefined);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('FLICKTICKETS_PAY');
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
 
-  if (!routeParams || !routeParams.showInfo || !routeParams.selectedSeats) {
+  if (!params || !params.showInfo || !params.selectedSeats) {
     return (
       <SafeAreaView style={S.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
@@ -99,7 +105,7 @@ export default function PaymentScreen() {
     addonItems,
     addonTotal,
     grandTotal,
-  } = routeParams;
+  } = params;
 
   const posterUrl = resolvePosterUrl(showInfo.PosterUrl);
   const seatNumbers = selectedSeats.map(s => s.SeatNumber).join(', ');
@@ -143,6 +149,22 @@ export default function PaymentScreen() {
 
   const handlePayNow = async () => {
     if (isPaying) return;
+
+    if (selectedPaymentMethod === 'CREDIT_CARD') {
+      if (!cardNumber.trim() || !cardHolder.trim() || !cardExpiry.trim() || !cardCvv.trim()) {
+        Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ thông tin thẻ');
+        return;
+      }
+      if (cardNumber.replace(/\s/g, '').length < 13) {
+        Alert.alert('Thông báo', 'Số thẻ không hợp lệ');
+        return;
+      }
+      if (cardCvv.length < 3) {
+        Alert.alert('Thông báo', 'CVV không hợp lệ');
+        return;
+      }
+    }
+
     setIsPaying(true);
     try {
       const payload = {
@@ -158,14 +180,21 @@ export default function PaymentScreen() {
         discountAmount,
         serviceFee: 0,
         totalAmount: finalTotal,
-        paymentMethod: PAYMENT_METHOD,
+        paymentMethod: selectedPaymentMethod,
         voucherId: appliedVoucherId,
       };
+
+      if (selectedPaymentMethod === 'CREDIT_CARD') {
+        payload.cardNumber = cardNumber.replace(/\s/g, '');
+        payload.cardHolder = cardHolder;
+        payload.cardExpiry = cardExpiry;
+        payload.cardCvv = cardCvv;
+      }
 
       const paymentData: InitPaymentResponse = await paymentService.initPayment({
         bookingId: showInfo.ShowID,
         amount: finalTotal,
-        method: PAYMENT_METHOD,
+        method: selectedPaymentMethod,
         currency: 'VND',
         voucherId: appliedVoucherId,
         discountAmount,
@@ -187,6 +216,26 @@ export default function PaymentScreen() {
     } finally {
       setIsPaying(false);
     }
+  };
+
+  const handleOpenCardModal = () => {
+    if (selectedPaymentMethod === 'CREDIT_CARD') {
+      setShowCardModal(true);
+    }
+  };
+
+  const formatCardNumber = (text: string) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 16);
+    const groups = cleaned.match(/.{1,4}/g);
+    return groups ? groups.join(' ') : cleaned;
+  };
+
+  const formatExpiry = (text: string) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 4);
+    if (cleaned.length >= 2) {
+      return cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+    }
+    return cleaned;
   };
 
   return (
@@ -296,16 +345,70 @@ export default function PaymentScreen() {
         {/* Payment Method */}
         <View style={S.section}>
           <Text style={S.sectionTitle}>Phương thức thanh toán</Text>
-          <View style={[S.card, S.selectedPaymentCard]}>
+
+          <TouchableOpacity
+            style={[S.paymentCard, selectedPaymentMethod === 'FLICKTICKETS_PAY' && S.paymentCardSelected]}
+            onPress={() => setSelectedPaymentMethod('FLICKTICKETS_PAY')}
+          >
             <View style={S.paymentIconBox}>
-              <Ionicons name="wallet-outline" size={18} color={Colors.primary} />
+              <Ionicons name="wallet-outline" size={18} color={selectedPaymentMethod === 'FLICKTICKETS_PAY' ? Colors.primary : Colors.textMuted} />
             </View>
             <View style={S.paymentInfo}>
               <Text style={S.paymentName}>FlickTickets Pay</Text>
-              <Text style={S.paymentDesc}>Thanh toán qua cổng thanh toán nội bộ</Text>
+              <Text style={S.paymentDesc}>Thanh toán qua cổng nội bộ</Text>
             </View>
-            <View style={S.radioInner} />
-          </View>
+            <View style={[S.radioOuter, selectedPaymentMethod === 'FLICKTICKETS_PAY' && S.radioOuterSelected]}>
+              {selectedPaymentMethod === 'FLICKTICKETS_PAY' && <View style={S.radioInner} />}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[S.paymentCard, selectedPaymentMethod === 'QR_MOMO' && S.paymentCardSelected]}
+            onPress={() => setSelectedPaymentMethod('QR_MOMO')}
+          >
+            <View style={[S.paymentIconBox, { backgroundColor: 'rgba(161, 42, 128, 0.15)', borderColor: 'rgba(161, 42, 128, 0.3)' }]}>
+              <Text style={{ color: '#A12A80', fontSize: 14, fontWeight: '800' }}>Mo</Text>
+            </View>
+            <View style={S.paymentInfo}>
+              <Text style={S.paymentName}>MoMo</Text>
+              <Text style={S.paymentDesc}>Quét mã QR MoMo</Text>
+            </View>
+            <View style={[S.radioOuter, selectedPaymentMethod === 'QR_MOMO' && S.radioOuterSelected]}>
+              {selectedPaymentMethod === 'QR_MOMO' && <View style={S.radioInner} />}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[S.paymentCard, selectedPaymentMethod === 'QR_VNPAY' && S.paymentCardSelected]}
+            onPress={() => setSelectedPaymentMethod('QR_VNPAY')}
+          >
+            <View style={[S.paymentIconBox, { backgroundColor: 'rgba(0, 100, 180, 0.15)', borderColor: 'rgba(0, 100, 180, 0.3)' }]}>
+              <Text style={{ color: '#0064B4', fontSize: 12, fontWeight: '800' }}>VN</Text>
+            </View>
+            <View style={S.paymentInfo}>
+              <Text style={S.paymentName}>VNPay</Text>
+              <Text style={S.paymentDesc}>Quét mã QR VNPay</Text>
+            </View>
+            <View style={[S.radioOuter, selectedPaymentMethod === 'QR_VNPAY' && S.radioOuterSelected]}>
+              {selectedPaymentMethod === 'QR_VNPAY' && <View style={S.radioInner} />}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[S.paymentCard, selectedPaymentMethod === 'CREDIT_CARD' && S.paymentCardSelected]}
+            onPress={() => setSelectedPaymentMethod('CREDIT_CARD')}
+          >
+            <View style={[S.paymentIconBox, { backgroundColor: 'rgba(255, 152, 0, 0.15)', borderColor: 'rgba(255, 152, 0, 0.3)' }]}>
+              <Ionicons name="card-outline" size={18} color={selectedPaymentMethod === 'CREDIT_CARD' ? '#FF9800' : Colors.textMuted} />
+            </View>
+            <View style={S.paymentInfo}>
+              <Text style={S.paymentName}>Thẻ tín dụng</Text>
+              <Text style={S.paymentDesc}>Visa / Mastercard / JCB</Text>
+            </View>
+            <View style={[S.radioOuter, selectedPaymentMethod === 'CREDIT_CARD' && S.radioOuterSelected]}>
+              {selectedPaymentMethod === 'CREDIT_CARD' && <View style={S.radioInner} />}
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Voucher */}
@@ -369,7 +472,11 @@ export default function PaymentScreen() {
             <Text style={S.bottomTotalLabel}>Tổng cộng</Text>
             <Text style={S.bottomTotalValue}>{formatVND(finalTotal)}</Text>
           </View>
-          <TouchableOpacity style={[S.payBtn, isPaying && S.payBtnDisabled]} onPress={handlePayNow} disabled={isPaying}>
+          <TouchableOpacity
+            style={[S.payBtn, isPaying && S.payBtnDisabled]}
+            onPress={() => selectedPaymentMethod === 'CREDIT_CARD' ? handleOpenCardModal() : handlePayNow()}
+            disabled={isPaying}
+          >
             {isPaying ? (
               <ActivityIndicator size="small" color="#000" />
             ) : (
@@ -378,6 +485,104 @@ export default function PaymentScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Credit Card Modal */}
+      <Modal
+        visible={showCardModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCardModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={S.modalOverlay}
+        >
+          <View style={S.modalContent}>
+            <View style={S.modalHeader}>
+              <Text style={S.modalTitle}>Thông tin thẻ</Text>
+              <TouchableOpacity onPress={() => setShowCardModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={S.cardTypeRow}>
+              <View style={S.cardTypeBadge}>
+                <Ionicons name="card" size={20} color="#1565C0" />
+                <Text style={S.cardTypeText}>Visa / Mastercard / JCB</Text>
+              </View>
+            </View>
+
+            <View style={S.inputGroup}>
+              <Text style={S.inputLabel}>Số thẻ</Text>
+              <TextInput
+                style={S.input}
+                placeholder="1234 5678 9012 3456"
+                placeholderTextColor={Colors.textMuted}
+                value={cardNumber}
+                onChangeText={(t) => setCardNumber(formatCardNumber(t))}
+                keyboardType="number-pad"
+                maxLength={19}
+              />
+            </View>
+
+            <View style={S.inputGroup}>
+              <Text style={S.inputLabel}>Tên chủ thẻ</Text>
+              <TextInput
+                style={S.input}
+                placeholder="NGUYEN VAN A"
+                placeholderTextColor={Colors.textMuted}
+                value={cardHolder}
+                onChangeText={setCardHolder}
+                autoCapitalize="characters"
+              />
+            </View>
+
+            <View style={S.inputRow}>
+              <View style={[S.inputGroup, { flex: 1 }]}>
+                <Text style={S.inputLabel}>Ngày hết hạn</Text>
+                <TextInput
+                  style={S.input}
+                  placeholder="MM/YY"
+                  placeholderTextColor={Colors.textMuted}
+                  value={cardExpiry}
+                  onChangeText={(t) => setCardExpiry(formatExpiry(t))}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
+              </View>
+              <View style={[S.inputGroup, { flex: 1 }]}>
+                <Text style={S.inputLabel}>CVV</Text>
+                <TextInput
+                  style={S.input}
+                  placeholder="123"
+                  placeholderTextColor={Colors.textMuted}
+                  value={cardCvv}
+                  onChangeText={setCardCvv}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  secureTextEntry
+                />
+              </View>
+            </View>
+
+            <Text style={S.cardSecurityNote}>
+              <Ionicons name="lock-closed-outline" size={12} color={Colors.textMuted} /> Thông tin thẻ được mã hóa, không lưu trữ trên máy chủ.
+            </Text>
+
+            <TouchableOpacity
+              style={[S.modalPayBtn, isPaying && S.payBtnDisabled]}
+              onPress={handlePayNow}
+              disabled={isPaying}
+            >
+              {isPaying ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={S.modalPayBtnText}>Xác nhận thanh toán {formatVND(finalTotal)}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -649,6 +854,116 @@ const S = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderWidth: 2,
     borderColor: Colors.primary,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: Colors.primary,
+  },
+  paymentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: Colors.card,
+  },
+  paymentCardSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(252, 196, 52, 0.05)',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cardTypeRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  cardTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(21, 101, 192, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(21, 101, 192, 0.3)',
+  },
+  cardTypeText: {
+    color: '#1565C0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  input: {
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: Colors.text,
+    fontSize: 15,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cardSecurityNote: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalPayBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  modalPayBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
   },
   voucherRow: {
     flexDirection: 'row',
