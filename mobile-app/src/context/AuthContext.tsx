@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { loadAuthSession, clearAuthSession, saveAuthSession } from '../utils/token';
 import { customerService } from '../services/customerService';
 import { authService } from '../services/authService';
@@ -39,6 +40,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   useEffect(() => {
+    // Sync context state when apiClient forces a logout (e.g. refresh token failure)
+    const logoutSubscription = DeviceEventEmitter.addListener('onLogout', () => {
+      setState({
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    });
+
+    return () => {
+      logoutSubscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     const bootstrapAsync = async () => {
       let accessToken = null;
       let user = null;
@@ -51,31 +68,70 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user = session.profile;
           isAuthenticated = true;
 
+          // Attempt to fetch fresh profile. If this fails due to 401, 
+          // apiClient interceptor will catch it, try to refresh, and if that fails, 
+          // it will emit 'onLogout' which clears our state.
           const profileRes = await customerService.getProfile();
           if (isSuccessResponse(profileRes)) {
             user = profileRes.data;
           }
         }
       } catch (e) {
-        // Restoring token failed
         console.log('Failed to restore token', e);
+      } finally {
+        setState((prev) => {
+          // If a forced logout happened during bootstrap (via DeviceEventEmitter), 
+          // the listener will have set isLoading to false.
+          // In that case, don't overwrite it with our local state.
+          if (!prev.isLoading) {
+             return prev; 
+          }
+          return {
+            user,
+            accessToken,
+            isAuthenticated,
+            isLoading: false,
+          };
+        });
       }
-
-      setState({
-        user,
-        accessToken,
-        isAuthenticated,
-        isLoading: false,
-      });
     };
 
     bootstrapAsync();
   }, []);
 
-  const setSession = async (accessToken: string, refreshToken: string, user: any) => {
-    await saveAuthSession(accessToken, refreshToken, user);
+  const setSession = async (accessToken: string, refreshToken: string, baseUser: any) => {
+    await saveAuthSession(accessToken, refreshToken, baseUser);
+    
+    // Set temporary state while we fetch the full profile
     setState({
-      user,
+      user: baseUser,
+      accessToken,
+      isAuthenticated: true,
+      isLoading: true,
+    });
+
+    try {
+      // Fetch full profile to get FullName, AvatarUrl, Gender, DateOfBirth, PhoneNumber
+      const profileRes = await customerService.getProfile();
+      if (isSuccessResponse(profileRes)) {
+        const fullUser = { ...baseUser, ...profileRes.data };
+        await saveAuthSession(accessToken, refreshToken, fullUser);
+        
+        setState({
+          user: fullUser,
+          accessToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+    } catch (e) {
+      console.log('Failed to fetch full profile during setSession', e);
+    }
+
+    // Fallback if profile fetch fails
+    setState({
+      user: baseUser,
       accessToken,
       isAuthenticated: true,
       isLoading: false,
@@ -83,7 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    setState({ ...state, isLoading: true });
+    setState((prev) => ({ ...prev, isLoading: true }));
     try {
       const session = await loadAuthSession();
       if (session.refreshToken) {
@@ -91,14 +147,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (e) {
       console.log('Logout API error', e);
+    } finally {
+      await clearAuthSession();
+      DeviceEventEmitter.emit('onLogout'); // Ensure all listeners (if any) are notified
+      setState({
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
     }
-    await clearAuthSession();
-    setState({
-      user: null,
-      accessToken: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
   };
 
   const refreshProfile = async () => {
@@ -108,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setState((prev) => ({ ...prev, user: profileRes.data }));
       }
     } catch (e) {
-      console.log('Làm mới profile failed', e);
+      console.log('Refresh profile failed', e);
     }
   };
 
