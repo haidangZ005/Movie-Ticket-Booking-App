@@ -24,6 +24,10 @@ import SeatSelectionScreen from '../screens/booking/SeatSelectionScreen';
 import ComboScreen from '../screens/booking/ComboScreen';
 
 import PaymentScreen from '../screens/payment/PaymentScreen';
+import PaymentResultScreen from '../screens/payment/PaymentResultScreen';
+import NotificationListScreen from '../screens/notification/NotificationListScreen';
+import LoyaltyScreen from '../screens/loyalty/LoyaltyScreen';
+import MyVouchersScreen from '../screens/voucher/MyVouchersScreen';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -59,6 +63,10 @@ function MainNavigator() {
       <MainStack.Screen name="SeatSelection" component={SeatSelectionScreen} />
       <MainStack.Screen name="ComboScreen" component={ComboScreen} />
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
+      <MainStack.Screen name="PaymentResultScreen" component={PaymentResultScreen} />
+      <MainStack.Screen name="NotificationList" component={NotificationListScreen} />
+      <MainStack.Screen name="Loyalty" component={LoyaltyScreen} />
+      <MainStack.Screen name="MyVouchers" component={MyVouchersScreen} />
     </MainStack.Navigator>
   );
 }
