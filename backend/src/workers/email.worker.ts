@@ -13,23 +13,29 @@ const connectionOptions = {
 };
 
 /**
- * BullMQ Email Queue Worker
+ * BullMQ Email Worker — xử lý hàng đợi gửi email bất đồng bộ.
+ * Mỗi loại job tương ứng với một phương thức trong EmailService.
  */
 export const emailWorker = new Worker<EmailJobData>(
   'email-queue',
   async (job: Job<EmailJobData>) => {
-    const { email, otp, type } = job.data;
-    
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[Queue Worker] Đang xử lý gửi email cho ${email}, Loại: ${type}`);
-    }
+    const { type, email } = job.data;
 
-    if (type === 'REGISTER_OTP') {
-      await EmailService.sendOtpEmail(email, otp);
-    } else if (type === 'RESET_PASSWORD_OTP') {
-      await EmailService.sendResetPasswordOtpEmail(email, otp);
-    } else {
-      throw new Error(`Unknown job type: ${type}`);
+    switch (type) {
+      case 'REGISTER_OTP':
+        await EmailService.sendOtpEmail(email, job.data.otp);
+        break;
+
+      case 'RESET_PASSWORD_OTP':
+        await EmailService.sendResetPasswordOtpEmail(email, job.data.otp);
+        break;
+
+      case 'WELCOME':
+        await EmailService.sendWelcomeEmail(email, job.data.fullName);
+        break;
+
+      default:
+        throw new Error(`[EmailWorker] Loại job không xác định: ${(job.data as any)?.type}`);
     }
   },
   {
@@ -38,17 +44,15 @@ export const emailWorker = new Worker<EmailJobData>(
   }
 );
 
-emailWorker.on('completed', (job: Job) => {
+emailWorker.on('completed', (job: Job<EmailJobData>) => {
   if (process.env.NODE_ENV !== 'production') {
-    const sanitizedData = {
-      ...job.data,
-      otp: '***MASKED***'
-    };
-    console.log(`[Queue Worker] Job ${job.id} gửi thành công:`, sanitizedData);
+    console.log(`[EmailWorker] Job ${job.id} (${job.data.type}) → ${job.data.email} — thành công`);
   }
 });
 
-emailWorker.on('failed', (job: Job | undefined, err: Error) => {
-  const sanitizedData = job ? { ...job.data, otp: '***MASKED***' } : {};
-  console.error(`[Queue Worker] Job ${job?.id || 'unknown'} thất bại với lỗi: ${err.message}`, sanitizedData);
+emailWorker.on('failed', (job: Job<EmailJobData> | undefined, err: Error) => {
+  console.error(
+    `[EmailWorker] Job ${job?.id ?? 'unknown'} (${job?.data?.type ?? '?'}) thất bại: ${err.message}`
+  );
 });
+

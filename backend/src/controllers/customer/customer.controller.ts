@@ -143,4 +143,19 @@ export class CustomerController {
     const result = await CustomerService.updateProfile(accountId, payload);
     res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
   });
+
+  static getLoyaltyPoints = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user!.accountId;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const result = await CustomerService.getLoyaltyPoints(accountId, page, limit);
+    res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
+  });
+
+  static getMyVouchers = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user!.accountId;
+    const vouchers = await CustomerService.getMyVouchers(accountId);
+    res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, vouchers));
+  });
 }
