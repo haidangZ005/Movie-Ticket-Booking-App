@@ -78,5 +78,43 @@ export class EmailService {
       html: EmailTemplates.welcome(fullName),
     });
   }
+
+  /**
+   * Gửi email chứa vé điện tử và mã QR check-in sau khi thanh toán thành công.
+   */
+  static async sendTicketEmail(email: string, bookingData: any): Promise<void> {
+    await EmailService.send({
+      to: email,
+      subject: `CineBook — Vé điện tử #${bookingData.bookingId}`,
+      html: EmailTemplates.ticket(bookingData),
+      fallbackLog: `[Vé điện tử] Đã gửi tới ${email} cho Booking #${bookingData.bookingId}`,
+    });
+  }
+
+  /**
+   * Gửi email thông báo hoàn tiền khi hủy vé.
+   */
+  static async sendRefundEmail(email: string, data: { bookingId: number; refundAmount: number }): Promise<void> {
+    await EmailService.send({
+      to: email,
+      subject: `CineBook — Hoàn tiền đơn hàng #${data.bookingId}`,
+      html: EmailTemplates.refund(data),
+      fallbackLog: `[Hoàn tiền] Đã gửi tới ${email} cho Booking #${data.bookingId} — ${data.refundAmount}đ`,
+    });
+  }
+
+  /**
+   * Gửi email tùy chỉnh — dùng bởi NotificationService.
+   * Nhận subject + HTML body bất kỳ.
+   */
+  static async sendCustomEmail(email: string, subject: string, html: string): Promise<void> {
+    await EmailService.send({
+      to: email,
+      subject,
+      html,
+      fallbackLog: `[Custom] ${subject} → ${email}`,
+    });
+  }
 }
+
 

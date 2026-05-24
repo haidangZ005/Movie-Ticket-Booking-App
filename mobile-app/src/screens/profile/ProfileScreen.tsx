@@ -12,12 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 
 // Dummy profile image
 const PROFILE_IMAGE_URL = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
 
 export default function ProfileScreen() {
+  const navigation = useNavigation<any>();
   const { user, logout } = useContext(AuthContext);
   const [isFaceIdEnabled, setIsFaceIdEnabled] = useState(false);
   const displayName = user?.FullName || user?.Email?.split('@')[0] || 'Người dùng';
@@ -65,10 +67,19 @@ export default function ProfileScreen() {
                 <Feather name="mail" size={14} color="#A1A1AA" />
                 <Text style={styles.contactText}>{email}</Text>
               </View>
+              <View style={styles.loyaltyBadge}>
+                <Ionicons name="star" size={12} color="#FFC107" />
+                <Text style={styles.loyaltyText}>
+                  {(user as any)?.LoyaltyPoints?.toLocaleString('vi-VN') || 0} điểm
+                </Text>
+              </View>
             </View>
           </View>
           
-          <TouchableOpacity style={styles.editButton}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.navigate('EditProfile' as never)}
+          >
             <Feather name="edit-2" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -78,7 +89,22 @@ export default function ProfileScreen() {
           {renderMenuItem(
             <MaterialCommunityIcons name="ticket-confirmation-outline" size={24} color="#FFFFFF" />,
             'Vé của tôi',
-            () => console.log('My ticket')
+            () => navigation.navigate('Ticket')
+          )}
+          {renderMenuItem(
+            <Ionicons name="pricetags-outline" size={24} color="#FFFFFF" />,
+            'Kho voucher',
+            () => navigation.navigate('MyVouchers')
+          )}
+          {renderMenuItem(
+            <Ionicons name="ribbon-outline" size={24} color="#FFFFFF" />,
+            'Điểm tích lũy',
+            () => navigation.navigate('Loyalty')
+          )}
+          {renderMenuItem(
+            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />,
+            'Thông báo',
+            () => navigation.navigate('NotificationList')
           )}
           {renderMenuItem(
             <Ionicons name="cart-outline" size={24} color="#FFFFFF" />,

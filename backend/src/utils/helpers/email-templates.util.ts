@@ -153,8 +153,135 @@ const welcome = (fullName: string): string => {
   return wrapLayout(`Chào mừng đến với ${APP_NAME}`, content);
 };
 
+/**
+ * Template vé điện tử chứa thông tin đặt vé và QR code check-in (mock).
+ */
+const ticket = (bookingData: any): string => {
+  const content = `
+    <h2 style="margin:0 0 8px;color:#222222;font-size:22px;font-weight:700;">
+      Vé Điện Tử Của Bạn 🎟️
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Cảm ơn bạn đã đặt vé tại <strong>${APP_NAME}</strong>. Vui lòng đưa mã QR này cho nhân viên soát vé khi đến rạp.
+    </p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:24px;margin:24px 0;text-align:center;">
+      <p style="margin:0 0 12px;color:#333333;font-weight:600;font-size:16px;">
+        Mã Đơn Hàng: #${bookingData.bookingId}
+      </p>
+      
+      <!-- Giả lập hình ảnh QR code -->
+      <div style="margin:20px auto;width:200px;height:200px;background:#fff;padding:10px;border:1px solid #ddd;border-radius:8px;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${bookingData.bookingId}" alt="QR Check-in" style="width:100%;height:100%;object-fit:cover;" />
+      </div>
+
+      <p style="margin:12px 0 0;color:#555555;font-size:14px;">
+        <strong>Phim:</strong> ${bookingData.movieTitle || 'Đang cập nhật'}<br/>
+        <strong>Ghế:</strong> ${bookingData.seats || 'Đang cập nhật'}<br/>
+        <strong>Tổng tiền:</strong> ${bookingData.amount?.toLocaleString('vi-VN')}đ
+      </p>
+    </div>
+  `;
+  return wrapLayout(`Vé Điện Tử — ${APP_NAME}`, content);
+};
+
+/**
+ * Template email thông báo hoàn tiền khi hủy vé.
+ */
+const refund = (data: { bookingId: number; refundAmount: number }): string => {
+  const content = `
+    <h2 style="margin:0 0 8px;color:#222222;font-size:22px;font-weight:700;">
+      Thông Báo Hoàn Tiền 💰
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Đơn hàng <strong>#${data.bookingId}</strong> của bạn đã được hủy thành công. Số tiền hoàn trả sẽ được chuyển về tài khoản của bạn trong vòng 3-5 ngày làm việc.
+    </p>
+
+    <div style="background:#fff8f0;border-left:4px solid #FF9800;padding:20px;border-radius:4px;margin:24px 0;">
+      <p style="margin:0;color:#333333;font-size:16px;">
+        Số tiền hoàn: <strong style="color:${BRAND_COLOR}">${data.refundAmount.toLocaleString('vi-VN')}đ</strong>
+      </p>
+    </div>
+
+    <p style="margin:0;color:#777777;font-size:14px;line-height:1.6;">
+      Nếu bạn có thắc mắc, vui lòng liên hệ bộ phận hỗ trợ khách hàng.
+    </p>
+  `;
+  return wrapLayout(`Thông Báo Hoàn Tiền — ${APP_NAME}`, content);
+};
+
+/**
+ * Template email xác nhận hủy vé.
+ */
+const cancellation = (data: { bookingId: number; movieTitle?: string }): string => {
+  const content = `
+    <h2 style="margin:0 0 8px;color:#222222;font-size:22px;font-weight:700;">
+      Xác Nhận Hủy Vé ❌
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Đơn hàng <strong>#${data.bookingId}</strong>${data.movieTitle ? ` — phim <strong>${data.movieTitle}</strong>` : ''} đã được hủy thành công theo yêu cầu của bạn.
+    </p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:24px 0;">
+      <p style="margin:0;color:#555555;font-size:14px;line-height:1.6;">
+        📌 Nếu bạn đã thanh toán, số tiền hoàn sẽ được chuyển về tài khoản trong vòng <strong>3-5 ngày làm việc</strong>.<br/>
+        📌 Điểm tích lũy (nếu có) sẽ được thu hồi tương ứng.<br/>
+        📌 Voucher đã sử dụng (nếu có) sẽ được khôi phục lại.
+      </p>
+    </div>
+  `;
+  return wrapLayout(`Xác Nhận Hủy Vé — ${APP_NAME}`, content);
+};
+
+/**
+ * Template email xác nhận đặt vé thành công (booking confirmation kèm QR).
+ */
+const bookingConfirmation = (data: { bookingId: number; movieTitle: string; seats: string; showtime?: string; cinema?: string; amount: number }): string => {
+  const content = `
+    <h2 style="margin:0 0 8px;color:#222222;font-size:22px;font-weight:700;">
+      Xác Nhận Đặt Vé Thành Công 🎬
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Cảm ơn bạn đã đặt vé tại <strong>${APP_NAME}</strong>!
+    </p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:24px;margin:24px 0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:8px 0;color:#777;font-size:14px;">Mã đơn hàng</td>
+          <td style="padding:8px 0;color:#333;font-size:14px;font-weight:600;text-align:right;">#${data.bookingId}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#777;font-size:14px;border-top:1px solid #eee;">Phim</td>
+          <td style="padding:8px 0;color:#333;font-size:14px;font-weight:600;text-align:right;border-top:1px solid #eee;">${data.movieTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#777;font-size:14px;border-top:1px solid #eee;">Ghế</td>
+          <td style="padding:8px 0;color:#333;font-size:14px;font-weight:600;text-align:right;border-top:1px solid #eee;">${data.seats}</td>
+        </tr>
+        ${data.showtime ? `<tr><td style="padding:8px 0;color:#777;font-size:14px;border-top:1px solid #eee;">Suất chiếu</td><td style="padding:8px 0;color:#333;font-size:14px;font-weight:600;text-align:right;border-top:1px solid #eee;">${data.showtime}</td></tr>` : ''}
+        ${data.cinema ? `<tr><td style="padding:8px 0;color:#777;font-size:14px;border-top:1px solid #eee;">Rạp</td><td style="padding:8px 0;color:#333;font-size:14px;font-weight:600;text-align:right;border-top:1px solid #eee;">${data.cinema}</td></tr>` : ''}
+        <tr>
+          <td style="padding:8px 0;color:#777;font-size:14px;border-top:1px solid #eee;">Tổng tiền</td>
+          <td style="padding:8px 0;color:${BRAND_COLOR};font-size:16px;font-weight:700;text-align:right;border-top:1px solid #eee;">${data.amount.toLocaleString('vi-VN')}đ</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin:24px 0;">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=CINEBOOK-${data.bookingId}" alt="QR Check-in" style="width:180px;height:180px;border:1px solid #ddd;border-radius:8px;padding:8px;" />
+      <p style="margin:8px 0 0;color:#888;font-size:13px;">Đưa mã QR này cho nhân viên khi đến rạp</p>
+    </div>
+  `;
+  return wrapLayout(`Xác Nhận Đặt Vé — ${APP_NAME}`, content);
+};
+
 export const EmailTemplates = {
   registerOtp,
   resetPasswordOtp,
   welcome,
+  ticket,
+  refund,
+  cancellation,
+  bookingConfirmation,
 };
