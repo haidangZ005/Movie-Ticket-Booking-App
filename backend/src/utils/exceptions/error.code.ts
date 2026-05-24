@@ -1,4 +1,4 @@
-﻿export type ErrorCodeType = {
+export type ErrorCodeType = {
   code: number;
   message: string;
   statusCode: number; // Dành riêng cho Express để định tuyến HTTP Status Code
@@ -30,6 +30,7 @@ export const ErrorCode = {
   SEAT_CONSTRAINT_VIOLATION: { code: 1012, message: 'Vi phạm ràng buộc ghế', statusCode: 422 },
   SEAT_ALREADY_BOOKED: { code: 1013, message: 'Ghế đã được đặt', statusCode: 409 },
   SEAT_ALREADY_HELD: { code: 1014, message: 'Ghế đang được giữ', statusCode: 409 },
+  SEAT_NOT_FOUND: { code: 1017, message: 'Ghế không tồn tại', statusCode: 404 },
   SHOW_TIME_CONFLICT: { code: 1016, message: 'Suất chiếu bị trùng thời gian với suất khác trong cùng phòng', statusCode: 409 },
   INVALID_HMAC_SIGNATURE: { code: 4001, message: 'Chữ ký HMAC không hợp lệ', statusCode: 401 },
   MISSING_HMAC_SIGNATURE: { code: 4002, message: 'Thiếu chữ ký HMAC', statusCode: 401 },
