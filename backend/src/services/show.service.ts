@@ -101,51 +101,21 @@ export const deleteShow = async (id: number) => {
 };
 
 /**
- * Tính giá vé (BasePrice + Surcharges theo SystemSettings)
+ * Tính giá vé — Delegate sang PricingService (đọc từ SystemSettings, KHÔNG hardcode)
  */
 export const calculateTicketPrice = async (showId: number, seatId: number) => {
-  // Lấy thông tin suất chiếu
-  const result = await ShowModel.findById(showId);
-  if (!result) {
-    throw new AppException(ErrorCode.SHOW_NOT_FOUND);
-  }
-  const show = result.show;
-
-  // Lấy thông tin ghế
-  const pool = getPool();
-  const seatResult = await pool.request()
-    .input('hallId', sql.Int, show.HallID)
-    .input('seatId', sql.Int, seatId)
-    .query('SELECT * FROM CinemaHallSeat WHERE HallID = @hallId AND SeatID = @seatId');
-
-  if (!seatResult.recordset[0]) {
-    throw new AppException(ErrorCode.USER_NOT_EXISTED); // TODO: Thêm SEAT_NOT_FOUND
-  }
-
-  const seat = seatResult.recordset[0];
-
-  // TODO: Implement đầy đủ theo business rules từ SystemSettings
-  // BasePrice + WeekendSurcharge + FormatSurcharge + SeatSurcharge
-  let totalPrice = show.BasePrice;
-
-  // Thêm phụ thu loại ghế
-  if (seat.SeatType === 'VIP') {
-    totalPrice += 30000; // SEAT_VIP_SURCHARGE from SystemSettings
-  } else if (seat.SeatType === 'COUPLE') {
-    totalPrice += 50000; // SEAT_COUPLE_SURCHARGE from SystemSettings
-  }
-
-  // TODO: Thêm phụ thu cuối tuần và định dạng
-  const surcharges = totalPrice - show.BasePrice;
-
-  return {
-    basePrice: show.BasePrice,
-    seatPrice: seat.SeatPrice,
-    surcharges: surcharges,
-    totalPrice: totalPrice,
-    seatType: seat.SeatType
-  };
+  const PricingService = (await import('./pricing.service')).default;
+  return PricingService.calculateSeatPrice(showId, seatId);
 };
+
+/**
+ * Tính giá vé cho nhiều ghế cùng lúc (batch)
+ */
+export const calculateBatchPrice = async (showId: number, seatIds: number[]) => {
+  const PricingService = (await import('./pricing.service')).default;
+  return PricingService.calculateBatchPrice(showId, seatIds);
+};
+
 export default {
   getById,
   getSeatsByShowId,
@@ -155,5 +125,6 @@ export default {
   create,
   update,
   deleteShow,
-  calculateTicketPrice
-};
+  calculateTicketPrice,
+  calculateBatchPrice
+};

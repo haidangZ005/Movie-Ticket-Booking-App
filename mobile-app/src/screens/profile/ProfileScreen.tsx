@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
@@ -19,8 +19,8 @@ const DEFAULT_AVATAR_MALE = 'https://images.unsplash.com/photo-1506794778202-cad
 const DEFAULT_AVATAR_OTHER = 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=256&q=80';
 
 export default function ProfileScreen() {
-  const { user, logout } = useContext(AuthContext);
   const navigation = useNavigation<any>();
+  const { user, logout } = useContext(AuthContext);
 
   const displayName = user?.FullName || user?.Email?.split('@')[0] || 'Người dùng';
   const email = user?.CustomerEmail || user?.Email || 'Chưa cập nhật email';
@@ -68,9 +68,7 @@ export default function ProfileScreen() {
           <View style={styles.userDetails}>
             <View style={styles.nameRow}>
               <Text style={styles.userName}>{displayName}</Text>
-              <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
-                <Feather name="edit-2" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+              <Text style={styles.userName}>{displayName}</Text>
             </View>
             
             <View style={styles.contactRow}>
@@ -82,7 +80,21 @@ export default function ProfileScreen() {
               <Feather name="mail" size={14} color="#A1A1AA" />
               <Text style={styles.contactText}>{email}</Text>
             </View>
+            
+            <View style={styles.loyaltyBadge}>
+              <Ionicons name="star" size={12} color="#FFC107" />
+              <Text style={styles.loyaltyText}>
+                {(user as any)?.LoyaltyPoints?.toLocaleString('vi-VN') || 0} điểm
+              </Text>
+            </View>
           </View>
+          
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Feather name="edit-2" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
         {/* Menu Items */}
@@ -90,7 +102,22 @@ export default function ProfileScreen() {
           {renderMenuItem(
             <MaterialCommunityIcons name="ticket-confirmation-outline" size={24} color="#FFFFFF" />,
             'Vé của tôi',
-            () => console.log('My ticket')
+            () => navigation.navigate('Ticket')
+          )}
+          {renderMenuItem(
+            <Ionicons name="pricetags-outline" size={24} color="#FFFFFF" />,
+            'Kho voucher',
+            () => navigation.navigate('MyVouchers')
+          )}
+          {renderMenuItem(
+            <Ionicons name="ribbon-outline" size={24} color="#FFFFFF" />,
+            'Điểm tích lũy',
+            () => navigation.navigate('Loyalty')
+          )}
+          {renderMenuItem(
+            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />,
+            'Thông báo',
+            () => navigation.navigate('NotificationList')
           )}
           {renderMenuItem(
             <Ionicons name="cart-outline" size={24} color="#FFFFFF" />,
@@ -145,6 +172,8 @@ const styles = StyleSheet.create({
   editButton: { paddingLeft: 12 },
   contactRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   contactText: { color: '#A1A1AA', fontSize: 14, marginLeft: 10, fontWeight: '400' },
+  loyaltyBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#333333', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start', marginTop: 8 },
+  loyaltyText: { color: '#FFC107', fontSize: 12, marginLeft: 4, fontWeight: '600' },
   menuSection: { paddingHorizontal: 24 },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 72, borderBottomWidth: 1, borderBottomColor: '#1C1C1E' },
   noBorder: { borderBottomWidth: 0 },

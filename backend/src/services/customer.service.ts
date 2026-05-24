@@ -1,6 +1,9 @@
 import { CustomerModel, UpdateCustomerPayload } from '../models/customer.model';
 import { AppException } from '../utils/exceptions/app.exception';
 import { ErrorCode } from '../utils/exceptions/error.code';
+import { VoucherModel } from '../models/voucher.model';
+import { getPool } from '../config/database';
+import * as sql from 'mssql';
 
 export class CustomerService {
   /**
@@ -90,5 +93,85 @@ export class CustomerService {
 
       throw error;
     }
+  }
+
+  /**
+   * Lấy điểm tích lũy và lịch sử điểm của khách hàng hiện tại.
+   */
+  static async getLoyaltyPoints(accountId: number, page: number = 1, limit: number = 20) {
+    const profile = await CustomerModel.findByAccountId(accountId);
+    if (!profile) {
+      throw new AppException(ErrorCode.USER_NOT_EXISTED);
+    }
+    const customerId = profile.CustomerID;
+    const pool = getPool();
+    const offset = (page - 1) * limit;
+
+    const pointsResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .query('SELECT LoyaltyPoints FROM Customer WHERE CustomerID = @CustomerID');
+    const currentPoints = pointsResult.recordset[0]?.LoyaltyPoints ?? 0;
+
+    const historyResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .input('Offset', sql.Int, offset)
+      .input('Limit', sql.Int, limit)
+      .query(`
+        SELECT HistoryID, Points, Type, Description, CreatedAt, BookingID
+        FROM LoyaltyPointHistory
+        WHERE CustomerID = @CustomerID
+        ORDER BY CreatedAt DESC
+        OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY
+      `);
+
+    const countResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .query('SELECT COUNT(*) AS Total FROM LoyaltyPointHistory WHERE CustomerID = @CustomerID');
+
+    const total = countResult.recordset[0]?.Total ?? 0;
+
+    return {
+      currentPoints,
+      history: historyResult.recordset,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Lấy danh sách voucher của khách hàng hiện tại (kho voucher cá nhân).
+   */
+  static async getMyVouchers(accountId: number) {
+    const profile = await CustomerModel.findByAccountId(accountId);
+    if (!profile) {
+      throw new AppException(ErrorCode.USER_NOT_EXISTED);
+    }
+    const customerId = profile.CustomerID;
+
+    const pool = getPool();
+    const result = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        SELECT
+          v.VoucherID,
+          v.Code,
+          v.DiscountType,
+          v.DiscountValue,
+          v.MaxDiscount,
+          v.StartDate,
+          v.EndDate,
+          v.IsActive,
+          v.UsageLimit,
+          v.UsageCount,
+          v.MinTicketQty,
+          v.MinOrderValue,
+          v.ApplicableFormat,
+          vc.AssignedAt
+        FROM Voucher v
+        INNER JOIN VoucherCustomer vc ON v.VoucherID = vc.VoucherID
+        WHERE vc.CustomerID = @CustomerID
+        ORDER BY v.EndDate ASC
+      `);
+
+    return result.recordset;
   }
 }
