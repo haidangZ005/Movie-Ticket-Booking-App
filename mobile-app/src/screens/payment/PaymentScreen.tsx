@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { API_ORIGIN } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
+import { paymentService, InitPaymentResponse } from '../../services/paymentService';
+import { voucherService } from '../../services/voucherService';
 
 const PAYMENT_METHOD = 'FLICKTICKETS_PAY';
 
@@ -73,8 +75,12 @@ export default function PaymentScreen() {
   const params = route.params;
 
   const [voucherCode, setVoucherCode] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [appliedVoucherId, setAppliedVoucherId] = useState<number | undefined>(undefined);
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
-  if (!params || !params.showInfo || !params.selectedSeats) {
+  if (!routeParams || !routeParams.showInfo || !routeParams.selectedSeats) {
     return (
       <SafeAreaView style={S.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
@@ -93,37 +99,94 @@ export default function PaymentScreen() {
     addonItems,
     addonTotal,
     grandTotal,
-  } = params;
+  } = routeParams;
 
   const posterUrl = resolvePosterUrl(showInfo.PosterUrl);
   const seatNumbers = selectedSeats.map(s => s.SeatNumber).join(', ');
 
-  const handleApplyVoucher = () => {
+  const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) {
       Alert.alert('Thông báo', 'Vui lòng nhập mã voucher');
       return;
     }
-    Alert.alert('Thông báo', 'Tính năng voucher sẽ được kết nối sau');
+    setIsApplyingVoucher(true);
+    try {
+      const vouchers = await voucherService.getAvailableVouchers({
+        totalAmount: grandTotal,
+        totalSeats: selectedSeats.length,
+        showFormat: showInfo.Format || '2D',
+      });
+      const matched = vouchers.find(v => v.Code.toUpperCase() === voucherCode.trim().toUpperCase());
+      if (!matched) {
+        Alert.alert('Voucher không hợp lệ', 'Mã voucher không tồn tại hoặc không đủ điều kiện sử dụng cho đơn hàng này.');
+        setIsApplyingVoucher(false);
+        return;
+      }
+      const result = await voucherService.applyVoucher({
+        voucherId: matched.VoucherID,
+        totalAmount: grandTotal,
+        totalSeats: selectedSeats.length,
+        showFormat: showInfo.Format || '2D',
+      });
+      setDiscountAmount(result.discountAmount);
+      setAppliedVoucherId(matched.VoucherID);
+      Alert.alert('Thành công', `Đã áp dụng voucher giảm ${result.discountAmount.toLocaleString('vi-VN')}đ`);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
+      Alert.alert('Lỗi voucher', message);
+    } finally {
+      setIsApplyingVoucher(false);
+    }
   };
 
-  const handlePayNow = () => {
-    const paymentPayload = {
-      showId: showInfo.ShowID,
-      seatIds: selectedSeats.map(s => s.SeatID),
-      products: addonItems.map(item => ({
-        productId: item.ProductID,
-        quantity: item.quantity,
-        price: item.Price,
-      })),
-      ticketTotal,
-      addonTotal,
-      discountAmount: 0,
-      serviceFee: 0,
-      totalAmount: grandTotal,
-      paymentMethod: PAYMENT_METHOD,
-    };
-    console.log('[PAYMENT PAYLOAD]', paymentPayload);
-    Alert.alert('Thanh toán', 'Đang chuyển sang cổng thanh toán FlickTickets');
+  const finalTotal = grandTotal - discountAmount;
+
+  const handlePayNow = async () => {
+    if (isPaying) return;
+    setIsPaying(true);
+    try {
+      const payload = {
+        showId: showInfo.ShowID,
+        seatIds: selectedSeats.map(s => s.SeatID),
+        products: addonItems.map(item => ({
+          productId: item.ProductID,
+          quantity: item.quantity,
+          price: item.Price,
+        })),
+        ticketTotal,
+        addonTotal,
+        discountAmount,
+        serviceFee: 0,
+        totalAmount: finalTotal,
+        paymentMethod: PAYMENT_METHOD,
+        voucherId: appliedVoucherId,
+      };
+
+      const paymentData: InitPaymentResponse = await paymentService.initPayment({
+        bookingId: showInfo.ShowID,
+        amount: finalTotal,
+        method: PAYMENT_METHOD,
+        currency: 'VND',
+        voucherId: appliedVoucherId,
+        discountAmount,
+      });
+
+      navigation.navigate('PaymentResultScreen' as never, {
+        status: 'success',
+        bookingId: paymentData.orderId,
+        amount: finalTotal,
+        message: paymentData.message,
+      } as never);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
+      Alert.alert('Thanh toán thất bại', message);
+      navigation.navigate('PaymentResultScreen' as never, {
+        status: 'failed',
+        message,
+      } as never);
+    } finally {
+      setIsPaying(false);
+    }
   };
 
   return (
@@ -259,8 +322,12 @@ export default function PaymentScreen() {
                 onChangeText={setVoucherCode}
               />
             </View>
-            <TouchableOpacity style={S.voucherBtn} onPress={handleApplyVoucher}>
-              <Text style={S.voucherBtnText}>Áp dụng</Text>
+            <TouchableOpacity style={[S.voucherBtn, isApplyingVoucher && S.voucherBtnDisabled]} onPress={handleApplyVoucher} disabled={isApplyingVoucher}>
+              {isApplyingVoucher ? (
+                <ActivityIndicator size="small" color={Colors.text} />
+              ) : (
+                <Text style={S.voucherBtnText}>Áp dụng</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -277,7 +344,7 @@ export default function PaymentScreen() {
           </View>
           <View style={S.breakdownRow}>
             <Text style={S.breakdownLabel}>Giảm giá</Text>
-            <Text style={S.breakdownValue}>{formatVND(0)}</Text>
+            <Text style={[S.breakdownValue, discountAmount > 0 && { color: '#4CAF50' }]}>-{formatVND(discountAmount)}</Text>
           </View>
           <View style={S.breakdownRow}>
             <Text style={S.breakdownLabel}>Phí dịch vụ</Text>
@@ -286,7 +353,7 @@ export default function PaymentScreen() {
           <View style={S.divider} />
           <View style={S.totalRow}>
             <Text style={S.totalLabel}>Tổng thanh toán</Text>
-            <Text style={S.totalValue}>{formatVND(grandTotal)}</Text>
+            <Text style={S.totalValue}>{formatVND(finalTotal)}</Text>
           </View>
         </View>
 
@@ -300,10 +367,14 @@ export default function PaymentScreen() {
         <View style={S.bottomBarInner}>
           <View style={S.bottomTotalInfo}>
             <Text style={S.bottomTotalLabel}>Tổng cộng</Text>
-            <Text style={S.bottomTotalValue}>{formatVND(grandTotal)}</Text>
+            <Text style={S.bottomTotalValue}>{formatVND(finalTotal)}</Text>
           </View>
-          <TouchableOpacity style={S.payBtn} onPress={handlePayNow}>
-            <Text style={S.payBtnText}>Thanh toán ngay</Text>
+          <TouchableOpacity style={[S.payBtn, isPaying && S.payBtnDisabled]} onPress={handlePayNow} disabled={isPaying}>
+            {isPaying ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Text style={S.payBtnText}>Thanh toán ngay</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -618,6 +689,9 @@ const S = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  voucherBtnDisabled: {
+    opacity: 0.6,
+  },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -701,8 +775,11 @@ const S = StyleSheet.create({
     alignItems: 'center',
   },
   payBtnText: {
-    color: Colors.black,
+    color: '#000',
     fontSize: 16,
     fontWeight: '700',
+  },
+  payBtnDisabled: {
+    opacity: 0.6,
   },
 });
