@@ -1,0 +1,81 @@
+import apiClient from '../api/apiClient';
+
+export interface Voucher {
+  VoucherID: number;
+  Code: string;
+  DiscountType: 'PERCENT' | 'FIXED';
+  DiscountValue: number;
+  MaxDiscount?: number;
+  StartDate: string;
+  EndDate: string;
+  IsActive: boolean;
+  UsageLimit: number;
+  UsageCount: number;
+  MinTicketQty: number;
+  MinOrderValue: number;
+  ApplicableFormat: string;
+  AssignedAt?: string;
+}
+
+export interface ApplyVoucherResult {
+  voucherId: number;
+  voucherCode: string;
+  discountType: string;
+  discountValue: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
+export interface SuggestVoucherResult {
+  voucher: Voucher;
+  discountAmount: number;
+  finalAmount: number;
+}
+
+export const voucherService = {
+  getAvailableVouchers: async (params: {
+    totalAmount: number;
+    totalSeats: number;
+    showFormat: string;
+  }): Promise<Voucher[]> => {
+    const response = await apiClient.get(
+      `/vouchers/suggest?totalAmount=${params.totalAmount}&totalSeats=${params.totalSeats}&showFormat=${params.showFormat}`
+    );
+    return response.data.data ?? [];
+  },
+
+  applyVoucher: async (params: {
+    voucherId: number;
+    totalAmount: number;
+    totalSeats: number;
+    showFormat: string;
+    bookingId?: number;
+  }): Promise<ApplyVoucherResult> => {
+    const response = await apiClient.post('/vouchers/apply', {
+      voucherId: params.voucherId,
+      totalAmount: params.totalAmount,
+      totalSeats: params.totalSeats,
+      showFormat: params.showFormat,
+      bookingId: params.bookingId,
+    });
+    return response.data.data;
+  },
+
+  suggestBestVoucher: async (params: {
+    totalAmount: number;
+    totalSeats: number;
+    showFormat: string;
+  }): Promise<SuggestVoucherResult | null> => {
+    const response = await apiClient.post('/vouchers/suggest', {
+      totalAmount: params.totalAmount,
+      totalSeats: params.totalSeats,
+      showFormat: params.showFormat,
+    });
+    return response.data.data;
+  },
+
+  getMyVouchers: async (): Promise<Voucher[]> => {
+    const response = await apiClient.get('/customer/vouchers');
+    return response.data.data ?? [];
+  },
+};

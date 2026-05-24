@@ -1,27 +1,76 @@
-import { startRefreshFeaturedCacheJob } from './refreshFeaturedCache';
+import cron from 'node-cron';
+import { reminderNotificationJob } from './reminderNotification.job';
+import { autoIssueVouchersJob } from './autoIssueVouchers.job';
+import { refreshFeaturedCacheJob } from './refreshFeaturedCache.job';
+import { releaseExpiredSeatsJob } from './releaseExpiredSeats.job';
 
 /**
- * Khởi chạy toàn bộ Background Jobs.
- * Gọi hàm này 1 lần trong server.ts sau khi kết nối DB thành công.
+ * Đăng ký tất cả cron jobs vào server.
+ * Gọi trong server.ts sau khi kết nối DB thành công.
  *
- * Danh sách jobs:
- *   - refreshFeaturedCache (TV2): Cập nhật cache phim nổi bật mỗi 5 phút
- *   - releaseExpiredSeats  (TV3): TODO — Mỗi 1 phút quét booking hết hạn, nhả ghế
- *   - reminderNotification (TV4): TODO — Mỗi 5 phút gửi push nhắc lịch 30p trước chiếu
+ * Schedule:
+ *  - releaseExpiredSeats      : mỗi 1 phút       (*/1 * * * *)
+ *  - reminderNotification    : mỗi 5 phút       (*/5 * * * *)
+ *  - cleanupExpiredBookings   : mỗi 10 phút      (*/10 * * * *) — gộp vào releaseExpiredSeats
+ *  - refreshFeaturedCache    : mỗi 5 phút       (*/5 * * * *)
+ *  - autoIssueVouchers       : mỗi ngày 00:00   (0 0 * * *)
  */
-export const startAllJobs = (): void => {
-  console.log('[⚙️ Jobs]  Đang đăng ký các Background Jobs...');
+export function registerJobs(): void {
+  // =============================================
+  // releaseExpiredSeats — mỗi 1 phút
+  // =============================================
+  cron.schedule('*/1 * * * *', async () => {
+    try {
+      await releaseExpiredSeatsJob();
+    } catch (err) {
+      console.error('[Cron] releaseExpiredSeats error:', err);
+    }
+  }, {
+    timezone: 'Asia/Ho_Chi_Minh',
+  });
+  console.log('[📋 Jobs] registered: releaseExpiredSeats (*/1 * * * *)');
 
-  // TV2: Cache phim nổi bật
-  startRefreshFeaturedCacheJob();
+  // =============================================
+  // reminderNotification — mỗi 5 phút
+  // =============================================
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      await reminderNotificationJob();
+    } catch (err) {
+      console.error('[Cron] reminderNotification error:', err);
+    }
+  }, {
+    timezone: 'Asia/Ho_Chi_Minh',
+  });
+  console.log('[📋 Jobs] registered: reminderNotification (*/5 * * * *)');
 
-  // TV3: Nhả ghế hết hạn (uncomment khi TV3 hoàn thành)
-  // startReleaseExpiredSeatsJob();
+  // =============================================
+  // refreshFeaturedCache — mỗi 5 phút
+  // =============================================
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      await refreshFeaturedCacheJob();
+    } catch (err) {
+      console.error('[Cron] refreshFeaturedCache error:', err);
+    }
+  }, {
+    timezone: 'Asia/Ho_Chi_Minh',
+  });
+  console.log('[📋 Jobs] registered: refreshFeaturedCache (*/5 * * * *)');
 
-  // TV4: Nhắc lịch chiếu (uncomment khi TV4 hoàn thành)
-  // startReminderNotificationJob();
+  // =============================================
+  // autoIssueVouchers — mỗi ngày lúc 00:00
+  // =============================================
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      await autoIssueVouchersJob();
+    } catch (err) {
+      console.error('[Cron] autoIssueVouchers error:', err);
+    }
+  }, {
+    timezone: 'Asia/Ho_Chi_Minh',
+  });
+  console.log('[📋 Jobs] registered: autoIssueVouchers (0 0 * * *)');
 
-  console.log('[⚙️ Jobs]  Tất cả Background Jobs đã sẵn sàng');
-};
-
-export default { startAllJobs };
+  console.log('[📋 Jobs] Tất cả cron jobs đã được đăng ký thành công!');
+}

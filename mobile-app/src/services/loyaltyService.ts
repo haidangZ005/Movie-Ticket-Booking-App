@@ -1,0 +1,33 @@
+import apiClient from '../api/apiClient';
+
+export interface LoyaltyHistoryItem {
+  HistoryID: number;
+  Points: number;
+  Type: 'EARNED' | 'REVOKED';
+  Description: string;
+  CreatedAt: string;
+  BookingID?: number;
+}
+
+export interface LoyaltyPointsResponse {
+  currentPoints: number;
+  history: LoyaltyHistoryItem[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export const loyaltyService = {
+  getPoints: async (): Promise<{ currentPoints: number }> => {
+    const response = await apiClient.get('/customer/loyalty-points');
+    return response.data.data;
+  },
+
+  getPointsHistory: async (page: number = 1, limit: number = 20): Promise<LoyaltyPointsResponse> => {
+    const response = await apiClient.get(`/customer/loyalty-points?page=${page}&limit=${limit}`);
+    return response.data.data;
+  },
+};
