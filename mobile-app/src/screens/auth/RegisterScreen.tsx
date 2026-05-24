@@ -2,12 +2,10 @@ import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { LanguageContext } from '../../context/LanguageContext';
 import { authService } from '../../services/authService';
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
-  const { t } = useContext(LanguageContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -19,100 +17,112 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      setError(t('register.errorEmailEmpty'));
+      setError('Vui lòng nhập email');
       return;
     }
     if (!validateEmail(trimmedEmail)) {
-      setError(t('register.errorEmailInvalid'));
+      setError('Email không hợp lệ');
       return;
     }
     if (!password) {
-      setError(t('register.errorPasswordEmpty'));
+      setError('Vui lòng nhập mật khẩu');
       return;
     }
     if (password.length < 8) {
-      setError(t('register.errorPasswordShort'));
+      setError('Mật khẩu phải có ít nhất 8 ký tự');
       return;
     }
     if (!confirmPassword) {
-      setError(t('register.errorConfirmPasswordEmpty'));
+      setError('Vui lòng xác nhận mật khẩu');
       return;
     }
     if (password !== confirmPassword) {
-      setError(t('register.errorMatch'));
+      setError('Mật khẩu xác nhận không khớp');
       return;
     }
 
     setError('');
     setIsLoading(true);
+    let isMounted = true;
     try {
       const res = await authService.register(trimmedEmail, password);
+      if (!isMounted) return;
+
       if (res && (res.success || (res.code >= 1000 && res.code < 3000))) {
         navigation.navigate('VerifyOtp', { email: trimmedEmail, password });
       } else {
-        setError(res?.message || t('common.error'));
+        setError(res?.message || 'Có lỗi xảy ra');
       }
     } catch (err: any) {
-      if (err.response) setError(err.response.data?.message || t('common.error'));
-      else if (err.request) setError(t('common.serverConnectionError'));
-      else setError(t('common.error'));
+      if (isMounted) {
+        setError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMounted) setIsLoading(false);
     }
   };
 
   const handleSocialLogin = () => {
-    setError(t('social.notAvailable'));
+    setError('Tính năng chưa khả dụng');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.backButton}>{'<'}</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('register.title')}</Text>
+            <Text style={styles.headerTitle}>Đăng ký</Text>
             <View style={{ width: 24 }} />
           </View>
 
           <View style={styles.formContainer}>
-            <Text style={styles.welcomeText}>{t('register.createAccount')}</Text>
+            <Text style={styles.welcomeText}>Tạo tài khoản</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('register.email')}</Text>
+              <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('register.email')}
+                placeholder="Email"
                 placeholderTextColor={COLORS.muted}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError('');
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('register.password')}</Text>
+              <Text style={styles.label}>Mật khẩu</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('register.password')}
+                placeholder="Mật khẩu"
                 placeholderTextColor={COLORS.muted}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (error) setError('');
+                }}
                 secureTextEntry
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('register.confirmPassword')}</Text>
+              <Text style={styles.label}>Xác nhận mật khẩu</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('register.confirmPassword')}
+                placeholder="Xác nhận mật khẩu"
                 placeholderTextColor={COLORS.muted}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (error) setError('');
+                }}
                 secureTextEntry
               />
             </View>
@@ -120,14 +130,14 @@ export default function RegisterScreen() {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleRegister} disabled={isLoading}>
-              <Text style={styles.primaryButtonText}>{isLoading ? t('common.loading') : t('register.submit')}</Text>
+              <Text style={styles.primaryButtonText}>{isLoading ? 'Đang tải...' : 'Đăng ký'}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('register.alreadyHaveAccount')}</Text>
+            <Text style={styles.footerText}>Bạn đã có tài khoản? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.footerLink}>{t('register.signIn')}</Text>
+              <Text style={styles.footerLink}>Đăng nhập</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

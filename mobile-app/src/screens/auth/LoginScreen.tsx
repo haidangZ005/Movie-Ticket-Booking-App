@@ -3,13 +3,11 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, Keyb
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
-import { LanguageContext } from '../../context/LanguageContext';
 import { authService } from '../../services/authService';
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const { setSession } = useContext(AuthContext);
-  const { t } = useContext(LanguageContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +16,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
-      setError(t('login.errorFields'));
+      setError('Vui lòng nhập đầy đủ thông tin');
       return;
     }
 
@@ -34,19 +32,19 @@ export default function LoginScreen() {
           Email: trimmedEmail,
         });
       } else {
-        setError(res?.message || t('login.errorInvalid'));
+        setError(res?.message || 'Email hoặc mật khẩu không đúng');
       }
     } catch (err: any) {
-      if (err.response) setError(err.response.data?.message || t('login.errorInvalid'));
-      else if (err.request) setError(t('common.serverConnectionError'));
-      else setError(t('login.errorInvalid'));
+      if (err.response) setError(err.response.data?.message || 'Email hoặc mật khẩu không đúng');
+      else if (err.request) setError('Lỗi kết nối máy chủ');
+      else setError('Email hoặc mật khẩu không đúng');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSocialLogin = () => {
-    setError(t('social.notAvailable'));
+    setError('Tính năng chưa khả dụng');
   };
 
   return (
@@ -57,18 +55,18 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.backButton}>{'<'}</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('login.title')}</Text>
+            <Text style={styles.headerTitle}>Đăng nhập</Text>
             <View style={{ width: 24 }} />
           </View>
 
           <View style={styles.formContainer}>
-            <Text style={styles.welcomeText}>{t('login.welcomeBack')}</Text>
+            <Text style={styles.welcomeText}>Chào mừng quay lại!</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('login.email')}</Text>
+              <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('login.email')}
+                placeholder="Email"
                 placeholderTextColor={COLORS.muted}
                 value={email}
                 onChangeText={setEmail}
@@ -78,10 +76,10 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('login.password')}</Text>
+              <Text style={styles.label}>Mật khẩu</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('login.password')}
+                placeholder="Mật khẩu"
                 placeholderTextColor={COLORS.muted}
                 value={password}
                 onChangeText={setPassword}
@@ -92,18 +90,18 @@ export default function LoginScreen() {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotPassword}>{t('login.forgotPassword')}</Text>
+              <Text style={styles.forgotPassword}>Quên mật khẩu?</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleLogin} disabled={isLoading}>
-              <Text style={styles.primaryButtonText}>{isLoading ? t('common.loading') : t('login.submit')}</Text>
+              <Text style={styles.primaryButtonText}>{isLoading ? 'Đang tải...' : 'Đăng nhập'}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('login.noAccount')}</Text>
+            <Text style={styles.footerText}>Bạn chưa có tài khoản? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.footerLink}>{t('login.signUp')}</Text>
+              <Text style={styles.footerLink}>Đăng ký</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

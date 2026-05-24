@@ -1,29 +1,32 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { LanguageContext } from '../../context/LanguageContext';
 import { authService } from '../../services/authService';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
-  const { t } = useContext(LanguageContext);
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSendOtp = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      setError(t('validation.emailRequired'));
+      setError('Vui lòng nhập email');
       return;
     }
     if (!validateEmail(trimmedEmail)) {
-      setError(t('validation.invalidEmail'));
+      setError('Email không hợp lệ');
       return;
     }
 
@@ -32,18 +35,23 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
     try {
       const res = await authService.forgotPassword(trimmedEmail);
+      if (!isMountedRef.current) return;
       if (__DEV__) {
         console.log('[Forgot Password Response]', res);
       }
 
-      setSuccessMessage(t('forgot.neutralSuccess'));
+      setSuccessMessage('Thành công');
       setTimeout(() => {
-        navigation.navigate('VerifyResetOtp', { email: trimmedEmail });
+        if (isMountedRef.current) {
+          navigation.navigate('VerifyResetOtp', { email: trimmedEmail });
+        }
       }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || t('common.serverConnectionError'));
+      if (isMountedRef.current) {
+        setError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   };
 
@@ -58,15 +66,15 @@ export default function ForgotPasswordScreen() {
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.stepText}>{t('forgot.step')}</Text>
-            <Text style={styles.title}>{t('forgot.title')}</Text>
-            <Text style={styles.subtitle}>{t('forgot.subtitle')}</Text>
+            <Text style={styles.stepText}>Bước 1/3</Text>
+            <Text style={styles.title}>Quên mật khẩu</Text>
+            <Text style={styles.subtitle}>Nhập email đã đăng ký để nhận mã OTP đặt lại mật khẩu.</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('forgot.emailLabel')}</Text>
+              <Text style={styles.label}>Email đã đăng ký</Text>
               <TextInput
                 style={[styles.input, error ? styles.inputError : null]}
-                placeholder={t('forgot.emailPlaceholder')}
+                placeholder=""
                 placeholderTextColor={COLORS.muted}
                 value={email}
                 onChangeText={(text) => {
@@ -91,11 +99,11 @@ export default function ForgotPasswordScreen() {
               disabled={isLoading || !!successMessage}
             >
               <Text style={styles.primaryButtonText}>
-                {isLoading ? t('common.processing') : t('forgot.sendOtp')}
+                {isLoading ? 'Đang xử lý...' : 'Gửi mã OTP'}
               </Text>
             </TouchableOpacity>
 
-            <Text style={styles.noteText}>{t('forgot.note')}</Text>
+            <Text style={styles.noteText}>Chúng tôi sẽ gửi mã nếu email tồn tại trong hệ thống.</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
