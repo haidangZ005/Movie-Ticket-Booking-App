@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Dimensions,
   StatusBar,
   ActivityIndicator,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -17,6 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import movieService, { Movie } from '../../services/movieService';
 import cinemaService, { Cinema } from '../../services/cinemaService';
 import { API_ORIGIN } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import apiClient from '../../api/apiClient';
 
 const { width, height } = Dimensions.get('window');
 const HERO_HEIGHT = height * 0.45;
@@ -60,6 +64,96 @@ export default function MovieDetailScreen() {
   const [error, setError] = useState('');
 
   const movieId = route.params?.movieId || route.params?.movie?.MovieID;
+
+  // Review states
+  const { isAuthenticated, user } = useContext(AuthContext);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [userRating, setUserRating] = useState(5);
+  const [userComment, setUserComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Tải danh sách cảm nhận/đánh giá
+  const fetchReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      const res = await apiClient.get(`/reviews/movie/${movieId}`);
+      if (res.data?.success || res.data?.data) {
+        setReviews(res.data.data || []);
+      }
+    } catch (err) {
+      console.log('Không thể tải cảm nhận phim:', err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (movieId) {
+      fetchReviews();
+    }
+  }, [movieId]);
+
+  // Đăng / Cập nhật đánh giá
+  const handlePostReview = async () => {
+    if (!userComment.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập cảm nhận của bạn trước khi gửi!');
+      return;
+    }
+    try {
+      setSubmittingReview(true);
+      const res = await apiClient.post('/reviews', {
+        movieId,
+        rating: userRating,
+        comment: userComment.trim(),
+      });
+      if (res.data?.success || res.data?.data) {
+        Alert.alert('Thành công', 'Cảm nhận của bạn đã được đăng thành công!');
+        setUserComment('');
+        fetchReviews();
+        
+        // Cập nhật lại thông tin phim để làm mới điểm đánh giá trung bình
+        const movieRes = await movieService.getMovieById(movieId);
+        setMovie(movieRes.data || movieRes);
+      }
+    } catch (err: any) {
+      console.log('Lỗi đăng cảm nhận:', err);
+      Alert.alert('Thất bại', err.response?.data?.message || 'Đăng cảm nhận thất bại');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  // Xóa đánh giá
+  const handleDeleteReview = async (reviewId: number) => {
+    Alert.alert(
+      'Xóa cảm nhận',
+      'Bạn có chắc chắn muốn xóa cảm nhận này không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await apiClient.delete(`/reviews/${reviewId}`);
+              if (res.data?.success) {
+                Alert.alert('Thành công', 'Đã xóa cảm nhận của bạn.');
+                fetchReviews();
+                
+                // Cập nhật lại điểm trung bình của phim
+                const movieRes = await movieService.getMovieById(movieId);
+                setMovie(movieRes.data || movieRes);
+              }
+            } catch (err: any) {
+              console.log('Lỗi xóa cảm nhận:', err);
+              Alert.alert('Thất bại', err.response?.data?.message || 'Không thể xóa cảm nhận');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (!movieId || route.params?.movie) return;
@@ -226,6 +320,130 @@ export default function MovieDetailScreen() {
             </ScrollView>
           </View>
         ) : null}
+
+        {/* SECTION ĐÁNH GIÁ & CẢM NHẬN PHIM */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Đánh giá & Cảm nhận</Text>
+
+          {/* Form đăng cảm nhận nếu người dùng đã đăng nhập */}
+          {isAuthenticated ? (
+            <View style={styles.reviewForm}>
+              <Text style={styles.formLabel}>Ý kiến của bạn về bộ phim này:</Text>
+              
+              {/* Star selector */}
+              <View style={styles.starSelector}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => setUserRating(star)}
+                    style={styles.starPress}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={userRating >= star ? 'star' : 'star-outline'}
+                      size={26}
+                      color={Colors.primary}
+                    />
+                  </TouchableOpacity>
+                ))}
+                <Text style={styles.starText}>{userRating}/5 Sao</Text>
+              </View>
+
+              <TextInput
+                style={styles.reviewInput}
+                placeholder="Chia sẻ cảm nhận của bạn..."
+                placeholderTextColor="#8A8A8A"
+                value={userComment}
+                onChangeText={setUserComment}
+                multiline
+                numberOfLines={3}
+              />
+
+              <TouchableOpacity
+                style={[styles.submitReviewBtn, submittingReview && styles.disabledBtn]}
+                onPress={handlePostReview}
+                disabled={submittingReview}
+                activeOpacity={0.8}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator size="small" color="#000000" />
+                ) : (
+                  <Text style={styles.submitReviewBtnText}>Đăng Cảm Nhận</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.loginRequiredCard}>
+              <Text style={styles.loginRequiredText}>Bạn cần đăng nhập tài khoản để viết cảm nhận về phim.</Text>
+              <TouchableOpacity
+                style={styles.loginFormBtn}
+                onPress={() => navigation.navigate('Welcome')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.loginFormBtnText}>Đăng nhập ngay</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Danh sách cảm nhận */}
+          <View style={styles.reviewsList}>
+            {reviewsLoading ? (
+              <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 20 }} />
+            ) : reviews.length === 0 ? (
+              <Text style={styles.emptyReviewsText}>Chưa có cảm nhận nào cho phim này. Hãy là người đầu tiên chia sẻ cảm nhận!</Text>
+            ) : (
+              reviews.map((rev) => {
+                const isMyReview = user && rev.CustomerID === user.CustomerID;
+                return (
+                  <View key={rev.ReviewID} style={styles.reviewCard}>
+                    <View style={styles.reviewHeader}>
+                      <View style={styles.userInfoRow}>
+                        <View style={styles.userAvatarIcon}>
+                          {rev.AvatarUrl ? (
+                            <Image source={{ uri: resolveImageUrl(rev.AvatarUrl) }} style={styles.userAvatarImg} />
+                          ) : (
+                            <Text style={styles.avatarInitials}>
+                              {(rev.FullName || 'User').charAt(0).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.userNameBlock}>
+                          <Text style={styles.reviewUserName}>{rev.FullName || 'Khách hàng'}</Text>
+                          <View style={styles.reviewStarsRow}>
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Ionicons
+                                key={s}
+                                name={rev.Rating >= s ? 'star' : 'star-outline'}
+                                size={12}
+                                color={Colors.primary}
+                                style={{ marginRight: 2 }}
+                              />
+                            ))}
+                            <Text style={styles.reviewCardRatingText}>{rev.Rating}/5</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {isMyReview ? (
+                        <TouchableOpacity
+                          style={styles.deleteReviewBtn}
+                          onPress={() => handleDeleteReview(rev.ReviewID)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    <Text style={styles.reviewCommentText}>{rev.Comment}</Text>
+                    <Text style={styles.reviewTimeText}>
+                      {new Date(rev.CreatedAt).toLocaleDateString('vi-VN')}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Rạp chiếu</Text>
@@ -561,5 +779,170 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#000000',
+  },
+  reviewForm: {
+    backgroundColor: '#151515',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#262626',
+    marginBottom: 20,
+  },
+  formLabel: {
+    color: '#E4E4E7',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  starSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 4,
+  },
+  starPress: {
+    padding: 2,
+  },
+  starText: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    marginLeft: 12,
+    fontWeight: '600',
+  },
+  reviewInput: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: 12,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 14,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    minHeight: 80,
+    marginBottom: 12,
+  },
+  submitReviewBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 24,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitReviewBtnText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  disabledBtn: {
+    opacity: 0.5,
+  },
+  loginRequiredCard: {
+    backgroundColor: '#151515',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#262626',
+    marginBottom: 20,
+  },
+  loginRequiredText: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  loginFormBtn: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+  },
+  loginFormBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  reviewsList: {
+    marginTop: 10,
+    gap: 12,
+  },
+  emptyReviewsText: {
+    color: '#71717A',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginVertical: 10,
+  },
+  reviewCard: {
+    backgroundColor: '#151515',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#222222',
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  userInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  userAvatarIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    marginRight: 10,
+  },
+  userAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarInitials: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  userNameBlock: {
+    flex: 1,
+  },
+  reviewUserName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  reviewStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewCardRatingText: {
+    color: '#71717A',
+    fontSize: 10,
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  deleteReviewBtn: {
+    padding: 4,
+  },
+  reviewCommentText: {
+    color: '#D4D4D8',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewTimeText: {
+    color: '#71717A',
+    fontSize: 11,
+    alignSelf: 'flex-end',
   },
 });

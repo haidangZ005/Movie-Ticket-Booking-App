@@ -20,7 +20,7 @@ export const authValidator = {
   validateLogin: (req: Request, res: Response, next: NextFunction) => {
     const schema = Joi.object({
       email: Joi.string().email().required(),
-      password: Joi.string().min(8).required()
+      password: Joi.string().required()
     });
 
     const { error } = schema.validate(req.body);
