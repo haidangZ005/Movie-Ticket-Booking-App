@@ -65,7 +65,8 @@ export function broadcastSeatUpdate(
   seatId: number,
   seatNumber: string,
   status: 'HOLDING' | 'AVAILABLE' | 'BOOKED',
-  holdBy?: number | null
+  holdBy?: number | null,
+  holdUntil?: string | Date | null
 ) {
   if (!io) return;
   const room = `show_${showId}`;
@@ -75,5 +76,6 @@ export function broadcastSeatUpdate(
     seatNumber,
     status,
     holdBy: holdBy ?? null,
+    holdUntil: holdUntil ?? null,
   });
 }
