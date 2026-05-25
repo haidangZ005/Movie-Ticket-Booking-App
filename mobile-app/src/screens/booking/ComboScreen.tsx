@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
   StyleSheet, Image, Alert, FlatList, ActivityIndicator,
@@ -10,6 +10,7 @@ import { Colors } from '../../constants/colors';
 import { ShowInfo } from '../../services/showService';
 import productService from '../../services/productService';
 import { API_ORIGIN } from '../../config/api';
+import bookingService from '../../services/bookingService';
 
 // ── Types ──────────────────────────────────────
 export type ProductCategory = 'ALL' | 'POPCORN' | 'DRINK' | 'COMBO' | 'SNACK' | 'OTHER';
@@ -123,6 +124,7 @@ type ComboRouteParams = {
     movie?: { PosterUrl?: string };
     PosterUrl?: string;
     posterUrl?: string;
+    holdUntil?: string;
   };
 };
 
@@ -140,6 +142,8 @@ const ComboScreen: React.FC = () => {
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [activeCategory, setActiveCategory] = useState<ProductCategory>('ALL');
   const [posterError, setPosterError] = useState(false);
+  const continueToPaymentRef = useRef(false);
+  const releasingRef = useRef(false);
 
   const loadProducts = async () => {
     try {
@@ -176,7 +180,39 @@ const ComboScreen: React.FC = () => {
     loadProducts();
   }, []);
 
-  if (!params?.showInfo || !params?.selectedSeats) {
+  const showInfo = params?.showInfo;
+  const selectedSeats = params?.selectedSeats || [];
+  const ticketTotal = params?.totalPrice || 0;
+  const movie = params?.movie;
+
+
+  const heldSeatIds = useMemo(() => selectedSeats.map(seat => seat.SeatID), [selectedSeats]);
+
+  const releaseHeldSeats = async () => {
+    if (!showInfo?.ShowID || heldSeatIds.length === 0) return;
+    try {
+      await bookingService.releaseSeats(showInfo.ShowID, heldSeatIds);
+    } catch (err) {
+      console.log('[ComboScreen] release held seats failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
+      if (continueToPaymentRef.current || releasingRef.current) return;
+
+      event.preventDefault();
+      releasingRef.current = true;
+
+      releaseHeldSeats().finally(() => {
+        navigation.dispatch(event.data.action);
+      });
+    });
+
+    return unsubscribe;
+  }, [navigation, showInfo?.ShowID, heldSeatIds.join(',')]);
+
+  if (!params?.showInfo || !selectedSeats.length) {
     return (
       <SafeAreaView style={S.container}>
         <View style={S.header}>
@@ -196,7 +232,6 @@ const ComboScreen: React.FC = () => {
     );
   }
 
-  const { showInfo, selectedSeats, totalPrice: ticketTotal = 0, movie } = params;
   const rawPoster = movie?.PosterUrl || showInfo?.PosterUrl || params?.PosterUrl || params?.posterUrl;
   const posterUrl = resolvePosterUrl(rawPoster);
   const seatLabel = selectedSeats.map(s => s.SeatNumber).join(', ');
@@ -231,9 +266,11 @@ const ComboScreen: React.FC = () => {
     addonItems: items,
     addonTotal,
     grandTotal,
+    holdUntil: params.holdUntil,
   });
 
   const navigate = (items: AddonItem[]) => {
+    continueToPaymentRef.current = true;
     const payload = buildPayload(items);
     if (navigation.getState().routeNames.includes('PaymentScreen')) {
       navigation.navigate('PaymentScreen', payload);

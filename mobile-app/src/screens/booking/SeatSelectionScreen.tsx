@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -38,6 +38,7 @@ const SeatSelectionScreen: React.FC = () => {
   const route = useRoute<RouteProp<RouteParams, 'SeatSelection'>>();
   const { showId } = route.params || { showId: 1 };
   const { user } = useContext(AuthContext);
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -369,7 +370,7 @@ const SeatSelectionScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.white} />
@@ -384,7 +385,7 @@ const SeatSelectionScreen: React.FC = () => {
 
   if (error || !showInfo) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.white} />
@@ -402,7 +403,7 @@ const SeatSelectionScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -541,7 +542,7 @@ const SeatSelectionScreen: React.FC = () => {
       </View>
 
       {/* Bottom Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
         <View style={styles.bottomInfo}>
           <Text style={styles.selectedCountText}>
             {selectedSeats.length > 0 
@@ -670,6 +671,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 2,
   },
+
   mapContainer: {
     flex: 1,
   },
