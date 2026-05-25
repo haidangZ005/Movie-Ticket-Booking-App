@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,7 +69,7 @@ const formatVND = (amount: number) => {
 };
 
 export default function PaymentScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<PaymentRouteParams, 'PaymentScreen'>>();
   const { user } = React.useContext(AuthContext);
 
@@ -168,7 +168,7 @@ export default function PaymentScreen() {
 
     setIsPaying(true);
     try {
-      const payload = {
+      const payload: any = {
         showId: showInfo.ShowID,
         seatIds: selectedSeats.map(s => s.SeatID),
         products: addonItems.map(item => ({
@@ -201,19 +201,19 @@ export default function PaymentScreen() {
         discountAmount,
       });
 
-      navigation.navigate('PaymentResultScreen' as never, {
+      navigation.navigate('PaymentResultScreen' as any, {
         status: 'success',
         bookingId: paymentData.orderId,
         amount: finalTotal,
         message: paymentData.message,
-      } as never);
+      } as any);
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
       Alert.alert('Thanh toán thất bại', message);
-      navigation.navigate('PaymentResultScreen' as never, {
+      navigation.navigate('PaymentResultScreen' as any, {
         status: 'failed',
         message,
-      } as never);
+      } as any);
     } finally {
       setIsPaying(false);
     }
