@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
@@ -16,7 +17,7 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={styles.content}>
-        <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
+        <Image source={heroImage} style={styles.heroImage} contentFit="cover" transition={0} cachePolicy="memory-disk" />
         <Text style={styles.title}>Xin chào!</Text>
         <Text style={styles.subtitle}>Đặt vé xem phim trực tuyến dễ dàng</Text>
       </View>
