@@ -72,9 +72,6 @@ const startServer = async () => {
     const { seedAdmin } = require('./utils/seed');
     await seedAdmin();
 
-    // Khởi chạy Background Jobs (TV2: cache phim nổi bật, TV3: nhả ghế, TV4: nhắc lịch)
-    const { startAllJobs } = require('./jobs');
-    startAllJobs();
 
     // Khởi động BullMQ Worker xử lý gửi email ngầm (Dành cho dự án trường học)
     require('./workers/email.worker');
