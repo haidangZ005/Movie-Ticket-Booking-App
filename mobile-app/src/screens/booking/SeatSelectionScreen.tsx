@@ -94,7 +94,7 @@ const SeatSelectionScreen: React.FC = () => {
     const rowMap = new Map<number, Seat[]>();
 
     seatList.forEach((seat) => {
-      if (seat.IsAisle || seat.SeatType === 'EMPTY') return;
+      if (seat.IsAisle || seat.SeatType === 'EMPTY' || seat.SeatType === 'DISABLED') return;
       const rowSeats = rowMap.get(seat.RowIndex) || [];
       rowSeats.push(seat);
       rowMap.set(seat.RowIndex, rowSeats);
@@ -171,39 +171,61 @@ const SeatSelectionScreen: React.FC = () => {
     [selectedSeats, seats]
   );
 
-  const toggleSeat = (seat: Seat) => {
-    if (seat.IsAisle || seat.Status === 'BOOKED' || seat.Status === 'HOLDING' || seat.SeatType === 'EMPTY') {
-      return; // Không cho click
-    }
+  const getCoupleSeats = (seat: Seat, seatList: Seat[]) => {
+    if (seat.SeatType !== 'COUPLE' || !seat.PairID) return [seat];
+    return seatList.filter(item => item.PairID === seat.PairID);
+  };
 
-    const isSelected = selectedSeats.some(s => s.SeatID === seat.SeatID);
-    
-    // Handle Couple seats
-    if (seat.SeatType === 'COUPLE' && seat.PairID) {
-      const pairSeat = seats.find(s => s.PairID === seat.PairID && s.SeatID !== seat.SeatID);
-      
-      if (pairSeat && (pairSeat.Status === 'BOOKED' || pairSeat.Status === 'HOLDING')) {
-        Alert.alert('Không thể chọn', 'Cặp ghế này đã có người chọn một nửa.');
-        return;
-      }
+  const isSeatSelected = (seatId: number) => {
+    return selectedSeats.some(item => item.SeatID === seatId);
+  };
 
-      if (isSelected) {
-        // Deselect both
-        updateSelectedSeats(selectedSeats.filter(s => s.SeatID !== seat.SeatID && s.SeatID !== pairSeat?.SeatID));
-      } else {
-        // Select both
-        const newSelection = [...selectedSeats, seat];
-        if (pairSeat) newSelection.push(pairSeat);
-        if (newSelection.length > 8) {
-          Alert.alert('Giới hạn', 'Bạn chỉ có thể chọn tối đa 8 ghế.');
-          return;
-        }
-        updateSelectedSeats(newSelection);
-      }
+  const isCoupleSelected = (seat: Seat) => {
+    const coupleSeats = getCoupleSeats(seat, seats);
+    return coupleSeats.length > 0 && coupleSeats.every(item => isSeatSelected(item.SeatID));
+  };
+
+  const isSeatUnavailable = (seat: Seat) => {
+    return seat.Status === 'BOOKED' || seat.Status === 'HOLDING' || seat.SeatType === 'EMPTY' || seat.SeatType === 'DISABLED' || seat.IsAisle;
+  };
+
+  const isCoupleUnavailable = (seat: Seat) => {
+    const coupleSeats = getCoupleSeats(seat, seats);
+    return coupleSeats.some(isSeatUnavailable);
+  };
+
+  const handleCoupleSeatPress = (seat: Seat) => {
+    const coupleSeats = getCoupleSeats(seat, seats);
+
+    if (coupleSeats.length !== 2) {
+      Alert.alert('Lỗi ghế đôi', 'Cấu hình ghế đôi chưa hợp lệ.');
       return;
     }
 
-    // Normal seats
+    if (coupleSeats.some(isSeatUnavailable)) {
+      Alert.alert('Ghế không khả dụng', 'Một ghế trong cặp đã được đặt hoặc đang được giữ.');
+      return;
+    }
+
+    const selected = coupleSeats.every(item => isSeatSelected(item.SeatID));
+
+    if (selected) {
+      updateSelectedSeats(selectedSeats.filter(item => !coupleSeats.some(coupleSeat => coupleSeat.SeatID === item.SeatID)));
+      return;
+    }
+
+    const newSelectedCount = selectedSeats.length + coupleSeats.length;
+
+    if (newSelectedCount > 8) {
+      Alert.alert('Quá số lượng ghế', `Bạn chỉ có thể chọn tối đa 8 ghế.`);
+      return;
+    }
+
+    updateSelectedSeats([...selectedSeats, ...coupleSeats]);
+  };
+
+  const handleSingleSeatPress = (seat: Seat) => {
+    const isSelected = isSeatSelected(seat.SeatID);
     if (isSelected) {
       updateSelectedSeats(selectedSeats.filter(s => s.SeatID !== seat.SeatID));
     } else {
@@ -213,6 +235,36 @@ const SeatSelectionScreen: React.FC = () => {
       }
       updateSelectedSeats([...selectedSeats, seat]);
     }
+  };
+
+  const toggleSeat = (seat: Seat) => {
+    if (isSeatUnavailable(seat)) return;
+
+    if (seat.SeatType === 'COUPLE' && seat.PairID) {
+      handleCoupleSeatPress(seat);
+      return;
+    }
+
+    handleSingleSeatPress(seat);
+  };
+
+  const getSelectedSeatLabel = () => {
+    const grouped = new Map<number, string[]>();
+    const singles: string[] = [];
+
+    selectedSeats.forEach((seat) => {
+      if (seat.SeatType === 'COUPLE' && seat.PairID) {
+        if (!grouped.has(seat.PairID)) {
+          grouped.set(seat.PairID, []);
+        }
+        grouped.get(seat.PairID)!.push(seat.SeatNumber);
+      } else {
+        singles.push(seat.SeatNumber);
+      }
+    });
+
+    const coupleLabels = Array.from(grouped.values()).map(arr => arr.join('-'));
+    return [...singles, ...coupleLabels].join(', ');
   };
 
   const getRowLabel = (rowIndex: number) => {
@@ -240,25 +292,6 @@ const SeatSelectionScreen: React.FC = () => {
       selectedSeats,
       totalPrice
     });
-  };
-
-  const getSeatStyle = (seat: Seat, isSelected: boolean) => {
-    if (isSelected) {
-      return [styles.seat, styles.seatSelected];
-    }
-    if (seat.Status === 'BOOKED') {
-      return [styles.seat, styles.seatBooked];
-    }
-    if (seat.Status === 'HOLDING') {
-      return [styles.seat, styles.seatHolding];
-    }
-    if (seat.SeatType === 'VIP') {
-      return [styles.seat, styles.seatVIP];
-    }
-    if (seat.SeatType === 'COUPLE') {
-      return [styles.seat, styles.seatCouple]; // Might span wider logic later
-    }
-    return [styles.seat, styles.seatStandard];
   };
 
   if (loading) {
@@ -327,28 +360,71 @@ const SeatSelectionScreen: React.FC = () => {
                   <Text style={styles.rowLabel}>{getRowLabel(actualRowIndex)}</Text>
                   <View style={styles.seatsContainer}>
                     {row.map((seat, cIdx) => {
-                      if (!seat || seat.IsAisle || seat.SeatType === 'EMPTY') {
+                      if (!seat || seat.IsAisle || seat.SeatType === 'EMPTY' || seat.SeatType === 'DISABLED') {
                         return <View key={`empty-${rIdx}-${cIdx}`} style={styles.seatEmpty} />;
                       }
 
-                      const isSelected = selectedSeats.some(s => s.SeatID === seat.SeatID);
-                      const isBooked = seat.Status === 'BOOKED';
-                      const isHolding = seat.Status === 'HOLDING';
+                      const selected = seat.SeatType === 'COUPLE' 
+                        ? isCoupleSelected(seat) 
+                        : isSeatSelected(seat.SeatID);
+                        
+                      const unavailable = seat.SeatType === 'COUPLE'
+                        ? isCoupleUnavailable(seat)
+                        : isSeatUnavailable(seat);
+
+                      const isCouple = seat.SeatType === 'COUPLE' && seat.PairID;
+                      
+                      const styleArr: any[] = [styles.seat];
+                      if (isCouple) {
+                         const coupleSeats = getCoupleSeats(seat, seats);
+                         const sibling = coupleSeats.find(s => s.SeatID !== seat.SeatID);
+                         styleArr.push(styles.seatCouple);
+                         if (sibling) {
+                            if (seat.ColIndex < sibling.ColIndex) {
+                              styleArr.push(styles.coupleLeft);
+                            } else {
+                              styleArr.push(styles.coupleRight);
+                            }
+                         }
+                      } else if (seat.SeatType === 'VIP') {
+                         styleArr.push(styles.seatVIP);
+                      } else {
+                         styleArr.push(styles.seatStandard);
+                      }
+
+                      if (selected) {
+                        styleArr.push(styles.seatSelected);
+                      }
+                      
+                      if (unavailable) {
+                        styleArr.push(seat.Status === 'BOOKED' ? styles.seatBooked : styles.seatHolding);
+                      }
 
                       return (
                         <TouchableOpacity
                           key={seat.SeatID}
                           activeOpacity={0.7}
-                          style={getSeatStyle(seat, isSelected)}
+                          style={styleArr}
                           onPress={() => toggleSeat(seat)}
+                          disabled={unavailable}
                         >
                           <Text style={[
                             styles.seatText,
-                            isSelected && styles.seatTextSelected,
-                            (isBooked || isHolding) && styles.seatTextDisabled
+                            selected && styles.seatTextSelected,
+                            unavailable && styles.seatTextDisabled
                           ]}>
                             {seat.SeatNumber}
                           </Text>
+                          {isCouple && (
+                            <Text style={[
+                              styles.seatText, 
+                              { fontSize: 7, opacity: 0.7, marginTop: -1 }, 
+                              selected && styles.seatTextSelected, 
+                              unavailable && styles.seatTextDisabled
+                            ]}>
+                              CPL
+                            </Text>
+                          )}
                         </TouchableOpacity>
                       );
                     })}
@@ -394,7 +470,7 @@ const SeatSelectionScreen: React.FC = () => {
           </Text>
           {selectedSeats.length > 0 && (
             <Text style={styles.selectedListText} numberOfLines={1}>
-              {selectedSeats.map(s => s.SeatNumber).join(', ')}
+              {getSelectedSeatLabel()}
             </Text>
           )}
           {!!singleSeatGapMessage && (
@@ -546,6 +622,19 @@ const styles = StyleSheet.create({
   seatCouple: {
     backgroundColor: 'rgba(233, 30, 99, 0.1)',
     borderColor: '#e91e63', // specific color for couple easily distinguishable
+  },
+  coupleLeft: {
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    borderRightWidth: 0,
+    marginRight: 0,
+  },
+  coupleRight: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(233, 30, 99, 0.2)',
+    marginLeft: 0,
   },
   seatSelected: {
     backgroundColor: Colors.primary,
