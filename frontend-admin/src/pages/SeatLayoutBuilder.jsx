@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import apiClient from '../services/api';
 
-const modes = ['STANDARD', 'VIP', 'COUPLE', 'DISABLED', 'AISLE'];
+const modes = ['STANDARD', 'VIP', 'COUPLE', 'DISABLED', 'AISLE', 'EMPTY'];
 
 const modeClass = {
   STANDARD: 'border-border-default bg-surface-variant text-text-primary',
@@ -10,6 +10,7 @@ const modeClass = {
   COUPLE: 'border-primary/60 bg-primary-soft text-primary',
   DISABLED: 'border-border-default bg-surface-container-low text-text-muted opacity-60',
   AISLE: 'border-dashed border-border-default bg-transparent text-text-muted',
+  EMPTY: 'border-dashed border-border-default bg-transparent text-text-muted opacity-40',
 };
 
 const activeModeClass = {
@@ -18,6 +19,7 @@ const activeModeClass = {
   COUPLE: 'border-primary bg-primary text-inverse-on-surface shadow-[0_0_18px_rgba(99,102,241,0.35)]',
   DISABLED: 'border-text-muted bg-text-muted text-page-bg',
   AISLE: 'border-dashed border-text-muted bg-surface text-text-primary',
+  EMPTY: 'border-dashed border-text-muted bg-surface text-text-primary',
 };
 
 const getRowLabel = (rowIndex) => {
@@ -138,11 +140,11 @@ const SeatLayoutBuilder = () => {
         if (seat.IsAisle || seat.SeatType === 'AISLE') acc.aisle += 1;
         else {
           acc[seat.SeatType.toLowerCase()] = (acc[seat.SeatType.toLowerCase()] || 0) + 1;
-          if (seat.SeatType !== 'DISABLED') acc.total += 1;
+          if (!['DISABLED', 'EMPTY'].includes(seat.SeatType)) acc.total += 1;
         }
         return acc;
       },
-      { total: 0, standard: 0, vip: 0, couple: 0, disabled: 0, aisle: 0 }
+      { total: 0, standard: 0, vip: 0, couple: 0, disabled: 0, aisle: 0, empty: 0 }
     );
   }, [seats]);
 
@@ -241,6 +243,64 @@ const SeatLayoutBuilder = () => {
     setHasUnsavedChanges(true);
   };
 
+  const addRow = () => {
+    const nextRows = rows + 1;
+    const nextSeats = [...seats];
+    for (let col = 1; col <= cols; col += 1) {
+      nextSeats.push(createSeat(nextRows, col));
+    }
+    setRows(nextRows);
+    setInputRows(nextRows);
+    setSeats(renumberSeats(nextSeats, seatNumberDirection));
+    setSelectedSeatIndex(null);
+    setSelectedSeatIndexes([]);
+    setHasUnsavedChanges(true);
+  };
+
+  const removeRow = () => {
+    if (rows <= 1) {
+      showToast('Sơ đồ phải có ít nhất 1 hàng.');
+      return;
+    }
+    const nextRows = rows - 1;
+    const nextSeats = seats.filter((seat) => Number(seat.RowIndex) <= nextRows);
+    setRows(nextRows);
+    setInputRows(nextRows);
+    setSeats(renumberSeats(nextSeats, seatNumberDirection));
+    setSelectedSeatIndex(null);
+    setSelectedSeatIndexes([]);
+    setHasUnsavedChanges(true);
+  };
+
+  const addColumn = () => {
+    const nextCols = cols + 1;
+    const nextSeats = [...seats];
+    for (let row = 1; row <= rows; row += 1) {
+      nextSeats.push(createSeat(row, nextCols));
+    }
+    setCols(nextCols);
+    setInputCols(nextCols);
+    setSeats(renumberSeats(nextSeats, seatNumberDirection));
+    setSelectedSeatIndex(null);
+    setSelectedSeatIndexes([]);
+    setHasUnsavedChanges(true);
+  };
+
+  const removeColumn = () => {
+    if (cols <= 1) {
+      showToast('Sơ đồ phải có ít nhất 1 cột.');
+      return;
+    }
+    const nextCols = cols - 1;
+    const nextSeats = seats.filter((seat) => Number(seat.ColIndex) <= nextCols);
+    setCols(nextCols);
+    setInputCols(nextCols);
+    setSeats(renumberSeats(nextSeats, seatNumberDirection));
+    setSelectedSeatIndex(null);
+    setSelectedSeatIndexes([]);
+    setHasUnsavedChanges(true);
+  };
+
   const handleSeatNumberDirectionChange = (direction) => {
     setSeatNumberDirection(direction);
     setSeats((prev) => renumberSeats(prev, direction));
@@ -288,6 +348,12 @@ const SeatLayoutBuilder = () => {
       nextSeat.SeatPrice = 0;
       nextSeat.PairID = null;
       nextSeat.IsAisle = true;
+    } else if (currentMode === 'EMPTY') {
+      nextSeat.SeatNumber = '';
+      nextSeat.SeatType = 'EMPTY';
+      nextSeat.SeatPrice = 0;
+      nextSeat.PairID = null;
+      nextSeat.IsAisle = false;
     } else {
       nextSeat.SeatType = currentMode;
       nextSeat.SeatPrice = currentMode === 'VIP' ? 20000 : 0;
@@ -333,7 +399,7 @@ const SeatLayoutBuilder = () => {
 
   const handleSplitCouple = () => {
     const indexesToCheck = currentMode === 'COUPLE' ? selectedSeatIndexes : (selectedSeatIndex !== null ? [selectedSeatIndex] : []);
-    
+
     const pairIdsToSplit = new Set();
     indexesToCheck.forEach((i) => {
       const seat = seats[i];
@@ -477,14 +543,15 @@ const SeatLayoutBuilder = () => {
                   <div className="flex" style={{ gap: seatGap }}>
                     {rowSeats.map((seat) => {
                       const isAisle = seat.IsAisle || seat.SeatType === 'AISLE';
+                      const isEmpty = seat.SeatType === 'EMPTY';
                       const selected = selectedSeatIndex === seat.originalIndex || selectedSeatIndexes.includes(seat.originalIndex);
                       const isCouple = seat.SeatType === 'COUPLE' && seat.PairID;
-                      
+
                       let cls = isAisle ? modeClass.AISLE : modeClass[seat.SeatType] || modeClass.STANDARD;
-                      
+
                       let roundedStyle = 'rounded-lg';
                       let extraStyle = { width: seatSize, height: seatSize, fontSize: Math.max(12, Math.round(seatSize * 0.32)) };
-                      
+
                       if (isCouple) {
                         const sibling = rowSeats.find((s) => s.PairID === seat.PairID && s.originalIndex !== seat.originalIndex);
                         if (sibling) {
@@ -506,7 +573,7 @@ const SeatLayoutBuilder = () => {
                           className={`flex items-center justify-center border font-extrabold transition-all hover:-translate-y-0.5 ${roundedStyle} ${cls} ${selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''}`}
                           style={extraStyle}
                         >
-                          {!isAisle && seat.SeatNumber}
+                          {!isAisle && !isEmpty && seat.SeatNumber}
                         </button>
                       );
                     })}
@@ -571,6 +638,22 @@ const SeatLayoutBuilder = () => {
           <span className="material-symbols-outlined text-[18px]">grid_on</span>
           Tạo sơ đồ
         </button>
+        <div className="flex items-center gap-1">
+          <button onClick={addRow} disabled={saving || seats.length === 0} className="inline-flex h-[38px] items-center justify-center rounded-lg border border-border-default bg-surface-container-low px-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-variant disabled:opacity-50" title="Thêm hàng">
+            + Hàng
+          </button>
+          <button onClick={removeRow} disabled={saving || seats.length === 0 || rows <= 1} className="inline-flex h-[38px] items-center justify-center rounded-lg border border-border-default bg-surface-container-low px-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-variant disabled:opacity-50" title="Xóa hàng cuối">
+            - Hàng
+          </button>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={addColumn} disabled={saving || seats.length === 0} className="inline-flex h-[38px] items-center justify-center rounded-lg border border-border-default bg-surface-container-low px-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-variant disabled:opacity-50" title="Thêm cột">
+            + Cột
+          </button>
+          <button onClick={removeColumn} disabled={saving || seats.length === 0 || cols <= 1} className="inline-flex h-[38px] items-center justify-center rounded-lg border border-border-default bg-surface-container-low px-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-variant disabled:opacity-50" title="Xóa cột cuối">
+            - Cột
+          </button>
+        </div>
         <button onClick={() => selectedHallId && fetchLayout(selectedHallId)} disabled={!selectedHallId || saving} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-container-low px-4 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-variant disabled:opacity-50">
           <span className="material-symbols-outlined text-[18px]">refresh</span>
           Đặt lại
@@ -602,6 +685,7 @@ const SeatLayoutBuilder = () => {
             <span>Couple: {counts.couple}</span>
             <span>Disabled: {counts.disabled}</span>
             <span>Aisle: {counts.aisle}</span>
+            <span>Empty: {counts.empty}</span>
           </div>
         </div>
 
