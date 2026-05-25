@@ -37,9 +37,9 @@ export class AccountModel {
       .input('AccountType', sql.NVarChar(20), data.AccountType)
       .input('IsVerified', sql.Bit, isVerified)
       .query(`
-        INSERT INTO Account (Email, PasswordHash, AccountType, IsActive, IsVerified, CreatedAt, UpdatedAt)
+        INSERT INTO Account (Email, PasswordHash, AccountType, IsActive, IsVerified, CreatedAt)
         OUTPUT INSERTED.AccountID, INSERTED.Email, INSERTED.AccountType
-        VALUES (@Email, @PasswordHash, @AccountType, 1, @IsVerified, GETDATE(), GETDATE())
+        VALUES (@Email, @PasswordHash, @AccountType, 1, @IsVerified, GETDATE())
       `);
     
     return result.recordset[0];
@@ -70,7 +70,7 @@ export class AccountModel {
       .input('PasswordHash', sql.NVarChar(255), passwordHash)
       .query(`
         UPDATE Account 
-        SET PasswordHash = @PasswordHash, UpdatedAt = GETDATE()
+        SET PasswordHash = @PasswordHash
         WHERE AccountID = @AccountID
       `);
   }
