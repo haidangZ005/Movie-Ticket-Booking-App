@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput, Alert, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -8,6 +8,7 @@ import { API_ORIGIN } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import { paymentService, InitPaymentResponse } from '../../services/paymentService';
 import { voucherService } from '../../services/voucherService';
+import bookingService from '../../services/bookingService';
 
 const PAYMENT_METHOD = 'FLICKTICKETS_PAY';
 
@@ -39,6 +40,7 @@ type PaymentRouteParams = {
     }[];
     addonTotal: number;
     grandTotal: number;
+    holdUntil?: string;
   };
 };
 
@@ -86,8 +88,45 @@ export default function PaymentScreen() {
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+  const paymentCompletedRef = useRef(false);
+  const releasingRef = useRef(false);
 
-  if (!params || !params.showInfo || !params.selectedSeats) {
+  const showInfo = params?.showInfo;
+  const selectedSeats = params?.selectedSeats || [];
+  const ticketTotal = params?.ticketTotal || 0;
+  const addonItems = params?.addonItems || [];
+  const addonTotal = params?.addonTotal || 0;
+  const grandTotal = params?.grandTotal || 0;
+
+  const posterUrl = resolvePosterUrl(showInfo?.PosterUrl);
+  const seatNumbers = selectedSeats.map(s => s.SeatNumber).join(', ');
+  const heldSeatIds = selectedSeats.map(seat => seat.SeatID);
+
+  const releaseHeldSeats = async () => {
+    if (!showInfo?.ShowID || heldSeatIds.length === 0) return;
+    try {
+      await bookingService.releaseSeats(showInfo.ShowID, heldSeatIds);
+    } catch (err) {
+      console.log('[PaymentScreen] release held seats failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
+      if (paymentCompletedRef.current || releasingRef.current) return;
+
+      event.preventDefault();
+      releasingRef.current = true;
+
+      releaseHeldSeats().finally(() => {
+        navigation.dispatch(event.data.action);
+      });
+    });
+
+    return unsubscribe;
+  }, [navigation, showInfo?.ShowID, heldSeatIds.join(',')]);
+
+  if (!params || !showInfo || !selectedSeats.length) {
     return (
       <SafeAreaView style={S.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
@@ -98,18 +137,6 @@ export default function PaymentScreen() {
       </SafeAreaView>
     );
   }
-
-  const {
-    showInfo,
-    selectedSeats,
-    ticketTotal,
-    addonItems,
-    addonTotal,
-    grandTotal,
-  } = params;
-
-  const posterUrl = resolvePosterUrl(showInfo.PosterUrl);
-  const seatNumbers = selectedSeats.map(s => s.SeatNumber).join(', ');
 
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) {
@@ -201,6 +228,7 @@ export default function PaymentScreen() {
         discountAmount,
       });
 
+      paymentCompletedRef.current = true;
       navigation.navigate('PaymentResultScreen' as any, {
         status: 'success',
         bookingId: paymentData.orderId,
@@ -210,6 +238,8 @@ export default function PaymentScreen() {
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
       Alert.alert('Thanh toán thất bại', message);
+      await releaseHeldSeats();
+      releasingRef.current = true;
       navigation.navigate('PaymentResultScreen' as any, {
         status: 'failed',
         message,
