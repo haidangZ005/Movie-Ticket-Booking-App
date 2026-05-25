@@ -57,8 +57,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const bootstrapAsync = async () => {
-      let accessToken = null;
-      let user = null;
+      let accessToken: string | null = null;
+      let user: any = null;
       let isAuthenticated = false;
 
       try {

@@ -22,7 +22,8 @@ class SeatLayoutService {
     }) {
         const totalRows = Number(payload.totalRows);
         const totalCols = Number(payload.totalCols);
-        const allowedTypes = new Set(['STANDARD', 'VIP', 'COUPLE', 'AISLE', 'DISABLED']);
+        const allowedTypes = new Set(['STANDARD', 'VIP', 'COUPLE', 'AISLE', 'DISABLED', 'EMPTY']);
+        const nonBookableTypes = new Set(['AISLE', 'DISABLED', 'EMPTY']);
         const positionSet = new Set<string>();
         const seatNumberSet = new Set<string>();
 
@@ -38,7 +39,7 @@ class SeatLayoutService {
             const rowIndex = Number(seat.RowIndex);
             const colIndex = Number(seat.ColIndex);
             const seatType = seat.SeatType;
-            const isAisle = Boolean(seat.IsAisle) || seatType === 'AISLE';
+            const isBookableSeat = !Boolean(seat.IsAisle) && !nonBookableTypes.has(seatType);
 
             if (!Number.isInteger(rowIndex) || rowIndex < 1 || rowIndex > totalRows) {
                 throw this.createBadRequest('Seat row is outside layout size', 'INVALID_ROW_INDEX');
@@ -58,7 +59,10 @@ class SeatLayoutService {
                 throw this.createBadRequest('Invalid seat type', 'INVALID_SEAT_TYPE');
             }
 
-            if (isAisle) {
+            if (!isBookableSeat) {
+                if (seatType !== 'COUPLE' && seat.PairID) {
+                    throw this.createBadRequest('Only couple seats can have PairID', 'INVALID_PAIR_ID');
+                }
                 continue;
             }
 
@@ -76,6 +80,38 @@ class SeatLayoutService {
                 throw this.createBadRequest('Only couple seats can have PairID', 'INVALID_PAIR_ID');
             }
         }
+    }
+
+    private static normalizeLayoutPayload(payload: {
+        totalRows: number;
+        totalCols: number;
+        seats: SeatLayoutItem[];
+    }) {
+        const nonBookableTypes = new Set(['AISLE', 'DISABLED', 'EMPTY']);
+
+        return {
+            ...payload,
+            seats: payload.seats.map((seat) => {
+                const seatType = seat.SeatType;
+                const isBookableSeat = !Boolean(seat.IsAisle) && !nonBookableTypes.has(seatType);
+
+                if (!isBookableSeat) {
+                    return {
+                        ...seat,
+                        SeatNumber: '',
+                        PairID: null,
+                        SeatPrice: 0,
+                        IsAisle: seatType === 'AISLE' || Boolean(seat.IsAisle),
+                    };
+                }
+
+                return {
+                    ...seat,
+                    SeatNumber: String(seat.SeatNumber || '').trim(),
+                    IsAisle: false,
+                };
+            }),
+        };
     }
 
     static async getByHallId(hallId: number) {
@@ -128,6 +164,7 @@ class SeatLayoutService {
         }
 
         this.validateLayoutPayload(payload);
+        const normalizedPayload = this.normalizeLayoutPayload(payload);
 
         const hasSeatBookings = await SeatLayoutModel.hasSeatBookings(hallId);
         if (hasSeatBookings) {
@@ -137,7 +174,7 @@ class SeatLayoutService {
             );
         }
 
-        return SeatLayoutModel.replaceHallSeats(hallId, payload);
+        return SeatLayoutModel.replaceHallSeats(hallId, normalizedPayload);
     }
 }
 

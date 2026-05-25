@@ -72,9 +72,6 @@ const startServer = async () => {
     const { seedAdmin } = require('./utils/seed');
     await seedAdmin();
 
-    // Khởi chạy Background Jobs (TV2: cache phim nổi bật, TV3: nhả ghế, TV4: nhắc lịch)
-    const { startAllJobs } = require('./jobs');
-    startAllJobs();
 
     // Khởi động BullMQ Worker xử lý gửi email ngầm (Dành cho dự án trường học)
     require('./workers/email.worker');
@@ -84,16 +81,16 @@ const startServer = async () => {
     const { registerJobs } = require('./jobs');
     registerJobs();
 
-    // Khởi tạo Socket.IO realtime
-    const { initSocketIO } = require('./socket');
-    initSocketIO(app);
-    console.log('[🔌 Socket]  Socket.IO đã được khởi tạo');
-
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`[🚀 Server]  Đang chạy tại http://localhost:${PORT}`);
       console.log(`[📋 Health]  http://localhost:${PORT}/api/health`);
       console.log(`[🌍 Env]     ${process.env.NODE_ENV || 'development'}`);
     });
+
+    // Khởi tạo Socket.IO realtime
+    const { initSocketIO } = require('./socket');
+    initSocketIO(server);
+    console.log('[🔌 Socket]  Socket.IO đã được khởi tạo');
   } catch (error) {
     console.error('[❌ Startup] Không thể khởi động server:', error);
     process.exit(1);

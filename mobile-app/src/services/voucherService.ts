@@ -76,6 +76,10 @@ export const voucherService = {
 
   getMyVouchers: async (): Promise<Voucher[]> => {
     const response = await apiClient.get('/customer/vouchers');
-    return response.data.data ?? [];
+    const data = response.data?.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(response.data)) return response.data;
+    return [];
   },
 };

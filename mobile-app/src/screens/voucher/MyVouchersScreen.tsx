@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
@@ -41,6 +41,7 @@ const getDaysRemaining = (endDate: string) => {
 };
 
 export default function MyVouchersScreen() {
+  const navigation = useNavigation<any>();
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,7 +50,7 @@ export default function MyVouchersScreen() {
   const fetchVouchers = async (isRefresh: boolean = false) => {
     try {
       const data = await voucherService.getMyVouchers();
-      setVouchers(data);
+      setVouchers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[MyVouchers] Error:', err);
     } finally {
@@ -169,7 +170,7 @@ export default function MyVouchersScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Kho voucher</Text>

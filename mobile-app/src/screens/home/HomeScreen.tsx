@@ -42,9 +42,50 @@ const formatRuntime = (minutes?: number) => {
 
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '';
+  const isoDate = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDate) return `${isoDate[3]}.${isoDate[2]}.${isoDate[1]}`;
+
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
   return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+};
+
+const getDateKey = (dateStr?: string) => {
+  if (!dateStr) return null;
+  const isoDate = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDate) return Number(`${isoDate[1]}${isoDate[2]}${isoDate[3]}`);
+
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return Number(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`);
+};
+
+const getTodayKey = () => {
+  const today = new Date();
+  return Number(`${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`);
+};
+
+const isComingSoon = (releaseDate?: string) => {
+  const releaseKey = getDateKey(releaseDate);
+  if (!releaseKey) return false;
+  return releaseKey > getTodayKey();
+};
+
+const isNowPlaying = (movie: any) => {
+  const releaseKey = getDateKey(movie?.MovieReleaseDate);
+  if (!releaseKey || releaseKey > getTodayKey()) return false;
+  return Boolean(movie?.HasUpcomingShows);
+};
+
+const extractMovieArray = (response: any) => {
+  const data = response?.data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.movies)) return data.movies;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.movies)) return response.movies;
+  if (Array.isArray(response)) return response;
+  return [];
 };
 
 // ─── Static data for sections without backend API ───
@@ -114,8 +155,8 @@ export default function HomeScreen({ navigation }: any) {
         movieService.getMovies({ limit: 10, isActive: true }),
         movieService.getFeaturedMovies(),
       ]);
-      setMovies(movieRes.data?.items || movieRes.data || []);
-      setFeaturedMovies(featuredRes.data?.items || featuredRes.data || []);
+      setMovies(extractMovieArray(movieRes));
+      setFeaturedMovies(extractMovieArray(featuredRes));
     } catch (error) {
       console.log('Không thể tải danh sách phim:', error);
     } finally {
@@ -129,8 +170,10 @@ export default function HomeScreen({ navigation }: any) {
     setRefreshing(false);
   }, []);
 
-  const nowPlayingData = featuredMovies.length > 0 ? featuredMovies : movies.slice(0, 5);
-  const comingSoonData = movies.slice(0, 6); // all movies as coming soon for demo
+  const nowPlayingMovies = movies.filter(isNowPlaying);
+  const featuredNowPlaying = featuredMovies.filter(isNowPlaying);
+  const nowPlayingData = (featuredNowPlaying.length > 0 ? featuredNowPlaying : nowPlayingMovies).slice(0, 5);
+  const comingSoonData = movies.filter((movie) => isComingSoon(movie.MovieReleaseDate)).slice(0, 6);
 
   const onNowPlayingScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / NOW_PLAYING_SNAP);

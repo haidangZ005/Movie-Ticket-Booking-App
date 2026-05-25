@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image, KeyboardAvoidingView, Platform, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,14 +14,41 @@ const DEFAULT_AVATAR_FEMALE = 'https://images.unsplash.com/photo-1534528741775-5
 const DEFAULT_AVATAR_MALE = 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=256&q=80';
 const DEFAULT_AVATAR_OTHER = 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=256&q=80';
 
+type GenderCode = 'MALE' | 'FEMALE' | 'OTHER';
+
+const normalizeGender = (value?: string | null): GenderCode => {
+  const normalized = value?.trim().toUpperCase();
+  if (normalized === 'MALE' || normalized === 'NAM') return 'MALE';
+  if (normalized === 'FEMALE' || normalized === 'NU' || normalized === 'NỮ') return 'FEMALE';
+  return 'OTHER';
+};
+
+const genderOptions: { label: string; value: GenderCode }[] = [
+  { label: 'Nam', value: 'MALE' },
+  { label: 'Nữ', value: 'FEMALE' },
+  { label: 'Khác', value: 'OTHER' },
+];
+
+const parseProfileDate = (value?: string | Date | null) => {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const dateOnly = value.split('T')[0];
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  if (!year || !month || !day) return null;
+
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { user, refreshProfile } = useContext(AuthContext);
 
   const [fullName, setFullName] = useState(user?.FullName || '');
   const [phone, setPhone] = useState(user?.PhoneNumber || '');
-  const [gender, setGender] = useState(user?.Gender?.toString() || 'Khác');
-  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(user?.DateOfBirth ? new Date(user.DateOfBirth) : null);
+  const [gender, setGender] = useState<GenderCode>(normalizeGender(user?.Gender?.toString()));
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(parseProfileDate(user?.DateOfBirth));
   const [tempDate, setTempDate] = useState(new Date(2000, 0, 1));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(user?.AvatarUrl || null);
@@ -34,9 +62,40 @@ export default function EditProfileScreen() {
   }, []);
 
   // Xác định avatar mặc định để hiển thị
+  const fillForm = (profile: any) => {
+    setFullName(profile?.FullName || '');
+    setPhone(profile?.PhoneNumber || '');
+    setGender(normalizeGender(profile?.Gender?.toString()));
+    setDateOfBirth(parseProfileDate(profile?.DateOfBirth));
+    setAvatarUri(profile?.AvatarUrl || null);
+  };
+
+  useEffect(() => {
+    if (user) {
+      fillForm(user);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const loadLatestProfile = async () => {
+      try {
+        const response = await customerService.getProfile();
+        if (!isMountedRef.current) return;
+
+        if (response?.data) {
+          fillForm(response.data);
+        }
+      } catch (err) {
+        console.log('Load profile for edit failed', err);
+      }
+    };
+
+    loadLatestProfile();
+  }, []);
+
   const getDefaultAvatar = () => {
     const g = gender.toLowerCase();
-    if (g === 'nam' || g === 'male' || g === 'm') return DEFAULT_AVATAR_MALE;
+    if (gender === 'MALE') return DEFAULT_AVATAR_MALE;
     if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return DEFAULT_AVATAR_FEMALE;
     return DEFAULT_AVATAR_OTHER;
   };
@@ -124,11 +183,13 @@ export default function EditProfileScreen() {
       }
     } finally {
       if (isMountedRef.current) setIsLoading(false);
+
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           
@@ -185,14 +246,14 @@ export default function EditProfileScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Giới tính</Text>
               <View style={styles.genderRow}>
-                {['Nam', 'Nữ', 'Khác'].map((g) => (
+                {genderOptions.map((option) => (
                   <TouchableOpacity
-                    key={g}
-                    style={[styles.genderButton, gender === g && styles.genderButtonActive]}
-                    onPress={() => setGender(g)}
+                    key={option.value}
+                    style={[styles.genderButton, gender === option.value && styles.genderButtonActive]}
+                    onPress={() => setGender(option.value)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.genderText, gender === g && styles.genderTextActive]}>{g}</Text>
+                    <Text style={[styles.genderText, gender === option.value && styles.genderTextActive]}>{option.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -260,11 +321,13 @@ export default function EditProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+
   container: { flex: 1, backgroundColor: '#000000' },
   scrollContent: { flexGrow: 1, paddingBottom: 40 },
   header: { 
@@ -362,4 +425,5 @@ const styles = StyleSheet.create({
   pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#2C2C2E' },
   pickerCancelText: { color: '#A1A1AA', fontSize: 16 },
   pickerConfirmText: { color: COLORS.primary || '#FCC434', fontSize: 16, fontWeight: 'bold' },
+
 });

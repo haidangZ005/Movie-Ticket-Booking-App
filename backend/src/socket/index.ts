@@ -1,7 +1,6 @@
 import { Application } from 'express';
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import { Server as HttpServer as ExpressHttpServer } from 'http';
 
 let io: SocketIOServer | null = null;
 
@@ -16,7 +15,7 @@ let io: SocketIOServer | null = null;
  *  - 'seat:booked'  — Ghế đã được đặt thành công (thanh toán xong)
  *  - 'booking:expired' — Đơn đặt hết hạn 10 phút
  */
-export function initSocketIO(app: Application | ExpressHttpServer): SocketIOServer {
+export function initSocketIO(app: Application | HttpServer): SocketIOServer {
   io = new SocketIOServer(app as any, {
     cors: {
       origin: process.env.WS_CORS_ORIGIN || '*',

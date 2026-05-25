@@ -18,6 +18,7 @@ import MovieScreen from '../screens/movie/MovieScreen';
 import MovieDetailScreen from '../screens/movie/MovieDetailScreen';
 import TicketScreen from '../screens/ticket/TicketScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import CinemaListScreen from '../screens/cinema/CinemaListScreen';
 import ShowtimeScreen from '../screens/cinema/ShowtimeScreen';
 import SeatSelectionScreen from '../screens/booking/SeatSelectionScreen';
@@ -30,7 +31,6 @@ import LoyaltyScreen from '../screens/loyalty/LoyaltyScreen';
 import MyVouchersScreen from '../screens/voucher/MyVouchersScreen';
 
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
-import EditProfileScreen from '../screens/profile/EditProfileScreen';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();

@@ -4,7 +4,7 @@ export interface Seat {
   SeatID: number;
   HallID?: number;
   SeatNumber: string;
-  SeatType: 'STANDARD' | 'VIP' | 'COUPLE' | 'AISLE' | 'EMPTY';
+  SeatType: 'STANDARD' | 'VIP' | 'COUPLE' | 'AISLE' | 'DISABLED' | 'EMPTY';
   SeatPrice: number;
   PairID: number | null;
   RowIndex: number;

@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
@@ -31,6 +31,7 @@ const formatDate = (dateStr: string) => {
 };
 
 export default function LoyaltyScreen() {
+  const navigation = useNavigation<any>();
   const [currentPoints, setCurrentPoints] = useState(0);
   const [history, setHistory] = useState<LoyaltyHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,13 +42,14 @@ export default function LoyaltyScreen() {
   const fetchLoyalty = async (pageNum: number = 1, isRefresh: boolean = false) => {
     try {
       const data = await loyaltyService.getPointsHistory(pageNum, 20);
+      const historyItems = Array.isArray(data?.history) ? data.history : [];
       if (isRefresh || pageNum === 1) {
-        setHistory(data.history);
+        setHistory(historyItems);
       } else {
-        setHistory(prev => [...prev, ...data.history]);
+        setHistory(prev => [...prev, ...historyItems]);
       }
-      setCurrentPoints(data.currentPoints);
-      setHasMore((data.history?.length ?? 0) === 20);
+      setCurrentPoints(Number(data?.currentPoints) || 0);
+      setHasMore((historyItems.length ?? 0) === 20);
       setPage(pageNum);
     } catch (err) {
       console.error('[LoyaltyScreen] Error:', err);
@@ -147,7 +149,7 @@ export default function LoyaltyScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Điểm tích lũy</Text>
