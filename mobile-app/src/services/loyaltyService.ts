@@ -23,11 +23,16 @@ export interface LoyaltyPointsResponse {
 export const loyaltyService = {
   getPoints: async (): Promise<{ currentPoints: number }> => {
     const response = await apiClient.get('/customer/loyalty-points');
-    return response.data.data;
+    return response.data?.data ?? { currentPoints: 0 };
   },
 
   getPointsHistory: async (page: number = 1, limit: number = 20): Promise<LoyaltyPointsResponse> => {
     const response = await apiClient.get(`/customer/loyalty-points?page=${page}&limit=${limit}`);
-    return response.data.data;
+    const data = response.data?.data ?? {};
+    return {
+      currentPoints: Number(data.currentPoints) || 0,
+      history: Array.isArray(data.history) ? data.history : [],
+      pagination: data.pagination,
+    };
   },
 };

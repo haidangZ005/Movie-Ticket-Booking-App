@@ -33,9 +33,9 @@ export class CustomerModel {
       .input('FullName', sql.NVarChar(150), defaultName)
       .input('CustomerEmail', sql.NVarChar(100), customerEmail)
       .query(`
-        INSERT INTO Customer (AccountID, FullName, CustomerEmail, LoyaltyPoints, UpdatedAt)
+        INSERT INTO Customer (AccountID, FullName, CustomerEmail, LoyaltyPoints)
         OUTPUT INSERTED.CustomerID, INSERTED.AccountID
-        VALUES (@AccountID, @FullName, @CustomerEmail, 0, GETDATE())
+        VALUES (@AccountID, @FullName, @CustomerEmail, 0)
       `);
       
     return result.recordset[0];
@@ -100,8 +100,7 @@ export class CustomerModel {
           PhoneNumber = COALESCE(@PhoneNumber, PhoneNumber),
           Gender = COALESCE(@Gender, Gender),
           DateOfBirth = COALESCE(@DateOfBirth, DateOfBirth),
-          AvatarUrl = COALESCE(@AvatarUrl, AvatarUrl),
-          UpdatedAt = GETDATE()
+          AvatarUrl = COALESCE(@AvatarUrl, AvatarUrl)
         WHERE AccountID = @AccountID
       `);
       

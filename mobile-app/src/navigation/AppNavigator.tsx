@@ -18,6 +18,7 @@ import MovieScreen from '../screens/movie/MovieScreen';
 import MovieDetailScreen from '../screens/movie/MovieDetailScreen';
 import TicketScreen from '../screens/ticket/TicketScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import CinemaListScreen from '../screens/cinema/CinemaListScreen';
 import ShowtimeScreen from '../screens/cinema/ShowtimeScreen';
 import SeatSelectionScreen from '../screens/booking/SeatSelectionScreen';
@@ -58,6 +59,7 @@ function MainNavigator() {
       <MainStack.Screen name="MovieDetail" component={MovieDetailScreen} />
       <MainStack.Screen name="Ticket" component={TicketScreen} />
       <MainStack.Screen name="Profile" component={ProfileScreen} />
+      <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
       <MainStack.Screen name="Cinemas" component={CinemaListScreen} />
       <MainStack.Screen name="Showtime" component={ShowtimeScreen} />
       <MainStack.Screen name="SeatSelection" component={SeatSelectionScreen} />
