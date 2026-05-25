@@ -5,7 +5,7 @@ export interface SeatLayoutItem {
     SeatID?: number;
     HallID?: number;
     SeatNumber?: string | null;
-    SeatType: 'STANDARD' | 'VIP' | 'COUPLE' | 'AISLE' | 'DISABLED';
+    SeatType: 'STANDARD' | 'VIP' | 'COUPLE' | 'AISLE' | 'DISABLED' | 'EMPTY';
     SeatPrice?: number;
     PairID?: number | null;
     RowIndex: number;
@@ -86,7 +86,7 @@ class SeatLayoutModel {
             const totalCols = Number(payload.totalCols) || 0;
             const totalSeats = seats.filter((seat) => {
                 const isAisle = Boolean(seat.IsAisle) || seat.SeatType === 'AISLE';
-                return !isAisle && seat.SeatType !== 'DISABLED';
+                return !isAisle && !['DISABLED', 'EMPTY'].includes(seat.SeatType);
             }).length;
 
             await new mssql.Request(transaction)
@@ -112,8 +112,10 @@ class SeatLayoutModel {
             for (const seat of seats) {
                 const isAisle = Boolean(seat.IsAisle) || seat.SeatType === 'AISLE';
                 const seatType = isAisle ? 'AISLE' : seat.SeatType;
-                const seatNumber = isAisle ? null : String(seat.SeatNumber || '').trim();
-                const seatPrice = isAisle || seatType === 'DISABLED' ? 0 : Number(seat.SeatPrice) || 0;
+                const seatNumberRaw = String(seat.SeatNumber || '').trim();
+                const isBookableSeat = !isAisle && !['DISABLED', 'EMPTY'].includes(seatType);
+                const seatNumber = isBookableSeat ? seatNumberRaw : '';
+                const seatPrice = isBookableSeat ? Number(seat.SeatPrice) || 0 : 0;
                 const pairId = seatType === 'COUPLE' ? seat.PairID || null : null;
 
                 await new mssql.Request(transaction)

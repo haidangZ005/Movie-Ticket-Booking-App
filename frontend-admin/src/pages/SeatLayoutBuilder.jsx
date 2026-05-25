@@ -80,6 +80,36 @@ const createSeat = (row, col) => ({
   IsAisle: false,
 });
 
+const isSeatUnavailableForCouple = (seat) => {
+  return seat.IsAisle || ['AISLE', 'DISABLED', 'EMPTY'].includes(seat.SeatType);
+};
+
+const getCoupleValidationError = (selectedSeats) => {
+  if (selectedSeats.length !== 2) {
+    return 'Vui lòng chọn đúng 2 ghế.';
+  }
+
+  const [seatA, seatB] = selectedSeats;
+
+  if (isSeatUnavailableForCouple(seatA) || isSeatUnavailableForCouple(seatB)) {
+    return 'Không thể tạo ghế đôi từ lối đi hoặc ghế đã vô hiệu hóa.';
+  }
+
+  if (seatA.RowIndex !== seatB.RowIndex) {
+    return 'Hai ghế đôi phải nằm cùng một hàng.';
+  }
+
+  if (Math.abs(seatA.ColIndex - seatB.ColIndex) !== 1) {
+    return 'Hai ghế đôi phải nằm liền kề nhau.';
+  }
+
+  if (seatA.PairID || seatB.PairID) {
+    return 'Ghế đã thuộc một cặp ghế đôi khác. Vui lòng tách ghế đôi trước.';
+  }
+
+  return null;
+};
+
 const SeatLayoutBuilder = () => {
   const location = useLocation();
   const [cinemas, setCinemas] = useState([]);
@@ -94,6 +124,7 @@ const SeatLayoutBuilder = () => {
   const [currentMode, setCurrentMode] = useState('STANDARD');
   const [seatNumberDirection, setSeatNumberDirection] = useState('LEFT_TO_RIGHT');
   const [selectedSeatIndex, setSelectedSeatIndex] = useState(null);
+  const [selectedSeatIndexes, setSelectedSeatIndexes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -154,6 +185,7 @@ const SeatLayoutBuilder = () => {
       setInputCols(totalCols || '');
       setSeats(fetchedSeats);
       setSelectedSeatIndex(null);
+      setSelectedSeatIndexes([]);
       setHasUnsavedChanges(false);
     } catch (err) {
       console.error(err);
@@ -176,6 +208,7 @@ const SeatLayoutBuilder = () => {
     setInputRows('');
     setInputCols('');
     setSelectedSeatIndex(null);
+    setSelectedSeatIndexes([]);
     setHasUnsavedChanges(false);
     if (selectedCinemaId) fetchHalls(selectedCinemaId);
   }, [selectedCinemaId]);
@@ -204,6 +237,7 @@ const SeatLayoutBuilder = () => {
     setCols(nextCols);
     setSeats(finalSeats);
     setSelectedSeatIndex(null);
+    setSelectedSeatIndexes([]);
     setHasUnsavedChanges(true);
   };
 
@@ -219,7 +253,30 @@ const SeatLayoutBuilder = () => {
     if (!seat) return;
 
     if (currentMode === 'COUPLE') {
-      showToast('Ghế đôi sẽ làm sau theo logic convert hàng cuối.');
+      if (isSeatUnavailableForCouple(seat)) {
+        showToast('Không thể chọn ghế này làm ghế đôi.');
+        return;
+      }
+      if (seat.SeatType === 'COUPLE' && seat.PairID) {
+        const pairIndexes = seats.map((s, i) => (s.PairID === seat.PairID ? i : -1)).filter((i) => i !== -1);
+        setSelectedSeatIndexes(pairIndexes);
+        return;
+      }
+      setSelectedSeatIndexes((prev) => {
+        if (prev.includes(index)) {
+          return prev.filter((i) => i !== index);
+        }
+        if (prev.length >= 2) {
+          showToast('Chỉ được chọn tối đa 2 ghế.');
+          return [prev[1], index];
+        }
+        return [...prev, index];
+      });
+      return;
+    }
+
+    if (seat.PairID) {
+      showToast('Vui lòng tách ghế đôi trước khi đổi loại ghế.');
       return;
     }
 
@@ -244,6 +301,71 @@ const SeatLayoutBuilder = () => {
     setHasUnsavedChanges(true);
   };
 
+  const handleCreateCouple = () => {
+    const selectedSeats = selectedSeatIndexes.map((i) => seats[i]);
+    const validationError = getCoupleValidationError(selectedSeats);
+    if (validationError) {
+      showToast(validationError);
+      return;
+    }
+
+    const [seatA, seatB] = selectedSeats;
+    const leftSeat = seatA.ColIndex < seatB.ColIndex ? seatA : seatB;
+    const rightSeat = seatA.ColIndex < seatB.ColIndex ? seatB : seatA;
+    const pairId = leftSeat.RowIndex * 1000 + leftSeat.ColIndex;
+
+    const nextSeats = [...seats];
+    selectedSeatIndexes.forEach((i) => {
+      nextSeats[i] = {
+        ...nextSeats[i],
+        SeatType: 'COUPLE',
+        PairID: pairId,
+        IsAisle: false,
+        SeatPrice: 0,
+      };
+    });
+
+    const finalSeats = renumberSeats(nextSeats, seatNumberDirection);
+    setSeats(finalSeats);
+    setSelectedSeatIndexes([]);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSplitCouple = () => {
+    const indexesToCheck = currentMode === 'COUPLE' ? selectedSeatIndexes : (selectedSeatIndex !== null ? [selectedSeatIndex] : []);
+    
+    const pairIdsToSplit = new Set();
+    indexesToCheck.forEach((i) => {
+      const seat = seats[i];
+      if (seat?.PairID) {
+        pairIdsToSplit.add(seat.PairID);
+      }
+    });
+
+    if (pairIdsToSplit.size === 0) {
+      showToast('Vui lòng chọn ghế đôi cần tách.');
+      return;
+    }
+
+    const nextSeats = seats.map((seat) => {
+      if (seat.PairID && pairIdsToSplit.has(seat.PairID)) {
+        return {
+          ...seat,
+          SeatType: 'STANDARD',
+          PairID: null,
+          SeatPrice: 0,
+          IsAisle: false,
+        };
+      }
+      return seat;
+    });
+
+    const finalSeats = renumberSeats(nextSeats, seatNumberDirection);
+    setSeats(finalSeats);
+    setSelectedSeatIndexes([]);
+    setHasUnsavedChanges(true);
+  };
+
   const updateSelectedSeat = (field, value) => {
     if (selectedSeatIndex === null) return;
     const nextSeats = [...seats];
@@ -259,7 +381,6 @@ const SeatLayoutBuilder = () => {
     for (const seat of seats) {
       const row = Number(seat.RowIndex);
       const col = Number(seat.ColIndex);
-      const isAisle = Boolean(seat.IsAisle) || seat.SeatType === 'AISLE';
       if (!Number.isInteger(row) || !Number.isInteger(col) || row < 1 || row > rows || col < 1 || col > cols) {
         return 'Vị trí ghế nằm ngoài kích thước layout.';
       }
@@ -267,9 +388,9 @@ const SeatLayoutBuilder = () => {
       if (positions.has(positionKey)) return 'Bị trùng vị trí ghế.';
       positions.add(positionKey);
 
-      if (!isAisle) {
+      if (isNumberedSeat(seat)) {
         const seatNumber = String(seat.SeatNumber || '').trim();
-        if (!seatNumber) return 'Ghế không phải lối đi phải có mã ghế.';
+        if (!seatNumber) return 'Ghế có thể đặt phải có mã ghế.';
         if (seatNumbers.has(seatNumber)) return `Bị trùng mã ghế: ${seatNumber}`;
         seatNumbers.add(seatNumber);
       }
@@ -288,16 +409,16 @@ const SeatLayoutBuilder = () => {
     try {
       setSaving(true);
       const payloadSeats = seats.map((seat) => {
-        const isAisle = Boolean(seat.IsAisle) || seat.SeatType === 'AISLE';
-        const seatType = isAisle ? 'AISLE' : seat.SeatType;
+        const seatType = Boolean(seat.IsAisle) || seat.SeatType === 'AISLE' ? 'AISLE' : seat.SeatType;
+        const isBookableSeat = isNumberedSeat({ ...seat, SeatType: seatType, IsAisle: seatType === 'AISLE' });
         return {
-          SeatNumber: isAisle ? '' : String(seat.SeatNumber || '').trim(),
+          SeatNumber: isBookableSeat ? String(seat.SeatNumber || '').trim() : '',
           SeatType: seatType,
-          SeatPrice: isAisle || seatType === 'DISABLED' ? 0 : Number(seat.SeatPrice) || 0,
-          PairID: seatType === 'COUPLE' ? seat.PairID || null : null,
+          SeatPrice: isBookableSeat ? Number(seat.SeatPrice) || 0 : 0,
+          PairID: isBookableSeat && seatType === 'COUPLE' ? seat.PairID || null : null,
           RowIndex: Number(seat.RowIndex),
           ColIndex: Number(seat.ColIndex),
-          IsAisle: isAisle,
+          IsAisle: seatType === 'AISLE',
         };
       });
 
@@ -356,15 +477,34 @@ const SeatLayoutBuilder = () => {
                   <div className="flex" style={{ gap: seatGap }}>
                     {rowSeats.map((seat) => {
                       const isAisle = seat.IsAisle || seat.SeatType === 'AISLE';
-                      const selected = selectedSeatIndex === seat.originalIndex;
-                      const cls = isAisle ? modeClass.AISLE : modeClass[seat.SeatType] || modeClass.STANDARD;
+                      const selected = selectedSeatIndex === seat.originalIndex || selectedSeatIndexes.includes(seat.originalIndex);
+                      const isCouple = seat.SeatType === 'COUPLE' && seat.PairID;
+                      
+                      let cls = isAisle ? modeClass.AISLE : modeClass[seat.SeatType] || modeClass.STANDARD;
+                      
+                      let roundedStyle = 'rounded-lg';
+                      let extraStyle = { width: seatSize, height: seatSize, fontSize: Math.max(12, Math.round(seatSize * 0.32)) };
+                      
+                      if (isCouple) {
+                        const sibling = rowSeats.find((s) => s.PairID === seat.PairID && s.originalIndex !== seat.originalIndex);
+                        if (sibling) {
+                          if (seat.ColIndex < sibling.ColIndex) {
+                            roundedStyle = 'rounded-l-lg rounded-r-none border-r-0 z-10';
+                            extraStyle.marginRight = -seatGap;
+                          } else {
+                            roundedStyle = 'rounded-r-lg rounded-l-none border-l-[1px] border-l-primary/30 z-0';
+                          }
+                        }
+                      }
+
                       return (
                         <button
                           key={`${seat.RowIndex}-${seat.ColIndex}`}
                           type="button"
                           onClick={() => handleSeatClick(seat.originalIndex)}
-                          className={`flex items-center justify-center rounded-lg border font-extrabold transition-all hover:-translate-y-0.5 ${cls} ${selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''}`}
-                          style={{ width: seatSize, height: seatSize, fontSize: Math.max(12, Math.round(seatSize * 0.32)) }}
+                          title={isCouple ? `Ghế đôi: ${seat.PairID}` : seat.SeatNumber}
+                          className={`flex items-center justify-center border font-extrabold transition-all hover:-translate-y-0.5 ${roundedStyle} ${cls} ${selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''}`}
+                          style={extraStyle}
                         >
                           {!isAisle && seat.SeatNumber}
                         </button>
@@ -442,10 +582,17 @@ const SeatLayoutBuilder = () => {
           <div className="flex items-center gap-2 border-b border-border-default bg-surface-container-low p-3">
             <span className="mr-2 text-sm font-semibold text-text-secondary">Brush Mode:</span>
             {modes.map((mode) => (
-              <button key={mode} onClick={() => setCurrentMode(mode)} className={`rounded-full border px-4 py-1.5 text-xs font-bold transition-colors ${currentMode === mode ? activeModeClass[mode] : `opacity-70 hover:opacity-100 ${modeClass[mode]}`}`}>
+              <button key={mode} onClick={() => { setCurrentMode(mode); setSelectedSeatIndexes([]); }} className={`rounded-full border px-4 py-1.5 text-xs font-bold transition-colors ${currentMode === mode ? activeModeClass[mode] : `opacity-70 hover:opacity-100 ${modeClass[mode]}`}`}>
                 {mode}
               </button>
             ))}
+            <div className="mx-2 h-6 w-px bg-border-default" />
+            <button onClick={handleCreateCouple} disabled={currentMode !== 'COUPLE' || selectedSeatIndexes.length !== 2} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40">
+              Tạo ghế đôi
+            </button>
+            <button onClick={handleSplitCouple} className="inline-flex items-center gap-1 rounded border border-text-muted/50 bg-surface px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-variant disabled:opacity-40">
+              Tách ghế đôi
+            </button>
           </div>
           <div className="relative flex-1 overflow-auto bg-page-bg">{renderSeatGrid()}</div>
           <div className="flex flex-wrap items-center gap-4 border-t border-border-default bg-surface-container-low p-3 text-xs text-text-secondary">
