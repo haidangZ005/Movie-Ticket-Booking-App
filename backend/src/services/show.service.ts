@@ -3,6 +3,15 @@ import { getPool } from '../config/database';
 import ShowModel from '../models/show.model';
 import { AppException } from '../utils/exceptions/app.exception';
 import { ErrorCode } from '../utils/exceptions/error.code';
+import redisClient from '../config/redis';
+
+const ensureRedisConnected = async () => {
+  if (redisClient.status === 'ready' || redisClient.status === 'connecting' || redisClient.status === 'connect') {
+    return;
+  }
+
+  await redisClient.connect();
+};
 
 /**
  * Lấy chi tiết suất chiếu
@@ -24,8 +33,31 @@ export const getSeatsByShowId = async (showId: number) => {
     throw new AppException(ErrorCode.SHOW_NOT_FOUND);
   }
 
-  // TODO: Kết hợp trạng thái từ Redis (HOLDING từ Redis)
-  // Hiện tại trả về trạng thái từ DB (BOOKED) và Redis sẽ được xử lý qua WebSocket/Socket.IO
+  try {
+    await ensureRedisConnected();
+    const seats = await Promise.all(seatData.seats.map(async (seat: any) => {
+      if (seat.Status === 'BOOKED') return seat;
+
+      const key = `seat:hold:${showId}:${seat.SeatID}`;
+      const holder = await redisClient.get(key);
+      if (!holder) return seat;
+
+      const ttl = await redisClient.ttl(key);
+      return {
+        ...seat,
+        Status: 'HOLDING',
+        HoldBy: Number(holder),
+        HoldUntil: ttl > 0 ? new Date(Date.now() + ttl * 1000).toISOString() : null,
+      };
+    }));
+
+    return {
+      ...seatData,
+      seats,
+    };
+  } catch (error) {
+    console.warn('[Redis] Cannot merge holding seats into show seat map:', (error as Error).message);
+  }
 
   return seatData;
 };
@@ -127,4 +159,4 @@ export default {
   deleteShow,
   calculateTicketPrice,
   calculateBatchPrice
-};
+};

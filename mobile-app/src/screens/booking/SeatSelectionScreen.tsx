@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,15 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import showService, { Seat, ShowInfo } from '../../services/showService';
+import bookingService from '../../services/bookingService';
+import { getSocket } from '../../services/socketService';
+import { AuthContext } from '../../context/AuthContext';
 
 type RouteParams = {
   SeatSelection: {
@@ -35,16 +37,68 @@ const SeatSelectionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'SeatSelection'>>();
   const { showId } = route.params || { showId: 1 };
+  const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState<ShowInfo | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isHolding, setIsHolding] = useState(false);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const currentCustomerId = Number(user?.CustomerID || user?.customerId || user?.CustomerId || 0);
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+    }
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 3500);
+  };
 
   useEffect(() => {
     loadSeats();
   }, [showId]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit('join_show', { showId });
+
+    const handleSeatUpdate = (payload: any) => {
+      if (Number(payload.showId) !== Number(showId)) return;
+
+      setSeats((prevSeats) => prevSeats.map((seat) => {
+        if (Number(seat.SeatID) !== Number(payload.seatId)) return seat;
+
+        return {
+          ...seat,
+          Status: payload.status,
+          HoldBy: payload.holdBy ?? null,
+          HoldUntil: payload.holdUntil ?? null,
+        };
+      }));
+
+      if (payload.status === 'BOOKED' || (payload.status === 'HOLDING' && Number(payload.holdBy) !== currentCustomerId)) {
+        setSelectedSeats((prevSelected) => prevSelected.filter((seat) => Number(seat.SeatID) !== Number(payload.seatId)));
+      }
+    };
+
+    socket.on('seat_update', handleSeatUpdate);
+
+    return () => {
+      socket.emit('leave_show', { showId });
+      socket.off('seat_update', handleSeatUpdate);
+      if (noticeTimerRef.current) {
+        clearTimeout(noticeTimerRef.current);
+      }
+    };
+  }, [showId, currentCustomerId]);
 
   const loadSeats = async () => {
     try {
@@ -186,7 +240,8 @@ const SeatSelectionScreen: React.FC = () => {
   };
 
   const isSeatUnavailable = (seat: Seat) => {
-    return seat.Status === 'BOOKED' || seat.Status === 'HOLDING' || seat.SeatType === 'EMPTY' || seat.SeatType === 'DISABLED' || seat.IsAisle;
+    const heldByAnotherCustomer = seat.Status === 'HOLDING' && Number(seat.HoldBy || 0) !== currentCustomerId;
+    return seat.Status === 'BOOKED' || heldByAnotherCustomer || seat.SeatType === 'EMPTY' || seat.SeatType === 'DISABLED' || seat.IsAisle;
   };
 
   const isCoupleUnavailable = (seat: Seat) => {
@@ -198,12 +253,12 @@ const SeatSelectionScreen: React.FC = () => {
     const coupleSeats = getCoupleSeats(seat, seats);
 
     if (coupleSeats.length !== 2) {
-      Alert.alert('Lỗi ghế đôi', 'Cấu hình ghế đôi chưa hợp lệ.');
+      showNotice('Cấu hình ghế đôi chưa hợp lệ.');
       return;
     }
 
     if (coupleSeats.some(isSeatUnavailable)) {
-      Alert.alert('Ghế không khả dụng', 'Một ghế trong cặp đã được đặt hoặc đang được giữ.');
+      showNotice('Một ghế trong cặp đã được đặt hoặc đang được giữ.');
       return;
     }
 
@@ -217,7 +272,7 @@ const SeatSelectionScreen: React.FC = () => {
     const newSelectedCount = selectedSeats.length + coupleSeats.length;
 
     if (newSelectedCount > 8) {
-      Alert.alert('Quá số lượng ghế', `Bạn chỉ có thể chọn tối đa 8 ghế.`);
+      showNotice('Bạn chỉ có thể chọn tối đa 8 ghế.');
       return;
     }
 
@@ -230,7 +285,7 @@ const SeatSelectionScreen: React.FC = () => {
       updateSelectedSeats(selectedSeats.filter(s => s.SeatID !== seat.SeatID));
     } else {
       if (selectedSeats.length >= 8) {
-        Alert.alert('Giới hạn', 'Bạn chỉ có thể chọn tối đa 8 ghế.');
+        showNotice('Bạn chỉ có thể chọn tối đa 8 ghế.');
         return;
       }
       updateSelectedSeats([...selectedSeats, seat]);
@@ -280,18 +335,36 @@ const SeatSelectionScreen: React.FC = () => {
     return selectedSeats.reduce((sum, seat) => sum + showInfo.BasePrice + (seat.SeatPrice || 0), 0);
   }, [selectedSeats, showInfo]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedSeats.length === 0 || !showInfo) return;
     if (singleSeatGapMessage) {
-      Alert.alert('Ràng buộc chọn ghế', singleSeatGapMessage);
+      showNotice(singleSeatGapMessage);
       return;
     }
-    // Đi tiếp màn thanh toán / bắp nước
-    navigation.navigate('ComboScreen', {
-      showInfo,
-      selectedSeats,
-      totalPrice
-    });
+
+    setIsHolding(true);
+    try {
+      const seatIds = selectedSeats.map((seat) => seat.SeatID);
+      const result = await bookingService.holdSeats(showId, seatIds);
+
+      if (!result?.success || !result?.data?.success) {
+        showNotice(result?.message || result?.data?.message || 'Ghế đang được người khác giữ.');
+        await loadSeats();
+        return;
+      }
+
+      navigation.navigate('ComboScreen', {
+        showInfo,
+        selectedSeats,
+        totalPrice,
+        holdUntil: result.data.holdUntil,
+      });
+    } catch (err: any) {
+      showNotice(err.response?.data?.message || 'Không thể giữ ghế. Vui lòng thử lại.');
+      await loadSeats();
+    } finally {
+      setIsHolding(false);
+    }
   };
 
   if (loading) {
@@ -342,6 +415,13 @@ const SeatSelectionScreen: React.FC = () => {
           </Text>
         </View>
       </View>
+
+      {!!notice && (
+        <View style={styles.noticeBox}>
+          <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
+          <Text style={styles.noticeText}>{notice}</Text>
+        </View>
+      )}
 
       {/* Screen area */}
       <View style={styles.screenArea}>
@@ -484,11 +564,13 @@ const SeatSelectionScreen: React.FC = () => {
             <Text style={styles.totalPrice}>{formatCurrency(totalPrice)}</Text>
           )}
           <TouchableOpacity 
-            style={[styles.continueBtn, (selectedSeats.length === 0 || !!singleSeatGapMessage) && styles.continueBtnDisabled]}
-            disabled={selectedSeats.length === 0}
+            style={[styles.continueBtn, (selectedSeats.length === 0 || !!singleSeatGapMessage || isHolding) && styles.continueBtnDisabled]}
+            disabled={selectedSeats.length === 0 || !!singleSeatGapMessage || isHolding}
             onPress={handleContinue}
           >
-            <Text style={[styles.continueBtnText, (selectedSeats.length === 0 || !!singleSeatGapMessage) && styles.continueBtnTextDisabled]}>Tiếp tục</Text>
+            <Text style={[styles.continueBtnText, (selectedSeats.length === 0 || !!singleSeatGapMessage || isHolding) && styles.continueBtnTextDisabled]}>
+              {isHolding ? 'Đang giữ...' : 'Tiếp tục'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -526,6 +608,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  noticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 193, 7, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.35)',
+  },
+  noticeText: {
+    flex: 1,
+    color: Colors.white,
+    fontSize: 12,
+    lineHeight: 17,
+    marginLeft: 8,
   },
   centerBox: {
     flex: 1,
