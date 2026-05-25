@@ -12,6 +12,7 @@ export interface Seat {
   IsAisle: boolean;
   RowVersion?: any;
   Status: 'AVAILABLE' | 'HOLDING' | 'BOOKED' | 'CANCELLED';
+  HoldBy?: number | null;
   HoldUntil?: string | null;
   BookingID?: number | null;
 }
