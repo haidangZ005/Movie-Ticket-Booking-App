@@ -29,6 +29,9 @@ import NotificationListScreen from '../screens/notification/NotificationListScre
 import LoyaltyScreen from '../screens/loyalty/LoyaltyScreen';
 import MyVouchersScreen from '../screens/voucher/MyVouchersScreen';
 
+import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 
@@ -58,6 +61,8 @@ function MainNavigator() {
       <MainStack.Screen name="MovieDetail" component={MovieDetailScreen} />
       <MainStack.Screen name="Ticket" component={TicketScreen} />
       <MainStack.Screen name="Profile" component={ProfileScreen} />
+      <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <MainStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <MainStack.Screen name="Cinemas" component={CinemaListScreen} />
       <MainStack.Screen name="Showtime" component={ShowtimeScreen} />
       <MainStack.Screen name="SeatSelection" component={SeatSelectionScreen} />

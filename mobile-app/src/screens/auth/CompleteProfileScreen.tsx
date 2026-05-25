@@ -5,7 +5,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
-import { LanguageContext } from '../../context/LanguageContext';
 import { authService } from '../../services/authService';
 import { customerService } from '../../services/customerService';
 import { saveAuthSession } from '../../utils/token';
@@ -14,7 +13,6 @@ export default function CompleteProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { setSession } = useContext(AuthContext);
-  const { t } = useContext(LanguageContext);
   const email = route.params?.email;
   const password = route.params?.password;
   const [fullName, setFullName] = useState('');
@@ -28,10 +26,6 @@ export default function CompleteProfileScreen() {
   const [error, setError] = useState('');
 
   const validatePhoneNumber = (phone: string) => /^(0|\+84)(3|5|7|8|9|1[2|6|8|9])([0-9]{8})$/.test(phone.replace(/\s/g, ''));
-  const translateOrFallback = (key: string, fallback: string) => {
-    const value = t(key);
-    return value && value !== key ? value : fallback;
-  };
 
   const genderOptions = [
     { value: 'MALE', labelKey: 'completeProfile.genderMale', fallback: 'Nam' },
@@ -53,7 +47,7 @@ export default function CompleteProfileScreen() {
 
   const handleComplete = async () => {
     if (!email || !password) {
-      setError(translateOrFallback('register.invalidSession', 'Phiên đăng ký không hợp lệ.'));
+      setError('Phiên đăng ký không hợp lệ.');
       setTimeout(() => navigation.navigate('Login'), 2000);
       return;
     }
@@ -61,19 +55,19 @@ export default function CompleteProfileScreen() {
     const trimmedName = fullName.trim();
     const trimmedPhone = phoneNumber.trim();
     if (!trimmedName || trimmedName.length < 2) {
-      setError(t('validation.fullNameRequired'));
+      setError('Vui lòng nhập họ và tên');
       return;
     }
     if (!trimmedPhone || !validatePhoneNumber(trimmedPhone)) {
-      setError(translateOrFallback('validation.invalidPhoneNumber', 'Số điện thoại không hợp lệ.'));
+      setError('Số điện thoại không hợp lệ.');
       return;
     }
     if (!gender) {
-      setError(t('validation.genderRequired'));
+      setError('Vui lòng chọn giới tính');
       return;
     }
     if (!dateOfBirth) {
-      setError(t('validation.dateOfBirthRequired'));
+      setError('Vui lòng chọn ngày sinh');
       return;
     }
 
@@ -96,16 +90,16 @@ export default function CompleteProfileScreen() {
       if (profileRes && (profileRes.success || profileRes.code === 1000)) {
         await setSession(accessToken, refreshToken, profileRes.data);
       } else {
-        setError(profileRes?.message || t('profile.updateFailed'));
+        setError(profileRes?.message || 'Cập nhật thông tin thất bại');
       }
     } catch (err: any) {
       if (err.message === 'AUTO_LOGIN_FAILED') {
-        setError(t('auth.autoLoginFailed'));
+        setError('Đăng nhập tự động thất bại. Vui lòng đăng nhập lại.');
         setTimeout(() => navigation.navigate('Login'), 3000);
       } else if (err.response?.data?.code === 1006) {
-        setError(t('profile.phoneExisted'));
+        setError('Số điện thoại đã được đăng ký');
       } else {
-        setError(err.response?.data?.message || t('profile.updateFailed'));
+        setError(err.response?.data?.message || 'Cập nhật thông tin thất bại');
       }
     } finally {
       setIsLoading(false);
@@ -150,32 +144,32 @@ export default function CompleteProfileScreen() {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonContainer}>
               <Text style={styles.backButtonText}>{'<'}</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('completeProfile.title')}</Text>
+            <Text style={styles.headerTitle}>Hoàn tất hồ sơ</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.title}>{t('completeProfile.title')}</Text>
-            <Text style={styles.subtitle}>{t('completeProfile.subtitle')}</Text>
+            <Text style={styles.title}>Hoàn tất hồ sơ</Text>
+            <Text style={styles.subtitle}>Nhập thông tin cá nhân của bạn để tiếp tục.</Text>
 
-            {renderInput(t('completeProfile.fullName'), fullName, setFullName, 'fullName', { placeholder: t('completeProfile.fullNamePlaceholder') })}
-            {renderInput(t('completeProfile.phoneNumber'), phoneNumber, setPhoneNumber, 'phoneNumber', { placeholder: t('completeProfile.phonePlaceholder'), keyboardType: 'phone-pad' })}
+            {renderInput('Họ và tên', fullName, setFullName, 'fullName', { placeholder: 'Nhập họ và tên' })}
+            {renderInput('Số điện thoại', phoneNumber, setPhoneNumber, 'phoneNumber', { placeholder: 'Nhập số điện thoại', keyboardType: 'phone-pad' })}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('completeProfile.gender')} *</Text>
+              <Text style={styles.label}>Giới tính *</Text>
               <View style={styles.genderContainer}>
                 {genderOptions.map((option) => (
                   <TouchableOpacity key={option.value} style={[styles.genderButton, gender === option.value && styles.genderButtonActive]} onPress={() => setGender(option.value)}>
-                    <Text style={[styles.genderText, gender === option.value && styles.genderTextActive]}>{translateOrFallback(option.labelKey, option.fallback)}</Text>
+                    <Text style={[styles.genderText, gender === option.value && styles.genderTextActive]}>{option.fallback}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('completeProfile.dateOfBirth')} *</Text>
+              <Text style={styles.label}>Ngày sinh *</Text>
               <TouchableOpacity style={[styles.input, styles.dateInput]} onPress={openPicker}>
-                <Text style={[styles.dateText, !dateOfBirth && { color: COLORS.muted }]}>{dateOfBirth ? formatDateDisplay(dateOfBirth) : t('completeProfile.datePlaceholder')}</Text>
+                <Text style={[styles.dateText, !dateOfBirth && { color: COLORS.muted }]}>{dateOfBirth ? formatDateDisplay(dateOfBirth) : 'Chọn ngày sinh'}</Text>
               </TouchableOpacity>
 
               {Platform.OS === 'android' && showDatePicker && (
@@ -187,7 +181,7 @@ export default function CompleteProfileScreen() {
                   <View style={styles.pickerContainer}>
                     <View style={styles.pickerHeader}>
                       <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                        <Text style={styles.pickerCancelText}>{t('completeProfile.cancel')}</Text>
+                        <Text style={styles.pickerCancelText}>Hủy</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => {
@@ -195,7 +189,7 @@ export default function CompleteProfileScreen() {
                           setShowDatePicker(false);
                         }}
                       >
-                        <Text style={styles.pickerConfirmText}>{t('completeProfile.confirm')}</Text>
+                        <Text style={styles.pickerConfirmText}>Xác nhận</Text>
                       </TouchableOpacity>
                     </View>
                     <DateTimePicker value={tempDate} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} textColor={COLORS.text} />
@@ -207,7 +201,7 @@ export default function CompleteProfileScreen() {
             {error ? <View style={styles.errorContainer}><Text style={styles.errorText}>{error}</Text></View> : null}
 
             <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleComplete} disabled={isLoading}>
-              <Text style={styles.primaryButtonText}>{isLoading ? t('common.loading') : t('completeProfile.done')}</Text>
+              <Text style={styles.primaryButtonText}>{isLoading ? 'Đang xử lý...' : 'Hoàn tất'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
