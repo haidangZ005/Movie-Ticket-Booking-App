@@ -67,8 +67,7 @@ export default function ProfileScreen() {
           
           <View style={styles.userDetails}>
             <View style={styles.nameRow}>
-              <Text style={styles.userName}>{displayName}</Text>
-              <Text style={styles.userName}>{displayName}</Text>
+              <Text style={styles.userName} numberOfLines={2}>{displayName}</Text>
             </View>
             
             <View style={styles.contactRow}>
@@ -167,8 +166,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 },
   avatar: { width: 86, height: 86, borderRadius: 43, marginRight: 20 },
   userDetails: { flex: 1, justifyContent: 'center' },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  userName: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', flex: 1 },
+  nameRow: { marginBottom: 8 },
+  userName: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', flexShrink: 1 },
   editButton: { paddingLeft: 12 },
   contactRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   contactText: { color: '#A1A1AA', fontSize: 14, marginLeft: 10, fontWeight: '400' },
