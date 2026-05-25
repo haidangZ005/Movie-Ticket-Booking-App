@@ -1,215 +1,371 @@
-import React, { useContext, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+
+import React, { useState, useContext, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image, KeyboardAvoidingView, Platform, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
 import { customerService } from '../../services/customerService';
 
-const GENDER_OPTIONS = [
-  { value: 'MALE', label: 'Nam' },
-  { value: 'FEMALE', label: 'Nữ' },
-  { value: 'OTHER', label: 'Khác' },
-];
-
-const toDateInput = (value?: string) => {
-  if (!value) return '';
-  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
-  return String(value);
-};
+const DEFAULT_AVATAR_FEMALE = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
+const DEFAULT_AVATAR_MALE = 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=256&q=80';
+const DEFAULT_AVATAR_OTHER = 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=256&q=80';
 
 export default function EditProfileScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation();
   const { user, refreshProfile } = useContext(AuthContext);
+
   const [fullName, setFullName] = useState(user?.FullName || '');
-  const [phoneNumber, setPhoneNumber] = useState(user?.PhoneNumber || '');
-  const [gender, setGender] = useState(user?.Gender || 'OTHER');
-  const [dateOfBirth, setDateOfBirth] = useState(toDateInput(user?.DateOfBirth));
-  const [saving, setSaving] = useState(false);
+  const [phone, setPhone] = useState(user?.PhoneNumber || '');
+  const [gender, setGender] = useState(user?.Gender?.toString() || 'Khác');
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(user?.DateOfBirth ? new Date(user.DateOfBirth) : null);
+  const [tempDate, setTempDate] = useState(new Date(2000, 0, 1));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(user?.AvatarUrl || null);
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const email = useMemo(() => user?.CustomerEmail || user?.Email || '', [user]);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
 
-  const handleSave = async () => {
-    if (!fullName.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập họ và tên.');
+  // Xác định avatar mặc định để hiển thị
+  const getDefaultAvatar = () => {
+    const g = gender.toLowerCase();
+    if (g === 'nam' || g === 'male' || g === 'm') return DEFAULT_AVATAR_MALE;
+    if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return DEFAULT_AVATAR_FEMALE;
+    return DEFAULT_AVATAR_OTHER;
+  };
+
+  const formatDateDisplay = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}/${month}/${date.getFullYear()}`;
+  };
+
+  const formatDatePayload = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  };
+
+  const onDateChange = (_event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (selectedDate) setDateOfBirth(selectedDate);
+    } else if (selectedDate) {
+      setTempDate(selectedDate);
+    }
+  };
+
+  const openPicker = () => {
+    setTempDate(dateOfBirth || new Date(2000, 0, 1));
+    setShowDatePicker(true);
+  };
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh để cập nhật avatar!');
       return;
     }
 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setAvatarUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!fullName.trim()) { setError('Vui lòng nhập họ tên'); return; }
+    
+    setError('');
+    setIsLoading(true);
+
     try {
-      setSaving(true);
-      await customerService.updateProfile({
-        FullName: fullName.trim(),
-        PhoneNumber: phoneNumber.trim(),
+      // payload data
+      const payload: any = {
+        FullName: fullName,
+        PhoneNumber: phone,
         Gender: gender,
-        DateOfBirth: dateOfBirth.trim() || undefined,
-      });
+      };
+      if (dateOfBirth) {
+        payload.DateOfBirth = formatDatePayload(dateOfBirth);
+      }
+      
+      // Pass local URI directly for demo (Wait for proper backend S3 upload in production)
+      if (avatarUri && !avatarUri.startsWith('http')) {
+        payload.AvatarUrl = avatarUri;
+      }
+
+      await customerService.updateProfile(payload);
+      
+      if (!isMountedRef.current) return;
+      
+      // Refresh context to sync new avatar and details globally
       await refreshProfile();
-      Alert.alert('Thành công', 'Thông tin cá nhân đã được cập nhật.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    } catch (error: any) {
-      Alert.alert('Không thể cập nhật', error?.response?.data?.message || 'Vui lòng thử lại sau.');
+      
+      if (isMountedRef.current) {
+        navigation.goBack();
+      }
+    } catch (err: any) {
+      if (isMountedRef.current) {
+        setError(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật. Vui lòng thử lại.');
+      }
     } finally {
-      setSaving(false);
+      if (isMountedRef.current) setIsLoading(false);
+
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
-        <View style={styles.headerBtn} />
-      </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.avatarCircle}>
-          <Feather name="user" size={34} color={Colors.primary} />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Họ và tên</Text>
-          <TextInput
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Nhập họ và tên"
-            placeholderTextColor={Colors.muted}
-            style={styles.input}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput value={email} editable={false} style={[styles.input, styles.inputDisabled]} />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Số điện thoại</Text>
-          <TextInput
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            placeholder="Nhập số điện thoại"
-            placeholderTextColor={Colors.muted}
-            keyboardType="phone-pad"
-            style={styles.input}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Giới tính</Text>
-          <View style={styles.genderRow}>
-            {GENDER_OPTIONS.map((item) => {
-              const active = gender === item.value;
-              return (
-                <TouchableOpacity
-                  key={item.value}
-                  style={[styles.genderChip, active && styles.genderChipActive]}
-                  onPress={() => setGender(item.value)}
-                >
-                  <Text style={[styles.genderText, active && styles.genderTextActive]}>{item.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonArea}>
+              <Feather name="chevron-left" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Cập nhật thông tin</Text>
+            <View style={styles.backButtonArea} />
           </View>
-        </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Ngày sinh</Text>
-          <TextInput
-            value={dateOfBirth}
-            onChangeText={setDateOfBirth}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={Colors.muted}
-            style={styles.input}
-          />
-        </View>
+          {/* Avatar Picker */}
+          <View style={styles.avatarSection}>
+            <TouchableOpacity onPress={handlePickImage} style={styles.avatarWrapper} activeOpacity={0.8}>
+              <Image 
+                source={{ uri: avatarUri || getDefaultAvatar() }} 
+                style={styles.avatarImage} 
+              />
+              <View style={styles.editIconBadge}>
+                <Feather name="camera" size={16} color="#000000" />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.emailText}>{user?.Email}</Text>
+          </View>
 
-        <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={handleSave} disabled={saving}>
-          {saving ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.saveText}>Lưu thay đổi</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+          <View style={styles.content}>
+            
+            {/* Form Fields */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Họ và tên</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập họ và tên"
+                placeholderTextColor={COLORS.muted}
+                value={fullName}
+                onChangeText={(text) => { setFullName(text); if (error) setError(''); }}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Số điện thoại</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập số điện thoại"
+                placeholderTextColor={COLORS.muted}
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={(text) => { setPhone(text); if (error) setError(''); }}
+              />
+            </View>
+
+            {/* Gender Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Giới tính</Text>
+              <View style={styles.genderRow}>
+                {['Nam', 'Nữ', 'Khác'].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.genderButton, gender === g && styles.genderButtonActive]}
+                    onPress={() => setGender(g)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.genderText, gender === g && styles.genderTextActive]}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Ngày sinh</Text>
+              <TouchableOpacity style={[styles.input, styles.dateInput]} onPress={openPicker}>
+                <Text style={[styles.dateText, !dateOfBirth && { color: COLORS.muted }]}>
+                  {dateOfBirth ? formatDateDisplay(dateOfBirth) : 'Chọn ngày sinh'}
+                </Text>
+              </TouchableOpacity>
+
+              {Platform.OS === 'android' && showDatePicker && (
+                <DateTimePicker 
+                  value={dateOfBirth || new Date(2000, 0, 1)} 
+                  mode="date" 
+                  display="default" 
+                  maximumDate={new Date()} 
+                  onChange={onDateChange} 
+                />
+              )}
+
+              <Modal transparent animationType="slide" visible={Platform.OS === 'ios' && showDatePicker} onRequestClose={() => setShowDatePicker(false)}>
+                <View style={styles.modalOverlay}>
+                  <View style={styles.pickerContainer}>
+                    <View style={styles.pickerHeader}>
+                      <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                        <Text style={styles.pickerCancelText}>Hủy</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setDateOfBirth(tempDate);
+                          setShowDatePicker(false);
+                        }}
+                      >
+                        <Text style={styles.pickerConfirmText}>Xác nhận</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <DateTimePicker 
+                      value={tempDate} 
+                      mode="date" 
+                      display="spinner" 
+                      maximumDate={new Date()} 
+                      onChange={onDateChange} 
+                      textColor="#FFFFFF" 
+                    />
+                  </View>
+                </View>
+              </Modal>
+            </View>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            
+            <TouchableOpacity 
+              style={[styles.primaryButton, isLoading && styles.disabledButton]} 
+              onPress={handleSave} 
+              disabled={isLoading}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  container: { flex: 1, backgroundColor: '#000000' },
+  scrollContent: { flexGrow: 1, paddingBottom: 40 },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingHorizontal: 16, 
+    paddingTop: 16, 
+    paddingBottom: 20 
   },
-  headerBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: Colors.text, fontSize: 20, fontWeight: '700' },
-  content: { padding: 20, paddingBottom: 40 },
-  avatarCircle: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    alignSelf: 'center',
+  backButtonArea: { width: 44, height: 44, justifyContent: 'center' },
+  headerTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+  
+  avatarSection: {
     alignItems: 'center',
+    marginBottom: 32,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  editIconBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: COLORS.primary || '#FCC434',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: 'rgba(252,196,52,0.35)',
-    marginBottom: 28,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#000000',
   },
-  formGroup: { marginBottom: 18 },
-  label: { color: Colors.text, fontSize: 14, fontWeight: '700', marginBottom: 8 },
-  input: {
-    minHeight: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-    color: Colors.text,
-    paddingHorizontal: 14,
-    fontSize: 15,
+  emailText: {
+    color: '#A1A1AA',
+    fontSize: 14,
   },
-  inputDisabled: { color: Colors.muted, opacity: 0.8 },
-  genderRow: { flexDirection: 'row', gap: 10 },
-  genderChip: {
+
+  content: { paddingHorizontal: 24, flex: 1 },
+  inputGroup: { marginBottom: 24 },
+  label: { color: '#FFFFFF', fontSize: 14, marginBottom: 10, fontWeight: '500' },
+  input: { 
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2C2C2E',
+    padding: 16, 
+    color: '#FFFFFF', 
+    fontSize: 16 
+  },
+  dateInput: { justifyContent: 'center' },
+  dateText: { color: '#FFFFFF', fontSize: 16 },
+  
+  genderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  genderButton: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
+    backgroundColor: '#1C1C1E',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#2C2C2E',
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.card,
+    borderRadius: 12,
+    marginHorizontal: 4,
   },
-  genderChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  genderText: { color: Colors.muted, fontWeight: '700' },
-  genderTextActive: { color: '#000' },
-  saveBtn: {
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
+  genderButtonActive: {
+    borderColor: COLORS.primary || '#FCC434',
+    backgroundColor: 'rgba(252, 196, 52, 0.1)',
   },
-  saveBtnDisabled: { opacity: 0.65 },
-  saveText: { color: '#000', fontSize: 16, fontWeight: '800' },
+  genderText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  genderTextActive: {
+    color: COLORS.primary || '#FCC434',
+    fontWeight: 'bold',
+  },
+
+  errorText: { color: COLORS.error || '#FF4D4D', marginBottom: 20, fontSize: 14, textAlign: 'center' },
+  primaryButton: { backgroundColor: COLORS.primary || '#FCC434', paddingVertical: 18, borderRadius: 30, alignItems: 'center', marginTop: 10 },
+  disabledButton: { opacity: 0.6 },
+  primaryButtonText: { color: '#000000', fontSize: 16, fontWeight: 'bold' },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
+  pickerContainer: { backgroundColor: '#1C1C1E', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'ios' ? 40 : 20 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#2C2C2E' },
+  pickerCancelText: { color: '#A1A1AA', fontSize: 16 },
+  pickerConfirmText: { color: COLORS.primary || '#FCC434', fontSize: 16, fontWeight: 'bold' },
+
 });

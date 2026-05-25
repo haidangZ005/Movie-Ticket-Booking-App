@@ -1,44 +1,52 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { LanguageContext } from '../../context/LanguageContext';
 import { authService } from '../../services/authService';
 
 export default function ResetPasswordScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const email = route.params?.email || '';
-  const { t } = useContext(LanguageContext);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   useEffect(() => {
     if (!email) navigation.navigate('Login');
   }, [email, navigation]);
 
   const handleResetPassword = async () => {
-    if (!newPassword) { setError(t('validation.newPasswordRequired')); return; }
-    if (newPassword.length < 8) { setError(t('validation.newPasswordTooShort')); return; }
-    if (!confirmPassword) { setError(t('validation.confirmNewPasswordRequired')); return; }
-    if (newPassword !== confirmPassword) { setError(t('validation.passwordMismatch')); return; }
+    if (!newPassword) { setError('Vui lòng nhập mật khẩu mới'); return; }
+    if (newPassword.length < 8) { setError('Mật khẩu phải có ít nhất 8 ký tự'); return; }
+    if (!confirmPassword) { setError('Vui lòng xác nhận mật khẩu mới'); return; }
+    if (newPassword !== confirmPassword) { setError('Mật khẩu xác nhận không khớp'); return; }
 
     setError('');
     setSuccessMessage('');
     setIsLoading(true);
     try {
       const res = await authService.resetPassword(email, newPassword);
+      if (!isMountedRef.current) return;
       if (__DEV__) console.log('[Reset Password Response]', res);
-      setSuccessMessage(t('reset.success'));
-      setTimeout(() => { navigation.navigate('Login'); }, 2000);
+      setSuccessMessage('Cập nhật mật khẩu thành công');
+      setTimeout(() => { 
+        if (isMountedRef.current) navigation.navigate('Login'); 
+      }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || t('common.serverConnectionError'));
+      if (isMountedRef.current) {
+        setError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   };
 
@@ -52,20 +60,20 @@ export default function ResetPasswordScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.content}>
-            <Text style={styles.stepText}>{t('newPassword.step')}</Text>
-            <Text style={styles.title}>{t('newPassword.title')}</Text>
-            <Text style={styles.subtitle}>{t('newPassword.subtitle')}</Text>
+            <Text style={styles.stepText}>Bước 3/3</Text>
+            <Text style={styles.title}>Tạo mật khẩu mới</Text>
+            <Text style={styles.subtitle}>Mật khẩu mới của bạn phải khác với mật khẩu đã sử dụng trước đó.</Text>
             <View style={styles.emailChip}>
               <Text style={styles.emailText}>{email}</Text>
             </View>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('newPassword.newPassword')}</Text>
-              <TextInput style={[styles.input, error && !newPassword ? styles.inputError : null]} placeholder={t('newPassword.newPassword')} placeholderTextColor={COLORS.muted} value={newPassword} onChangeText={(text) => { setNewPassword(text); if (error) setError(''); }} secureTextEntry />
-              <Text style={styles.hintText}>{t('newPassword.passwordHint')}</Text>
+              <Text style={styles.label}>Mật khẩu mới</Text>
+              <TextInput style={[styles.input, error && !newPassword ? styles.inputError : null]} placeholder="Mật khẩu mới" placeholderTextColor={COLORS.muted} value={newPassword} onChangeText={(text) => { setNewPassword(text); if (error) setError(''); }} secureTextEntry />
+              <Text style={styles.hintText}>Phải có ít nhất 8 ký tự.</Text>
             </View>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('newPassword.confirmPassword')}</Text>
-              <TextInput style={[styles.input, error && (newPassword !== confirmPassword || !confirmPassword) ? styles.inputError : null]} placeholder={t('newPassword.confirmPassword')} placeholderTextColor={COLORS.muted} value={confirmPassword} onChangeText={(text) => { setConfirmPassword(text); if (error) setError(''); }} secureTextEntry />
+              <Text style={styles.label}>Xác nhận mật khẩu</Text>
+              <TextInput style={[styles.input, error && (newPassword !== confirmPassword || !confirmPassword) ? styles.inputError : null]} placeholder="Xác nhận mật khẩu" placeholderTextColor={COLORS.muted} value={confirmPassword} onChangeText={(text) => { setConfirmPassword(text); if (error) setError(''); }} secureTextEntry />
             </View>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {successMessage ? (
@@ -74,7 +82,7 @@ export default function ResetPasswordScreen() {
               </View>
             ) : null}
             <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleResetPassword} disabled={isLoading || !!successMessage}>
-              <Text style={styles.primaryButtonText}>{isLoading ? t('common.processing') : t('newPassword.update')}</Text>
+              <Text style={styles.primaryButtonText}>{isLoading ? 'Đang xử lý...' : 'Cập nhật mật khẩu'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -1,19 +1,22 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
-import { LanguageContext } from '../../context/LanguageContext';
 import { authService } from '../../services/authService';
 
 export default function VerifyResetOtpScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const email = route.params?.email || '';
-  const { t } = useContext(LanguageContext);
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!email) navigation.navigate('Login');
@@ -21,11 +24,11 @@ export default function VerifyResetOtpScreen() {
 
   const handleVerify = async () => {
     if (!otp) {
-      setError(t('validation.otpRequired'));
+      setError('Vui lòng nhập mã OTP');
       return;
     }
     if (otp.length !== 6) {
-      setError(t('validation.otpSixDigits'));
+      setError('Mã OTP phải có 6 chữ số');
       return;
     }
 
@@ -33,15 +36,18 @@ export default function VerifyResetOtpScreen() {
     setIsLoading(true);
     try {
       const res = await authService.verifyResetOtp(email, otp);
+      if (!isMountedRef.current) return;
       if (res && (res.success || (res.code >= 1000 && res.code < 3000))) {
         navigation.navigate('ResetPassword', { email });
       } else {
-        setError(res?.message || t('common.error'));
+        setError(res?.message || 'Có lỗi xảy ra');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || t('common.serverConnectionError'));
+      if (isMountedRef.current) {
+        setError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   };
 
@@ -49,11 +55,13 @@ export default function VerifyResetOtpScreen() {
     setIsLoading(true);
     try {
       await authService.forgotPassword(email);
-      setError('');
+      if (isMountedRef.current) setError('');
     } catch (err: any) {
-      setError(err.response?.data?.message || t('common.serverConnectionError'));
+      if (isMountedRef.current) {
+        setError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   };
 
@@ -67,9 +75,9 @@ export default function VerifyResetOtpScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.content}>
-            <Text style={styles.stepText}>{t('resetOtp.step')}</Text>
-            <Text style={styles.title}>{t('resetOtp.title')}</Text>
-            <Text style={styles.subtitle}>{t('resetOtp.subtitle')}</Text>
+            <Text style={styles.stepText}>Bước 2/3</Text>
+            <Text style={styles.title}>Xác thực OTP</Text>
+            <Text style={styles.subtitle}>Nhập mã OTP gồm 6 chữ số đã được gửi đến email của bạn.</Text>
             <View style={styles.emailChip}><Text style={styles.emailText}>{email}</Text></View>
             <View style={styles.inputGroup}>
               <TextInput
@@ -88,12 +96,12 @@ export default function VerifyResetOtpScreen() {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
             <TouchableOpacity style={[styles.primaryButton, isLoading && styles.disabledButton]} onPress={handleVerify} disabled={isLoading}>
-              <Text style={styles.primaryButtonText}>{isLoading ? t('common.processing') : t('resetOtp.continue')}</Text>
+              <Text style={styles.primaryButtonText}>{isLoading ? 'Đang xử lý...' : 'Tiếp tục'}</Text>
             </TouchableOpacity>
             <View style={styles.resendArea}>
-              <Text style={styles.resendLabel}>{t('resetOtp.resendQuestion')}</Text>
+              <Text style={styles.resendLabel}>Chưa nhận được mã? </Text>
               <TouchableOpacity onPress={handleResendOtp} disabled={isLoading}>
-                <Text style={styles.resendLink}>{t('resetOtp.resend')}</Text>
+                <Text style={styles.resendLink}>Gửi lại</Text>
               </TouchableOpacity>
             </View>
           </View>
