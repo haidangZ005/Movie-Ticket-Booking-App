@@ -16,6 +16,9 @@ export interface Movie {
   IsFeatured?: boolean;
   FeaturedOrder?: number;
   IsActive?: boolean;
+  HasUpcomingShows?: boolean;
+  NextShowDate?: string;
+  NextShowTime?: string;
 }
 
 export interface MovieFilters {

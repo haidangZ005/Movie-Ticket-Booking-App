@@ -82,9 +82,24 @@ export class MovieModel {
     dataRequest.input('limit', mssql.Int, limit);
 
     const result = await dataRequest.query(`
-      SELECT * FROM Movie 
+      SELECT
+        m.*,
+        CASE WHEN nextShow.ShowID IS NULL THEN CAST(0 AS bit) ELSE CAST(1 AS bit) END AS HasUpcomingShows,
+        nextShow.ShowDate AS NextShowDate,
+        CONVERT(varchar(8), nextShow.ShowTime, 108) AS NextShowTime
+      FROM Movie m
+      OUTER APPLY (
+        SELECT TOP 1 s.ShowID, s.ShowDate, s.ShowTime
+        FROM [Show] s
+        WHERE s.MovieID = m.MovieID
+          AND (
+            s.ShowDate > CAST(GETDATE() AS date)
+            OR (s.ShowDate = CAST(GETDATE() AS date) AND s.ShowTime >= CONVERT(time, GETDATE()))
+          )
+        ORDER BY s.ShowDate ASC, s.ShowTime ASC
+      ) nextShow
       ${whereSQL}
-      ORDER BY MovieID DESC
+      ORDER BY m.MovieID DESC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `);
 
@@ -101,7 +116,22 @@ export class MovieModel {
     const pool = await connectDB();
     const result = await pool.request()
       .query(`
-        SELECT * FROM Movie 
+        SELECT
+          m.*,
+          CASE WHEN nextShow.ShowID IS NULL THEN CAST(0 AS bit) ELSE CAST(1 AS bit) END AS HasUpcomingShows,
+          nextShow.ShowDate AS NextShowDate,
+          CONVERT(varchar(8), nextShow.ShowTime, 108) AS NextShowTime
+        FROM Movie m
+        OUTER APPLY (
+          SELECT TOP 1 s.ShowID, s.ShowDate, s.ShowTime
+          FROM [Show] s
+          WHERE s.MovieID = m.MovieID
+            AND (
+              s.ShowDate > CAST(GETDATE() AS date)
+              OR (s.ShowDate = CAST(GETDATE() AS date) AND s.ShowTime >= CONVERT(time, GETDATE()))
+            )
+          ORDER BY s.ShowDate ASC, s.ShowTime ASC
+        ) nextShow
         WHERE IsFeatured = 1 AND IsActive = 1
         ORDER BY FeaturedOrder ASC, MovieID DESC
       `);

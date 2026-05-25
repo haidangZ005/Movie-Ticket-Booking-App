@@ -36,14 +36,31 @@ const formatRuntime = (minutes?: number) => {
   return `${hours} giờ${remainingMinutes ? ` ${remainingMinutes} phút` : ''}`;
 };
 
-const isComingSoon = (releaseDate?: string) => {
-  if (!releaseDate) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+const getDateKey = (dateStr?: string) => {
+  if (!dateStr) return null;
+  const isoDate = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDate) return Number(`${isoDate[1]}${isoDate[2]}${isoDate[3]}`);
 
-  const release = new Date(releaseDate);
-  release.setHours(0, 0, 0, 0);
-  return release > today;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  return Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`);
+};
+
+const getTodayKey = () => {
+  const today = new Date();
+  return Number(`${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`);
+};
+
+const isComingSoon = (releaseDate?: string) => {
+  const releaseKey = getDateKey(releaseDate);
+  if (!releaseKey) return false;
+  return releaseKey > getTodayKey();
+};
+
+const isNowPlaying = (movie: Movie) => {
+  const releaseKey = getDateKey(movie.MovieReleaseDate);
+  if (!releaseKey || releaseKey > getTodayKey()) return false;
+  return Boolean(movie.HasUpcomingShows);
 };
 
 export default function MovieScreen() {
@@ -79,8 +96,9 @@ export default function MovieScreen() {
 
   const displayedMovies = useMemo(() => {
     return movies.filter((movie) => {
-      const comingSoon = isComingSoon(movie.MovieReleaseDate);
-      return activeTab === 'ComingSoon' ? comingSoon : !comingSoon;
+      return activeTab === 'ComingSoon'
+        ? isComingSoon(movie.MovieReleaseDate)
+        : isNowPlaying(movie);
     });
   }, [movies, activeTab]);
 
