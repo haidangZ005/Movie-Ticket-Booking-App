@@ -117,3 +117,19 @@ desktop.ini
 .npm-cache/
 tmp/
 temp/
+
+# =========================
+# Local notes, generated docs, and scratch files
+# =========================
+work-log-*.txt
+cinema_admin_dashboard.html
+flicktickets-admin-prompt.md
+
+# =========================
+# Seed media assets
+# Keep the folder structure and manifest in Git, but send large images/videos separately.
+# =========================
+database/assets/**
+!database/assets/
+!database/assets/**/
+!database/assets/**/.gitkeep

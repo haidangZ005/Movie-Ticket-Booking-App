@@ -8,7 +8,7 @@ import * as voucherController from '../../controllers/voucher/voucher.controller
 import { CustomerController } from '../../controllers/customer/customer.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { roleMiddleware } from '../../middlewares/role.middleware';
-import { uploadMoviePoster, uploadProductImage } from '../../middlewares/upload.middleware';
+import { uploadMoviePoster, uploadMovieTrailer, uploadProductImage } from '../../middlewares/upload.middleware';
 import * as seatLayoutController from '../../controllers/admin/seat-layout.controller';
 
 const router = Router();
@@ -24,6 +24,7 @@ router.put('/movies/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN'
 router.delete('/movies/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.deleteMovie);
 router.put('/movies/:id/featured', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.toggleFeaturedMovie);
 router.post('/uploads/movie-poster', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), uploadMoviePoster.single('poster'), movieController.uploadMoviePoster);
+router.post('/uploads/movie-trailer', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), uploadMovieTrailer.single('trailer'), movieController.uploadMovieTrailer);
 
 // === Quản lý Rạp & Phòng chiếu (M1) ===
 router.post('/cinemas', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.createCinema);

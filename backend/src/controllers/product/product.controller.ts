@@ -5,6 +5,7 @@ import { AppException } from '../../utils/exceptions/app.exception';
 import { ErrorCode } from '../../utils/exceptions/error.code';
 import { ApiResponse } from '../../utils/dto/api.response';
 import { ResponseCode } from '../../utils/constants/response.code';
+import { StorageService } from '../../services/storage.service';
 
 // GET /api/admin/products
 export const getAllProducts = asyncHandler(async (req: Request, res: Response) => {
@@ -15,7 +16,7 @@ export const getAllProducts = asyncHandler(async (req: Request, res: Response) =
 // POST /api/admin/uploads/product-image
 export const uploadProductImage = asyncHandler(async (req: Request, res: Response) => {
   if (!req.file) throw new AppException({ ...ErrorCode.INVALID_DATA, message: 'Không có file nào được tải lên' });
-  const imageUrl = `/uploads/products/${req.file.filename}`;
+  const imageUrl = await StorageService.uploadFile(req.file, 'products');
   return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, { imageUrl }));
 });
 

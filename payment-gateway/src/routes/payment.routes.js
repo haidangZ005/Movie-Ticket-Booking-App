@@ -12,5 +12,7 @@ router.post('/credit-card', verifyHmac, paymentController.processCreditCard);
 // POST /api/payment/refund — Xử lý hoàn tiền (yêu cầu HMAC)
 router.post('/refund', verifyHmac, paymentController.processRefund);
 
+router.post('/simulate-result', paymentController.simulateResult);
+
 module.exports = router;
 

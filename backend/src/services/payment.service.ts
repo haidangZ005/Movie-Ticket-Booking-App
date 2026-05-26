@@ -3,6 +3,7 @@ import { PaymentModel } from '../models/payment.model';
 import { LoyaltyService } from './loyalty.service';
 import { EmailService } from './email.service';
 import { NotificationService } from './notification.service';
+import { VoucherModel } from '../models/voucher.model';
 import { generateSignature } from '../utils/hmac';
 import { getPool } from '../config/database';
 import { AppException } from '../utils/exceptions/app.exception';
@@ -63,28 +64,41 @@ export class PaymentService {
    * Xử lý webhook từ Payment Gateway.
    */
   static async handleWebhook(bookingId: number, status: string) {
+    const pool = getPool();
     if (status === 'SUCCESS') {
       await PaymentModel.updateStatus(bookingId, 'SUCCESS');
+      await pool.request()
+        .input('BookingID', sql.Int, bookingId)
+        .query(`
+          UPDATE Booking
+          SET Status = 'CONFIRMED', UpdatedAt = GETDATE()
+          WHERE BookingID = @BookingID;
+
+          UPDATE BookingSeat
+          SET Status = 'BOOKED', HoldUntil = NULL
+          WHERE BookingID = @BookingID;
+        `);
       
       // Lấy thông tin booking + customer + phim để cộng điểm & gửi email vé
-      const pool = getPool();
       const bookingRes = await pool.request()
         .input('BookingID', sql.Int, bookingId)
         .query(`
           SELECT 
             b.CustomerID, b.TotalAmount,
+            p.VoucherID,
             a.Email,
             m.MovieTitle,
-            STRING_AGG(CONCAT(s.SeatRow, s.SeatNumber), ', ') AS Seats
+            STRING_AGG(chs.SeatNumber, ', ') WITHIN GROUP (ORDER BY chs.RowIndex, chs.ColIndex) AS Seats
           FROM Booking b
           JOIN Customer c ON b.CustomerID = c.CustomerID
           JOIN Account a ON c.AccountID = a.AccountID
-          LEFT JOIN BookingDetail bd ON b.BookingID = bd.BookingID
-          LEFT JOIN Seat s ON bd.SeatID = s.SeatID
-          LEFT JOIN Show_ sh ON b.ShowID = sh.ShowID
+          LEFT JOIN [Show] sh ON b.ShowID = sh.ShowID
           LEFT JOIN Movie m ON sh.MovieID = m.MovieID
+          LEFT JOIN Payment p ON p.BookingID = b.BookingID
+          LEFT JOIN BookingSeat bs ON b.BookingID = bs.BookingID
+          LEFT JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
           WHERE b.BookingID = @BookingID
-          GROUP BY b.CustomerID, b.TotalAmount, a.Email, m.MovieTitle
+          GROUP BY b.CustomerID, b.TotalAmount, p.VoucherID, a.Email, m.MovieTitle
         `);
       
       const booking = bookingRes.recordset[0];
@@ -92,7 +106,10 @@ export class PaymentService {
       if (booking) {
         // Side-effects (loyalty + email) không được phép làm fail webhook
         try {
-          await LoyaltyService.addPointsFromPayment(booking.CustomerID, booking.TotalAmount);
+          await LoyaltyService.addPointsFromPayment(booking.CustomerID, booking.TotalAmount, bookingId);
+          if (booking.VoucherID) {
+            await VoucherModel.applyVoucher(booking.VoucherID, booking.CustomerID, bookingId);
+          }
           
           await EmailService.sendTicketEmail(booking.Email, {
             bookingId,
@@ -112,6 +129,17 @@ export class PaymentService {
 
     } else if (status === 'FAILED') {
       await PaymentModel.updateStatus(bookingId, 'FAILED');
+      await pool.request()
+        .input('BookingID', sql.Int, bookingId)
+        .query(`
+          UPDATE Booking
+          SET Status = 'CANCELLED', UpdatedAt = GETDATE()
+          WHERE BookingID = @BookingID;
+
+          UPDATE BookingSeat
+          SET Status = 'CANCELLED', HoldUntil = NULL
+          WHERE BookingID = @BookingID;
+        `);
       // TV3 sẽ xử lý: release Redis seat lock + broadcast WebSocket ghế → AVAILABLE
     }
   }

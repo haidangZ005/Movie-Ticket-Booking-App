@@ -11,11 +11,13 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Modal,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ResizeMode, Video } from 'expo-av';
 import movieService, { Movie } from '../../services/movieService';
 import cinemaService, { Cinema } from '../../services/cinemaService';
 import { API_ORIGIN } from '../../config/api';
@@ -33,6 +35,7 @@ const resolveImageUrl = (image?: string) => {
 };
 
 const getPosterImage = (movie?: Movie | null) => resolveImageUrl(movie?.PosterUrl) || FALLBACK_MOVIE_IMAGE;
+const getTrailerUrl = (movie?: Movie | null) => resolveImageUrl(movie?.TrailerUrl);
 
 const formatReleaseDate = (date?: string) => {
   if (!date) return 'Sắp chiếu';
@@ -52,6 +55,43 @@ const splitPeople = (value?: string) =>
     .map((item) => item.trim())
     .filter(Boolean) || [];
 
+const TrailerPlayerModal = ({
+  visible,
+  uri,
+  title,
+  onClose,
+}: {
+  visible: boolean;
+  uri: string;
+  title?: string;
+  onClose: () => void;
+}) => {
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <View style={styles.trailerModal}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <View style={styles.trailerHeader}>
+          <TouchableOpacity style={styles.trailerCloseBtn} onPress={onClose}>
+            <Feather name="x" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.trailerTitle} numberOfLines={1}>{title || 'Trailer'}</Text>
+          <View style={styles.trailerHeaderSpacer} />
+        </View>
+
+        <View style={styles.trailerPlayerWrap}>
+          <Video
+            style={styles.trailerVideo}
+            source={{ uri }}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+            shouldPlay
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function MovieDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -62,6 +102,7 @@ export default function MovieDetailScreen() {
   const [cinemaError, setCinemaError] = useState('');
   const [loading, setLoading] = useState(!route.params?.movie);
   const [error, setError] = useState('');
+  const [trailerUrl, setTrailerUrl] = useState('');
 
   const movieId = route.params?.movieId || route.params?.movie?.MovieID;
 
@@ -69,17 +110,23 @@ export default function MovieDetailScreen() {
   const { isAuthenticated, user } = useContext(AuthContext);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [reviewsTotalPages, setReviewsTotalPages] = useState(1);
   const [userRating, setUserRating] = useState(5);
   const [userComment, setUserComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Tải danh sách cảm nhận/đánh giá
-  const fetchReviews = async () => {
+  const fetchReviews = async (page = 1, append = false) => {
     try {
       setReviewsLoading(true);
-      const res = await apiClient.get(`/reviews/movie/${movieId}`);
+      const res = await apiClient.get(`/reviews/movie/${movieId}?page=${page}&limit=10`);
       if (res.data?.success || res.data?.data) {
-        setReviews(res.data.data || []);
+        const payload = res.data.data || [];
+        const items = Array.isArray(payload) ? payload : payload.items || [];
+        setReviews(prev => append ? [...prev, ...items] : items);
+        setReviewsPage(page);
+        setReviewsTotalPages(payload.pagination?.totalPages || 1);
       }
     } catch (err) {
       console.log('Không thể tải cảm nhận phim:', err);
@@ -90,7 +137,7 @@ export default function MovieDetailScreen() {
 
   useEffect(() => {
     if (movieId) {
-      fetchReviews();
+      fetchReviews(1);
     }
   }, [movieId]);
 
@@ -110,7 +157,7 @@ export default function MovieDetailScreen() {
       if (res.data?.success || res.data?.data) {
         Alert.alert('Thành công', 'Cảm nhận của bạn đã được đăng thành công!');
         setUserComment('');
-        fetchReviews();
+        fetchReviews(1);
         
         // Cập nhật lại thông tin phim để làm mới điểm đánh giá trung bình
         const movieRes = await movieService.getMovieById(movieId);
@@ -139,7 +186,7 @@ export default function MovieDetailScreen() {
               const res = await apiClient.delete(`/reviews/${reviewId}`);
               if (res.data?.success) {
                 Alert.alert('Thành công', 'Đã xóa cảm nhận của bạn.');
-                fetchReviews();
+                fetchReviews(1);
                 
                 // Cập nhật lại điểm trung bình của phim
                 const movieRes = await movieService.getMovieById(movieId);
@@ -216,6 +263,16 @@ export default function MovieDetailScreen() {
     });
   };
 
+  const openTrailer = () => {
+    const nextTrailerUrl = getTrailerUrl(movie);
+    if (!nextTrailerUrl) {
+      Alert.alert('Thong bao', 'Phim nay chua co trailer.');
+      return;
+    }
+
+    setTrailerUrl(nextTrailerUrl);
+  };
+
   if (loading) {
     return (
       <View style={styles.centerState}>
@@ -238,6 +295,14 @@ export default function MovieDetailScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      {trailerUrl ? (
+        <TrailerPlayerModal
+          visible={!!trailerUrl}
+          uri={trailerUrl}
+          title={movie.MovieTitle}
+          onClose={() => setTrailerUrl('')}
+        />
+      ) : null}
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.heroContainer}>
@@ -264,7 +329,7 @@ export default function MovieDetailScreen() {
               </View>
 
               {movie.TrailerUrl ? (
-                <TouchableOpacity style={styles.trailerBtn}>
+                <TouchableOpacity style={styles.trailerBtn} onPress={openTrailer}>
                   <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
                   <Text style={styles.trailerBtnText}>Xem trailer</Text>
                 </TouchableOpacity>
@@ -442,6 +507,15 @@ export default function MovieDetailScreen() {
                 );
               })
             )}
+            {!reviewsLoading && reviews.length > 0 && reviewsPage < reviewsTotalPages ? (
+              <TouchableOpacity
+                style={styles.loadMoreReviewsBtn}
+                onPress={() => fetchReviews(reviewsPage + 1, true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.loadMoreReviewsText}>Xem thêm cảm nhận</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -528,6 +602,49 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  trailerModal: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  trailerHeader: {
+    height: 64,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#18181B',
+  },
+  trailerCloseBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#18181B',
+  },
+  trailerTitle: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginHorizontal: 12,
+  },
+  trailerHeaderSpacer: {
+    width: 42,
+  },
+  trailerPlayerWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+  },
+  trailerVideo: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -944,5 +1061,19 @@ const styles = StyleSheet.create({
     color: '#71717A',
     fontSize: 11,
     alignSelf: 'flex-end',
+  },
+  loadMoreReviewsBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    backgroundColor: '#151515',
+  },
+  loadMoreReviewsText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
