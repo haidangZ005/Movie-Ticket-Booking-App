@@ -49,7 +49,7 @@ export class VoucherService {
     }
 
     // Kiểm tra còn lượt dùng
-    if ((voucher.UsageCount ?? 0) >= voucher.UsageLimit) {
+    if (voucher.UsageLimit && (voucher.UsageCount ?? 0) >= voucher.UsageLimit) {
       throw new AppException(ErrorCode.INVALID_DATA);
     }
 
@@ -64,23 +64,15 @@ export class VoucherService {
     }
 
     // Kiểm tra định dạng phim
-    if (voucher.ApplicableFormat && voucher.ApplicableFormat !== 'ALL' && voucher.ApplicableFormat !== showFormat) {
+    if (
+      voucher.ApplicableFormat &&
+      voucher.ApplicableFormat.toUpperCase() !== 'ALL' &&
+      voucher.ApplicableFormat.toUpperCase() !== showFormat.toUpperCase()
+    ) {
       throw new AppException(ErrorCode.INVALID_DATA);
     }
 
     // Kiểm tra customer đã dùng voucher này chưa (first use only)
-    const pool = await connectDB();
-    const usageRes = await pool.request()
-      .input('VoucherID', sql.Int, voucherId)
-      .input('CustomerID', sql.Int, customerId)
-      .query(`
-        SELECT COUNT(*) AS cnt FROM VoucherUsage
-        WHERE VoucherID = @VoucherID AND CustomerID = @CustomerID
-      `);
-    if (usageRes.recordset[0].cnt > 0) {
-      throw new AppException(ErrorCode.INVALID_DATA);
-    }
-
     return voucher;
   }
 
@@ -91,7 +83,7 @@ export class VoucherService {
   static async applyAndCalculate(
     voucherId: number,
     customerId: number,
-    bookingId: number,
+    bookingId: number | undefined,
     totalAmount: number,
     totalSeats: number,
     showFormat: string
@@ -104,7 +96,9 @@ export class VoucherService {
     const finalAmount = totalAmount - discountAmount;
 
     // 3. Ghi nhận sử dụng voucher
-    await VoucherModel.applyVoucher(voucherId, customerId, bookingId);
+    if (bookingId) {
+      await VoucherModel.applyVoucher(voucherId, customerId, bookingId);
+    }
 
     return {
       voucherId,

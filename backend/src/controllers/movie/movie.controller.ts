@@ -5,6 +5,7 @@ import { ErrorCode } from '../../utils/exceptions/error.code';
 import MovieService from '../../services/movie.service';
 import { ApiResponse } from '../../utils/dto/api.response';
 import { ResponseCode } from '../../utils/constants/response.code';
+import { StorageService } from '../../services/storage.service';
 
 // GET /api/movies — Danh sách phim (phân trang)
 export const getMovies = asyncHandler(async (req: Request, res: Response) => {
@@ -93,8 +94,24 @@ export const uploadMoviePoster = asyncHandler(async (req: Request, res: Response
     });
   }
 
-  const posterUrl = `/uploads/movies/${file.filename}`;
+  const posterUrl = await StorageService.uploadFile(file, 'movies');
   return res.status(201).json(ApiResponse.success(ResponseCode.SUCCESS, { posterUrl }));
+});
+
+// POST /api/admin/uploads/movie-trailer - Upload trailer phim
+export const uploadMovieTrailer = asyncHandler(async (req: Request, res: Response) => {
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({
+      code: 400,
+      message: 'Vui long chon file video',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  const trailerUrl = await StorageService.uploadFile(file, 'trailers');
+  return res.status(201).json(ApiResponse.success(ResponseCode.SUCCESS, { trailerUrl }));
 });
 
 // PUT /api/admin/movies/:id — Sửa phim (Admin)

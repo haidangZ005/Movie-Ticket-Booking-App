@@ -93,7 +93,7 @@ export const applyVoucher = asyncHandler(async (req: AuthenticatedRequest, res: 
   const customerId = req.user!.customerId;
   const { voucherId, bookingId, totalAmount, totalSeats, showFormat } = req.body;
 
-  if (!voucherId || !bookingId || !totalAmount) {
+  if (!voucherId || !totalAmount) {
     throw new AppException(ErrorCode.INVALID_DATA);
   }
 

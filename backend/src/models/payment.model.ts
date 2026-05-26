@@ -52,6 +52,33 @@ export class PaymentModel {
       .input('DiscountAmount', sql.Decimal(10, 2), data.discountAmount ?? 0)
       .input('PaymentMethod', sql.NVarChar(20), data.method ?? null)
       .query(`
+        DECLARE @ExistingPaymentID INT;
+
+        SELECT TOP 1 @ExistingPaymentID = PaymentID
+        FROM Payment
+        WHERE BookingID = @BookingID
+        ORDER BY PaymentID DESC;
+
+        IF @ExistingPaymentID IS NOT NULL
+        BEGIN
+          UPDATE Payment
+          SET
+            VoucherID = @VoucherID,
+            Amount = @Amount,
+            DiscountAmount = @DiscountAmount,
+            PaymentMethod = @PaymentMethod,
+            PaymentDate = GETDATE(),
+            Status = 'CREATED',
+            RefundAmount = 0,
+            RefundAt = NULL
+          OUTPUT
+            INSERTED.PaymentID, INSERTED.BookingID, INSERTED.VoucherID,
+            INSERTED.Amount, INSERTED.DiscountAmount, INSERTED.PaymentMethod,
+            INSERTED.PaymentDate, INSERTED.Status, INSERTED.RefundAmount, INSERTED.RefundAt
+          WHERE PaymentID = @ExistingPaymentID;
+          RETURN;
+        END
+
         INSERT INTO Payment (
           BookingID, VoucherID, Amount, DiscountAmount,
           PaymentMethod, PaymentDate, Status, RefundAmount, RefundAt
@@ -76,7 +103,7 @@ export class PaymentModel {
     const result = await pool
       .request()
       .input('BookingID', sql.Int, bookingId)
-      .query('SELECT * FROM Payment WHERE BookingID = @BookingID');
+      .query('SELECT TOP 1 * FROM Payment WHERE BookingID = @BookingID ORDER BY PaymentID DESC');
     return result.recordset[0] ?? null;
   }
 

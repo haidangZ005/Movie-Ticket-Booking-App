@@ -94,6 +94,37 @@ export class AdminModel {
   /**
    * Cập nhật trạng thái tài khoản (TV5 responsibility)
    */
+  static async getPayments() {
+    const pool = getPool();
+    const result = await pool.request()
+      .query(`
+        SELECT TOP 200
+          p.PaymentID,
+          p.BookingID,
+          p.VoucherID,
+          p.Amount,
+          p.DiscountAmount,
+          p.PaymentMethod,
+          p.PaymentDate,
+          p.Status,
+          p.RefundAmount,
+          p.RefundAt,
+          b.Status AS BookingStatus,
+          c.CustomerID,
+          c.FullName,
+          a.Email,
+          m.MovieTitle
+        FROM [dbo].[Payment] p
+        LEFT JOIN [dbo].[Booking] b ON p.BookingID = b.BookingID
+        LEFT JOIN [dbo].[Customer] c ON b.CustomerID = c.CustomerID
+        LEFT JOIN [dbo].[Account] a ON c.AccountID = a.AccountID
+        LEFT JOIN [dbo].[Show] s ON b.ShowID = s.ShowID
+        LEFT JOIN [dbo].[Movie] m ON s.MovieID = m.MovieID
+        ORDER BY p.PaymentDate DESC, p.PaymentID DESC
+      `);
+    return result.recordset;
+  }
+
   static async updateAccountStatus(accountId: number, isActive: boolean) {
     const pool = getPool();
     await pool.request()

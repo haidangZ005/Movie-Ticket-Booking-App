@@ -29,6 +29,8 @@ import PaymentResultScreen from '../screens/payment/PaymentResultScreen';
 import NotificationListScreen from '../screens/notification/NotificationListScreen';
 import LoyaltyScreen from '../screens/loyalty/LoyaltyScreen';
 import MyVouchersScreen from '../screens/voucher/MyVouchersScreen';
+import PaymentHistoryScreen from '../screens/profile/PaymentHistoryScreen';
+import PaymentHistoryDetailScreen from '../screens/profile/PaymentHistoryDetailScreen';
 
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 
@@ -72,6 +74,8 @@ function MainNavigator() {
       <MainStack.Screen name="NotificationList" component={NotificationListScreen} />
       <MainStack.Screen name="Loyalty" component={LoyaltyScreen} />
       <MainStack.Screen name="MyVouchers" component={MyVouchersScreen} />
+      <MainStack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
+      <MainStack.Screen name="PaymentHistoryDetail" component={PaymentHistoryDetailScreen} />
     </MainStack.Navigator>
   );
 }
