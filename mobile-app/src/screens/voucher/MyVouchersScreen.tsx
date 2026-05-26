@@ -76,7 +76,7 @@ export default function MyVouchersScreen() {
     const start = new Date(v.StartDate);
     const isExpired = end < now;
     const isNotStarted = start > now;
-    const isUsed = v.UsageCount >= v.UsageLimit;
+    const isUsed = !!v.UsageLimit && (v.UsageCount ?? 0) >= v.UsageLimit;
 
     switch (filter) {
       case 'available': return !isExpired && !isNotStarted && !isUsed;
@@ -92,7 +92,7 @@ export default function MyVouchersScreen() {
     const start = new Date(item.StartDate);
     const isExpired = end < now;
     const isNotStarted = start > now;
-    const isUsed = item.UsageCount >= item.UsageLimit;
+    const isUsed = !!item.UsageLimit && (item.UsageCount ?? 0) >= item.UsageLimit;
     const isSoon = isExpiringSoon(item.EndDate);
     const remaining = getDaysRemaining(item.EndDate);
 
@@ -129,7 +129,7 @@ export default function MyVouchersScreen() {
           <Text style={styles.voucherDesc}>
             {item.DiscountType === 'PERCENT' ? `Giảm ${item.DiscountValue}%${maxLabel}` : `Giảm ${formatVND(item.DiscountValue)}`}
           </Text>
-          {item.MinOrderValue > 0 && (
+          {!!item.MinOrderValue && item.MinOrderValue > 0 && (
             <Text style={styles.voucherCondition}>Đơn tối thiểu: {formatVND(item.MinOrderValue)}</Text>
           )}
           <Text style={styles.voucherExpiry}>HSD: {formatDate(item.EndDate)}</Text>

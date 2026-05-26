@@ -59,6 +59,24 @@ export class AdminController {
   }
 
   /**
+   * GET /api/admin/payments
+   */
+  static async getPayments(req: Request, res: Response, next: NextFunction) {
+    try {
+      const items = await AdminModel.getPayments();
+      res.status(200).json({
+        success: true,
+        data: {
+          items
+        },
+        items
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * PUT /api/admin/accounts/:id/status
    */
 

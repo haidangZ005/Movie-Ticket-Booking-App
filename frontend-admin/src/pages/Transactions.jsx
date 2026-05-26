@@ -23,8 +23,12 @@ const Transactions = () => {
 
   useEffect(() => {
     apiClient.get('/admin/payments')
-      .then((res) => setPayments(res.data?.items || res.data || fallbackPayments))
-      .catch(() => setError('Backend chua co endpoint /admin/payments, dang hien thi du lieu mau theo schema Payment.'));
+      .then((res) => {
+        const items = res.data?.items || res.items || res.data || [];
+        setPayments(Array.isArray(items) ? items : fallbackPayments);
+        setError('');
+      })
+      .catch(() => setError('Khong tai duoc giao dich tu backend, dang hien thi du lieu mau theo schema Payment.'));
   }, []);
 
   const filteredPayments = useMemo(() => (

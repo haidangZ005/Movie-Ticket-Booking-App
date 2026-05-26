@@ -9,12 +9,14 @@ export interface Voucher {
   StartDate: string;
   EndDate: string;
   IsActive: boolean;
-  UsageLimit: number;
-  UsageCount: number;
-  MinTicketQty: number;
-  MinOrderValue: number;
-  ApplicableFormat: string;
+  UsageLimit?: number | null;
+  UsageCount?: number | null;
+  MinTicketQty?: number | null;
+  MinOrderValue?: number | null;
+  ApplicableFormat?: string | null;
   AssignedAt?: string;
+  discountAmount?: number;
+  finalAmount?: number;
 }
 
 export interface ApplyVoucherResult {
@@ -39,7 +41,7 @@ export const voucherService = {
     showFormat: string;
   }): Promise<Voucher[]> => {
     const response = await apiClient.get(
-      `/vouchers/suggest?totalAmount=${params.totalAmount}&totalSeats=${params.totalSeats}&showFormat=${params.showFormat}`
+      `/vouchers?totalAmount=${params.totalAmount}&totalSeats=${params.totalSeats}&showFormat=${params.showFormat}`
     );
     return response.data.data ?? [];
   },

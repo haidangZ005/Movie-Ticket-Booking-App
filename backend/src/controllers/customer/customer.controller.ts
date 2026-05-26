@@ -158,4 +158,25 @@ export class CustomerController {
     const vouchers = await CustomerService.getMyVouchers(accountId);
     res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, vouchers));
   });
+
+  static getPaymentHistory = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user!.accountId;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const result = await CustomerService.getPaymentHistory(accountId, page, limit);
+    res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
+  });
+
+  static getPaymentHistoryDetail = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user!.accountId;
+    const bookingId = Number(req.params.bookingId);
+
+    if (!bookingId) {
+      throw new AppException(ErrorCode.INVALID_DATA);
+    }
+
+    const result = await CustomerService.getPaymentHistoryDetail(accountId, bookingId);
+    res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
+  });
 }

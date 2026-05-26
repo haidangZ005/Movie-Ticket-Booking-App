@@ -8,7 +8,7 @@ import * as voucherController from '../../controllers/voucher/voucher.controller
 import { CustomerController } from '../../controllers/customer/customer.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { roleMiddleware } from '../../middlewares/role.middleware';
-import { uploadMoviePoster, uploadProductImage } from '../../middlewares/upload.middleware';
+import { uploadMoviePoster, uploadMovieTrailer, uploadProductImage } from '../../middlewares/upload.middleware';
 import * as seatLayoutController from '../../controllers/admin/seat-layout.controller';
 
 const router = Router();
@@ -24,6 +24,7 @@ router.put('/movies/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN'
 router.delete('/movies/:id', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.deleteMovie);
 router.put('/movies/:id/featured', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), movieController.toggleFeaturedMovie);
 router.post('/uploads/movie-poster', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), uploadMoviePoster.single('poster'), movieController.uploadMoviePoster);
+router.post('/uploads/movie-trailer', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), uploadMovieTrailer.single('trailer'), movieController.uploadMovieTrailer);
 
 // === Quản lý Rạp & Phòng chiếu (M1) ===
 router.post('/cinemas', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), cinemaController.createCinema);
@@ -61,6 +62,7 @@ router.get('/stats/accounts', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_AD
 
 // === Nhật ký & Cài đặt (M8) ===
 router.get('/audit-logs', authMiddleware, roleMiddleware(['SUPER_ADMIN']), AdminController.getAuditLogs);
+router.get('/payments', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getPayments);
 router.get('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getSettings);
 // router.put('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.updateSettings); // TODO: Tạo controller method
 

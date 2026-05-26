@@ -162,19 +162,18 @@ export class VoucherModel {
       .query(`
         SELECT v.*, vc.AssignedAt
         FROM Voucher v
-        JOIN VoucherCustomer vc ON v.VoucherID = vc.VoucherID
-        WHERE vc.CustomerID = @CustomerID
+        LEFT JOIN VoucherCustomer vc
+          ON v.VoucherID = vc.VoucherID
+          AND vc.CustomerID = @CustomerID
+        WHERE (vc.CustomerID = @CustomerID OR NOT EXISTS (
+            SELECT 1 FROM VoucherCustomer vcAny WHERE vcAny.VoucherID = v.VoucherID
+          ))
           AND v.IsActive = 1
-          AND v.MinOrderValue <= @TotalAmount
-          AND v.MinTicketQty  <= @TotalSeats
-          AND v.ApplicableFormat IN (@ShowFormat, 'ALL')
+          AND (v.MinOrderValue IS NULL OR v.MinOrderValue <= @TotalAmount)
+          AND (v.MinTicketQty IS NULL OR v.MinTicketQty <= @TotalSeats)
+          AND (v.ApplicableFormat IS NULL OR UPPER(v.ApplicableFormat) IN (UPPER(@ShowFormat), 'ALL'))
           AND GETDATE() BETWEEN v.StartDate AND v.EndDate
-          AND v.UsageCount < v.UsageLimit
-          AND NOT EXISTS (
-            SELECT 1 FROM VoucherUsage vu
-            WHERE vu.VoucherID = v.VoucherID
-              AND vu.CustomerID = @CustomerID
-          )
+          AND (v.UsageLimit IS NULL OR v.UsageCount < v.UsageLimit)
         ORDER BY v.EndDate ASC
       `);
     return result.recordset;
@@ -190,9 +189,23 @@ export class VoucherModel {
     const pool = await connectDB();
 
     // Tăng UsageCount
+    const existing = await pool.request()
+      .input('VoucherID', sql.Int, voucherId)
+      .input('CustomerID', sql.Int, customerId)
+      .input('BookingID', sql.Int, bookingId)
+      .query(`
+        SELECT TOP 1 VUsageID
+        FROM VoucherUsage
+        WHERE VoucherID = @VoucherID
+          AND CustomerID = @CustomerID
+          AND BookingID = @BookingID
+      `);
+
+    if (existing.recordset.length > 0) return;
+
     await pool.request()
       .input('VoucherID', sql.Int, voucherId)
-      .query('UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @VoucherID');
+      .query('UPDATE Voucher SET UsageCount = ISNULL(UsageCount, 0) + 1 WHERE VoucherID = @VoucherID');
 
     // Ghi VoucherUsage
     await pool.request()

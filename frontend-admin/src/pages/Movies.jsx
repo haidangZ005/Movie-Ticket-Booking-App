@@ -59,6 +59,7 @@ const emptyForm = {
   language: '',
   runtime: '',
   posterUrl: '',
+  trailerUrl: '',
   releaseDate: '',
   actor: '',
   director: '',
@@ -73,6 +74,7 @@ const Movies = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMovie, setCurrentMovie] = useState(null);
   const [selectedPosterFile, setSelectedPosterFile] = useState(null);
+  const [selectedTrailerFile, setSelectedTrailerFile] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
 
   const fetchMovies = async () => {
@@ -102,6 +104,7 @@ const Movies = () => {
   const openAddModal = () => {
     setCurrentMovie(null);
     setSelectedPosterFile(null);
+    setSelectedTrailerFile(null);
     setFormData(emptyForm);
     setIsModalOpen(true);
   };
@@ -109,6 +112,7 @@ const Movies = () => {
   const openEditModal = (movie) => {
     setCurrentMovie(movie);
     setSelectedPosterFile(null);
+    setSelectedTrailerFile(null);
     setFormData({
       title: movie.MovieTitle || '',
       genre: movie.MovieGenre || '',
@@ -119,6 +123,7 @@ const Movies = () => {
       director: movie.MovieDirector || '',
       description: movie.MovieDescription || '',
       posterUrl: movie.PosterUrl || '',
+      trailerUrl: movie.TrailerUrl || '',
       isActive: movie.IsActive !== false,
     });
     setIsModalOpen(true);
@@ -128,6 +133,7 @@ const Movies = () => {
     setIsModalOpen(false);
     setCurrentMovie(null);
     setSelectedPosterFile(null);
+    setSelectedTrailerFile(null);
   };
 
   const handlePosterFileChange = (e) => {
@@ -135,10 +141,16 @@ const Movies = () => {
     setSelectedPosterFile(file);
   };
 
+  const handleTrailerFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedTrailerFile(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       let posterUrl = formData.posterUrl;
+      let trailerUrl = formData.trailerUrl;
 
       if (selectedPosterFile) {
         const uploadForm = new FormData();
@@ -147,7 +159,14 @@ const Movies = () => {
         posterUrl = uploadRes.data?.posterUrl || posterUrl;
       }
 
-      const payload = { ...formData, posterUrl, runtime: parseInt(formData.runtime, 10) || 0 };
+      if (selectedTrailerFile) {
+        const uploadForm = new FormData();
+        uploadForm.append('trailer', selectedTrailerFile);
+        const uploadRes = await apiClient.postForm('/admin/uploads/movie-trailer', uploadForm);
+        trailerUrl = uploadRes.data?.trailerUrl || trailerUrl;
+      }
+
+      const payload = { ...formData, posterUrl, trailerUrl, runtime: parseInt(formData.runtime, 10) || 0 };
       if (currentMovie) {
         await apiClient.put(`/admin/movies/${currentMovie.MovieID}`, payload);
       } else {
@@ -285,6 +304,22 @@ const Movies = () => {
                     <span style={{ color: 'var(--textSub)', fontSize: '12px' }}>
                       {selectedPosterFile ? selectedPosterFile.name : 'Poster hiện tại'}
                     </span>
+                  </div>
+                )}
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>Trailer phim</label>
+                <input type="file" accept="video/*" onChange={handleTrailerFileChange} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                {(selectedTrailerFile || formData.trailerUrl) && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ color: 'var(--textSub)', fontSize: '12px' }}>
+                      {selectedTrailerFile ? selectedTrailerFile.name : 'Trailer hien tai'}
+                    </span>
+                    {!selectedTrailerFile && formData.trailerUrl ? (
+                      <a href={formData.trailerUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: '12px' }}>
+                        Mo trailer
+                      </a>
+                    ) : null}
                   </div>
                 )}
               </div>

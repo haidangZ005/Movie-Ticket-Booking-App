@@ -121,7 +121,7 @@ export default function ProfileScreen() {
           {renderMenuItem(
             <Ionicons name="cart-outline" size={24} color="#FFFFFF" />,
             'Lịch sử thanh toán',
-            () => console.log('Payment history')
+            () => navigation.navigate('PaymentHistory')
           )}
           {renderMenuItem(
             <Feather name="lock" size={24} color="#FFFFFF" />,

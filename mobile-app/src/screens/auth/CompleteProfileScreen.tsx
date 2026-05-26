@@ -173,7 +173,7 @@ export default function CompleteProfileScreen() {
               </TouchableOpacity>
 
               {Platform.OS === 'android' && showDatePicker && (
-                <DateTimePicker value={dateOfBirth || new Date(2000, 0, 1)} mode="date" display="default" maximumDate={new Date()} onChange={onDateChange} />
+                <DateTimePicker value={dateOfBirth || new Date(2000, 0, 1)} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} />
               )}
 
               <Modal transparent animationType="slide" visible={Platform.OS === 'ios' && showDatePicker} onRequestClose={() => setShowDatePicker(false)}>

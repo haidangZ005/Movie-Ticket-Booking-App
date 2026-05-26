@@ -167,11 +167,212 @@ export class CustomerService {
           v.ApplicableFormat,
           vc.AssignedAt
         FROM Voucher v
-        INNER JOIN VoucherCustomer vc ON v.VoucherID = vc.VoucherID
+        LEFT JOIN VoucherCustomer vc
+          ON v.VoucherID = vc.VoucherID
+          AND vc.CustomerID = @CustomerID
         WHERE vc.CustomerID = @CustomerID
+          OR NOT EXISTS (
+            SELECT 1
+            FROM VoucherCustomer vcAny
+            WHERE vcAny.VoucherID = v.VoucherID
+          )
         ORDER BY v.EndDate ASC
       `);
 
     return result.recordset;
+  }
+
+  static async getPaymentHistory(accountId: number, page: number = 1, limit: number = 20) {
+    const profile = await CustomerModel.findByAccountId(accountId);
+    if (!profile) {
+      throw new AppException(ErrorCode.USER_NOT_EXISTED);
+    }
+
+    const customerId = profile.CustomerID;
+    const pool = getPool();
+    const offset = (page - 1) * limit;
+
+    const historyResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .input('Offset', sql.Int, offset)
+      .input('Limit', sql.Int, limit)
+      .query(`
+        WITH RankedPayment AS (
+          SELECT
+            p.*,
+            ROW_NUMBER() OVER (
+              PARTITION BY p.BookingID
+              ORDER BY
+                CASE
+                  WHEN p.Status = 'SUCCESS' THEN 0
+                  WHEN p.Status = 'PENDING_PAYMENT' THEN 1
+                  WHEN p.Status = 'CREATED' THEN 2
+                  ELSE 3
+                END,
+                p.PaymentDate DESC,
+                p.PaymentID DESC
+            ) AS rn
+          FROM Payment p
+        )
+        SELECT
+          p.PaymentID,
+          p.BookingID,
+          p.VoucherID,
+          p.Amount,
+          p.DiscountAmount,
+          p.PaymentMethod,
+          p.PaymentDate,
+          p.Status AS PaymentStatus,
+          p.RefundAmount,
+          p.RefundAt,
+          b.Status AS BookingStatus,
+          b.TotalSeats,
+          m.MovieTitle,
+          c.CinemaName,
+          h.HallName,
+          s.ShowDate,
+          CONVERT(varchar(5), s.ShowTime, 108) AS ShowTime
+        FROM RankedPayment p
+        INNER JOIN Booking b ON b.BookingID = p.BookingID
+        INNER JOIN [Show] s ON s.ShowID = b.ShowID
+        INNER JOIN Movie m ON m.MovieID = s.MovieID
+        INNER JOIN CinemaHall h ON h.HallID = s.HallID
+        INNER JOIN Cinema c ON c.CinemaID = h.CinemaID
+        WHERE b.CustomerID = @CustomerID
+          AND p.rn = 1
+        ORDER BY p.PaymentDate DESC, p.PaymentID DESC
+        OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY
+      `);
+
+    const countResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        SELECT COUNT(DISTINCT p.BookingID) AS Total
+        FROM Payment p
+        INNER JOIN Booking b ON b.BookingID = p.BookingID
+        WHERE b.CustomerID = @CustomerID
+      `);
+
+    const total = countResult.recordset[0]?.Total ?? 0;
+
+    return {
+      items: historyResult.recordset,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  static async getPaymentHistoryDetail(accountId: number, bookingId: number) {
+    const profile = await CustomerModel.findByAccountId(accountId);
+    if (!profile) {
+      throw new AppException(ErrorCode.USER_NOT_EXISTED);
+    }
+
+    const customerId = profile.CustomerID;
+    const pool = getPool();
+
+    const summaryResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .input('BookingID', sql.Int, bookingId)
+      .query(`
+        WITH RankedPayment AS (
+          SELECT
+            p.*,
+            ROW_NUMBER() OVER (
+              PARTITION BY p.BookingID
+              ORDER BY
+                CASE
+                  WHEN p.Status = 'SUCCESS' THEN 0
+                  WHEN p.Status = 'PENDING_PAYMENT' THEN 1
+                  WHEN p.Status = 'CREATED' THEN 2
+                  ELSE 3
+                END,
+                p.PaymentDate DESC,
+                p.PaymentID DESC
+            ) AS rn
+          FROM Payment p
+        )
+        SELECT
+          p.PaymentID,
+          p.BookingID,
+          p.VoucherID,
+          p.Amount,
+          p.DiscountAmount,
+          p.PaymentMethod,
+          p.PaymentDate,
+          p.Status AS PaymentStatus,
+          p.RefundAmount,
+          p.RefundAt,
+          b.Status AS BookingStatus,
+          b.TotalSeats,
+          b.TotalAmount,
+          m.MovieTitle,
+          c.CinemaName,
+          h.HallName,
+          s.ShowDate,
+          CONVERT(varchar(5), s.ShowTime, 108) AS ShowTime
+        FROM RankedPayment p
+        INNER JOIN Booking b ON b.BookingID = p.BookingID
+        INNER JOIN [Show] s ON s.ShowID = b.ShowID
+        INNER JOIN Movie m ON m.MovieID = s.MovieID
+        INNER JOIN CinemaHall h ON h.HallID = s.HallID
+        INNER JOIN Cinema c ON c.CinemaID = h.CinemaID
+        WHERE b.CustomerID = @CustomerID
+          AND b.BookingID = @BookingID
+          AND p.rn = 1
+      `);
+
+    const summary = summaryResult.recordset[0];
+    if (!summary) {
+      throw new AppException(ErrorCode.DATA_NOT_FOUND);
+    }
+
+    const seatsResult = await pool.request()
+      .input('BookingID', sql.Int, bookingId)
+      .query(`
+        SELECT
+          bs.BookingSeatID,
+          bs.SeatID,
+          chs.SeatNumber,
+          chs.SeatType,
+          bs.TicketPrice,
+          bs.Status
+        FROM BookingSeat bs
+        INNER JOIN CinemaHallSeat chs ON chs.SeatID = bs.SeatID
+        WHERE bs.BookingID = @BookingID
+        ORDER BY chs.RowIndex, chs.ColIndex
+      `);
+
+    const productsResult = await pool.request()
+      .input('BookingID', sql.Int, bookingId)
+      .query(`
+        SELECT
+          bp.BookingProductID,
+          bp.ProductID,
+          p.ProductName,
+          p.ProductCategory,
+          p.ImageProduct,
+          bp.Quantity,
+          bp.UnitPrice,
+          (bp.Quantity * bp.UnitPrice) AS Subtotal
+        FROM BookingProduct bp
+        INNER JOIN Product p ON p.ProductID = bp.ProductID
+        WHERE bp.BookingID = @BookingID
+        ORDER BY bp.BookingProductID
+      `);
+
+    const ticketTotal = seatsResult.recordset.reduce((sum, seat) => sum + Number(seat.TicketPrice || 0), 0);
+    const productTotal = productsResult.recordset.reduce((sum, product) => sum + Number(product.Subtotal || 0), 0);
+
+    return {
+      summary,
+      seats: seatsResult.recordset,
+      products: productsResult.recordset,
+      totals: {
+        ticketTotal,
+        productTotal,
+        discountAmount: Number(summary.DiscountAmount || 0),
+        paidAmount: Number(summary.Amount || 0),
+      },
+    };
   }
 }

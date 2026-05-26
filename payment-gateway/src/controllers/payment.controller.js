@@ -27,6 +27,20 @@ const createQr = async (req, res, next) => {
 
     const qrImage = await qrcode.toDataURL(qrPayload);
 
+    if (process.env.NODE_ENV !== 'production') {
+      setTimeout(async () => {
+        const webhookPayload = {
+          orderId: orderId.toString(),
+          amount,
+          status: 'SUCCESS',
+          transactionId: `QR-SIM-${Date.now()}`
+        };
+
+        const sent = await sendWebhookToMainApi(webhookPayload);
+        console.log(`[Payment GW] QR mock result for Order ${orderId}: ${sent ? 'SUCCESS webhook sent' : 'webhook failed'}`);
+      }, 5000);
+    }
+
     return ApiResponse.created(res, {
       orderId,
       qrImage,
@@ -104,9 +118,45 @@ const processRefund = async (req, res, next) => {
   }
 };
 
+const simulateResult = async (req, res, next) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      throw AppError.badRequest('Khong cho phep simulate payment trong production', 'SIMULATION_DISABLED');
+    }
+
+    const { orderId, amount, status = 'SUCCESS' } = req.body;
+
+    if (!orderId || !amount) {
+      throw AppError.badRequest('Thieu thong tin orderId hoac amount', 'BAD_REQUEST');
+    }
+
+    const normalizedStatus = String(status).toUpperCase();
+    if (!['SUCCESS', 'FAILED'].includes(normalizedStatus)) {
+      throw AppError.badRequest('status chi duoc la SUCCESS hoac FAILED', 'BAD_REQUEST');
+    }
+
+    const webhookPayload = {
+      orderId: orderId.toString(),
+      amount,
+      status: normalizedStatus,
+      transactionId: `SIM-${Date.now()}`
+    };
+
+    const sent = await sendWebhookToMainApi(webhookPayload);
+    if (!sent) {
+      throw AppError.badRequest('Khong gui duoc webhook ve Main API', 'WEBHOOK_SEND_FAILED');
+    }
+
+    return ApiResponse.ok(res, webhookPayload, 'Da gui webhook simulate thanh cong');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createQr,
   processCreditCard,
   processRefund,
+  simulateResult,
 };
 
