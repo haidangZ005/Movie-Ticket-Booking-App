@@ -271,7 +271,7 @@ export default function EditProfileScreen() {
                 <DateTimePicker 
                   value={dateOfBirth || new Date(2000, 0, 1)} 
                   mode="date" 
-                  display="default" 
+                  display="spinner" 
                   maximumDate={new Date()} 
                   onChange={onDateChange} 
                 />

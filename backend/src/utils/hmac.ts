@@ -9,5 +9,14 @@ export const generateSignature = (payload: any): string => {
 
 export const verifySignature = (payload: any, signature: string): boolean => {
   const expectedSignature = generateSignature(payload);
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+  try {
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expBuffer = Buffer.from(expectedSignature, 'hex');
+    if (sigBuffer.length !== expBuffer.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(sigBuffer, expBuffer);
+  } catch {
+    return false;
+  }
 };
