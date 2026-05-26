@@ -13,7 +13,7 @@ const PAYMENT_GW_URL = process.env.PAYMENT_GW_URL || 'http://localhost:4000/api/
 
 export class PaymentService {
   /**
-   * Khởi tạo thanh toán: 
+   * Khởi tạo thanh toán:
    * Sinh QR code hoặc trả về thông báo thanh toán thẻ.
    */
   static async initPayment(bookingId: number, amount: number, method: string, currency: string = 'VND', voucherId?: number, discountAmount?: number) {
@@ -27,9 +27,7 @@ export class PaymentService {
     });
 
     if (method === 'CREDIT_CARD') {
-      // Cập nhật Payment → PENDING_PAYMENT
       await PaymentModel.updateStatus(bookingId, 'PENDING_PAYMENT');
-      // Với thẻ tín dụng, client sẽ tự gọi qua Payment GW hoặc popup, ở đây chỉ trả về OK
       return {
         orderId: bookingId,
         message: 'Vui lòng tiếp tục nhập thông tin thẻ.',
@@ -43,9 +41,9 @@ export class PaymentService {
         method,
       };
       const payloadString = JSON.stringify(payloadData);
-      const signature = generateSignature(payloadString);
+      const signature = generateSignature(payloadData);
 
-      const gwResponse = await axios.post(`${PAYMENT_GW_URL}/create-qr`, payloadString, {
+      const gwResponse = await axios.post(`${PAYMENT_GW_URL}/create-qr`, payloadData, {
         headers: {
           'Content-Type': 'application/json',
           'x-hmac-signature': signature,
@@ -55,7 +53,8 @@ export class PaymentService {
       // 3. Cập nhật Payment → PENDING_PAYMENT
       await PaymentModel.updateStatus(bookingId, 'PENDING_PAYMENT');
 
-      return gwResponse.data.data;
+      // PaymentGW trả thẳng data (không có wrapper { success, data })
+      return gwResponse.data;
     }
   }
 
@@ -65,35 +64,33 @@ export class PaymentService {
   static async handleWebhook(bookingId: number, status: string) {
     if (status === 'SUCCESS') {
       await PaymentModel.updateStatus(bookingId, 'SUCCESS');
-      
-      // Lấy thông tin booking + customer + phim để cộng điểm & gửi email vé
+
       const pool = getPool();
       const bookingRes = await pool.request()
         .input('BookingID', sql.Int, bookingId)
         .query(`
-          SELECT 
+          SELECT
             b.CustomerID, b.TotalAmount,
             a.Email,
             m.MovieTitle,
-            STRING_AGG(CONCAT(s.SeatRow, s.SeatNumber), ', ') AS Seats
+            STRING_AGG(chs.SeatNumber, ', ') AS Seats
           FROM Booking b
           JOIN Customer c ON b.CustomerID = c.CustomerID
           JOIN Account a ON c.AccountID = a.AccountID
-          LEFT JOIN BookingDetail bd ON b.BookingID = bd.BookingID
-          LEFT JOIN Seat s ON bd.SeatID = s.SeatID
-          LEFT JOIN Show_ sh ON b.ShowID = sh.ShowID
+          LEFT JOIN BookingSeat bs ON b.BookingID = bs.BookingID
+          LEFT JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+          LEFT JOIN Show sh ON b.ShowID = sh.ShowID
           LEFT JOIN Movie m ON sh.MovieID = m.MovieID
           WHERE b.BookingID = @BookingID
           GROUP BY b.CustomerID, b.TotalAmount, a.Email, m.MovieTitle
         `);
-      
+
       const booking = bookingRes.recordset[0];
-      
+
       if (booking) {
-        // Side-effects (loyalty + email) không được phép làm fail webhook
         try {
           await LoyaltyService.addPointsFromPayment(booking.CustomerID, booking.TotalAmount);
-          
+
           await EmailService.sendTicketEmail(booking.Email, {
             bookingId,
             amount: booking.TotalAmount,
@@ -101,7 +98,6 @@ export class PaymentService {
             seats: booking.Seats,
           });
 
-          // Tạo notification trong DB + gửi thông báo
           await NotificationService.notifyBookingSuccess(
             booking.CustomerID, booking.Email, bookingId, booking.MovieTitle || 'Phim'
           );
@@ -112,28 +108,23 @@ export class PaymentService {
 
     } else if (status === 'FAILED') {
       await PaymentModel.updateStatus(bookingId, 'FAILED');
-      // TV3 sẽ xử lý: release Redis seat lock + broadcast WebSocket ghế → AVAILABLE
     }
   }
 
   /**
    * Thử lại thanh toán (Retry).
-   * Chỉ cho phép retry khi Payment đang ở trạng thái FAILED hoặc EXPIRED.
    */
   static async retryPayment(bookingId: number, amount: number, method: string) {
-    // 1. Kiểm tra trạng thái hiện tại — chỉ cho retry FAILED hoặc EXPIRED
     const existing = await PaymentModel.findByBookingId(bookingId);
     if (!existing) {
       throw new AppException(ErrorCode.DATA_NOT_FOUND);
     }
     if (existing.Status !== 'FAILED' && existing.Status !== 'EXPIRED') {
-      throw new AppException(ErrorCode.INVALID_DATA); // Không thể retry trạng thái khác
+      throw new AppException(ErrorCode.INVALID_DATA);
     }
 
-    // 2. Cập nhật trạng thái → PENDING_PAYMENT (không tạo bản ghi mới)
     await PaymentModel.updateStatus(bookingId, 'PENDING_PAYMENT');
 
-    // 3. Gọi lại gateway tùy method
     if (method === 'CREDIT_CARD') {
       return {
         orderId: bookingId,
@@ -147,26 +138,22 @@ export class PaymentService {
       currency: 'VND',
       method,
     };
-    const payloadString = JSON.stringify(payloadData);
-    const signature = generateSignature(payloadString);
+    const signature = generateSignature(payloadData);
 
-    const gwResponse = await axios.post(`${PAYMENT_GW_URL}/create-qr`, payloadString, {
+    const gwResponse = await axios.post(`${PAYMENT_GW_URL}/create-qr`, payloadData, {
       headers: {
         'Content-Type': 'application/json',
         'x-hmac-signature': signature,
       },
     });
 
-    return gwResponse.data.data;
+    return gwResponse.data;
   }
 
   /**
    * Xử lý hoàn tiền khi hủy vé.
-   * Gọi bởi TV3 (cancel.service) khi booking bị hủy.
-   * Flow: cập nhật status → gọi GW refund → thu hồi loyalty → khôi phục voucher → gửi email
    */
   static async processRefund(bookingId: number) {
-    // 1. Kiểm tra Payment tồn tại và đang ở trạng thái SUCCESS
     const payment = await PaymentModel.findByBookingId(bookingId);
     if (!payment || payment.Status !== 'SUCCESS') {
       throw new AppException(ErrorCode.INVALID_DATA);
@@ -174,23 +161,20 @@ export class PaymentService {
 
     const refundAmount = payment.Amount - payment.DiscountAmount;
 
-    // 2. Cập nhật Payment → REFUNDED
     await PaymentModel.updateStatus(bookingId, 'REFUNDED', {
       refundAmount,
       refundAt: new Date(),
     });
 
-    // 3. Gọi Payment GW refund (mock — GW chỉ log lại)
     try {
       const refundPayload = {
         orderId: bookingId.toString(),
         amount: refundAmount,
         action: 'REFUND',
       };
-      const payloadString = JSON.stringify(refundPayload);
-      const signature = generateSignature(payloadString);
+      const signature = generateSignature(refundPayload);
 
-      await axios.post(`${PAYMENT_GW_URL}/refund`, payloadString, {
+      await axios.post(`${PAYMENT_GW_URL}/refund`, refundPayload, {
         headers: {
           'Content-Type': 'application/json',
           'x-hmac-signature': signature,
@@ -200,7 +184,6 @@ export class PaymentService {
       console.error(`[PaymentService] GW refund failed for Booking #${bookingId}:`, err);
     }
 
-    // 4. Thu hồi loyalty points + khôi phục voucher + gửi email — side-effects
     try {
       const pool = getPool();
       const bookingRes = await pool.request()
@@ -215,22 +198,15 @@ export class PaymentService {
 
       const booking = bookingRes.recordset[0];
       if (booking) {
-        // Thu hồi loyalty points
         await LoyaltyService.addPointsFromPayment(booking.CustomerID, -booking.TotalAmount);
 
-        // Khôi phục voucher (nếu có)
         if (payment.VoucherID) {
           const { VoucherService } = await import('./voucher.service');
           await VoucherService.restoreVoucher(payment.VoucherID, booking.CustomerID, bookingId);
         }
 
-        // Gửi email thông báo hoàn tiền
-        await EmailService.sendRefundEmail(booking.Email, {
-          bookingId,
-          refundAmount,
-        });
+        await EmailService.sendRefundEmail(booking.Email, { bookingId, refundAmount });
 
-        // Tạo notification trong DB
         await NotificationService.notifyRefundSuccess(
           booking.CustomerID, booking.Email, bookingId, refundAmount
         );
