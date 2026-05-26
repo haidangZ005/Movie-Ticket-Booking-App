@@ -62,6 +62,7 @@ router.get('/stats/accounts', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_AD
 
 // === Nhật ký & Cài đặt (M8) ===
 router.get('/audit-logs', authMiddleware, roleMiddleware(['SUPER_ADMIN']), AdminController.getAuditLogs);
+router.get('/payments', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getPayments);
 router.get('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.getSettings);
 // router.put('/settings', authMiddleware, roleMiddleware(['ADMIN', 'SUPER_ADMIN']), AdminController.updateSettings); // TODO: Tạo controller method
 
