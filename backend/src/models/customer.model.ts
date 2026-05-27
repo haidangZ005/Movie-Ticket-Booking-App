@@ -310,4 +310,19 @@ export class CustomerModel {
 
     return this.adminGetById(customerId);
   }
+
+  /**
+   * Lấy danh sách tất cả customer đã xác minh (IsVerified = 1, IsActive = 1).
+   * Dùng để gửi thông báo hàng loạt khi có phim mới / voucher mới.
+   */
+  static async getAllVerifiedCustomers() {
+    const pool = getPool();
+    const result = await pool.request().query(`
+      SELECT c.CustomerID, c.FullName, a.Email
+      FROM Customer c
+      INNER JOIN Account a ON c.AccountID = a.AccountID
+      WHERE a.IsActive = 1 AND a.IsVerified = 1
+    `);
+    return result.recordset;
+  }
 }

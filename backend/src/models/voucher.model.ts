@@ -44,28 +44,43 @@ export class VoucherModel {
 
   static async create(voucher: IVoucher) {
     const pool = await connectDB();
+    // Normalize: API gửi snake_case (code, discountType) nhưng interface dùng PascalCase
+    const normalized = {
+      Code: voucher.Code || (voucher as any).code,
+      DiscountType: voucher.DiscountType || (voucher as any).discountType,
+      DiscountValue: voucher.DiscountValue ?? (voucher as any).discountValue,
+      MaxDiscount: voucher.MaxDiscount ?? (voucher as any).maxDiscount,
+      StartDate: voucher.StartDate || (voucher as any).startDate,
+      EndDate: voucher.EndDate || (voucher as any).endDate,
+      IsActive: voucher.IsActive ?? (voucher as any).isActive ?? true,
+      UsageLimit: voucher.UsageLimit ?? (voucher as any).usageLimit,
+      MinTicketQty: voucher.MinTicketQty ?? (voucher as any).minTicketQty,
+      MinOrderValue: voucher.MinOrderValue ?? (voucher as any).minOrderValue,
+      ApplicableFormat: voucher.ApplicableFormat ?? (voucher as any).applicableFormat,
+    };
+
     const result = await pool.request()
-      .input('code', sql.NVarChar(50), voucher.Code)
-      .input('discountType', sql.NVarChar(10), voucher.DiscountType)
-      .input('discountValue', sql.Decimal(10, 2), voucher.DiscountValue)
-      .input('maxDiscount', sql.Decimal(10, 2), voucher.MaxDiscount ?? null)
-      .input('startDate', sql.Date, voucher.StartDate)
-      .input('endDate', sql.Date, voucher.EndDate)
-      .input('isActive', sql.Bit, voucher.IsActive ?? true)
-      .input('usageLimit', sql.Int, voucher.UsageLimit)
-      .input('minTicketQty', sql.Int, voucher.MinTicketQty ?? null)
-      .input('minOrderValue', sql.Decimal(10, 2), voucher.MinOrderValue ?? null)
-      .input('applicableFormat', sql.NVarChar(10), voucher.ApplicableFormat ?? null)
+      .input('Code', sql.NVarChar(50), normalized.Code)
+      .input('discountType', sql.NVarChar(10), normalized.DiscountType)
+      .input('discountValue', sql.Decimal(10, 2), normalized.DiscountValue)
+      .input('maxDiscount', sql.Decimal(10, 2), normalized.MaxDiscount ?? null)
+      .input('startDate', sql.Date, normalized.StartDate)
+      .input('endDate', sql.Date, normalized.EndDate)
+      .input('isActive', sql.Bit, normalized.IsActive)
+      .input('usageLimit', sql.Int, normalized.UsageLimit)
+      .input('minTicketQty', sql.Int, normalized.MinTicketQty ?? null)
+      .input('minOrderValue', sql.Decimal(10, 2), normalized.MinOrderValue ?? null)
+      .input('applicableFormat', sql.NVarChar(10), normalized.ApplicableFormat ?? null)
       .query(`
         INSERT INTO Voucher (
-          Code, DiscountType, DiscountValue, MaxDiscount, 
-          StartDate, EndDate, IsActive, UsageLimit, UsageCount, 
+          Code, DiscountType, DiscountValue, MaxDiscount,
+          StartDate, EndDate, IsActive, UsageLimit, UsageCount,
           MinTicketQty, MinOrderValue, ApplicableFormat, CreatedAt
         )
         OUTPUT inserted.*
         VALUES (
-          @code, @discountType, @discountValue, @maxDiscount, 
-          @startDate, @endDate, @isActive, @usageLimit, 0, 
+          @Code, @discountType, @discountValue, @maxDiscount,
+          @startDate, @endDate, @isActive, @usageLimit, 0,
           @minTicketQty, @minOrderValue, @applicableFormat, GETDATE()
         )
       `);

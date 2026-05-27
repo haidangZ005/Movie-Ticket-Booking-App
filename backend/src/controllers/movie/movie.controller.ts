@@ -3,6 +3,7 @@ import { asyncHandler } from '../../utils/helpers/async.handler';
 import { AppException } from '../../utils/exceptions/app.exception';
 import { ErrorCode } from '../../utils/exceptions/error.code';
 import MovieService from '../../services/movie.service';
+import { NotificationService } from '../../services/notification.service';
 import { ApiResponse } from '../../utils/dto/api.response';
 import { ResponseCode } from '../../utils/constants/response.code';
 import { StorageService } from '../../services/storage.service';
@@ -79,6 +80,12 @@ export const likeMovie = asyncHandler(async (req: Request, res: Response) => {
 // POST /api/admin/movies — Thêm phim (Admin)
 export const createMovie = asyncHandler(async (req: Request, res: Response) => {
   const movie = await MovieService.create(req.body);
+
+  // Gửi thông báo phim mới đến tất cả khách đã xác minh (không block response)
+  NotificationService.notifyNewMovie(movie.MovieTitle || req.body.title, movie.MovieID).catch(err => {
+    console.error('[MovieController] notifyNewMovie error:', err);
+  });
+
   return res.status(201).json(ApiResponse.success(ResponseCode.USER_CREATED, movie));
 });
 
