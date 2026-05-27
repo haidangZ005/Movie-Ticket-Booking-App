@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { VoucherModel } from '../../models/voucher.model';
 import { VoucherService } from '../../services/voucher.service';
+import { NotificationService } from '../../services/notification.service';
 import { asyncHandler } from '../../utils/helpers/async.handler';
 import { AppException } from '../../utils/exceptions/app.exception';
 import { ErrorCode } from '../../utils/exceptions/error.code';
@@ -29,6 +30,16 @@ export const getVoucherById = asyncHandler(async (req: Request, res: Response) =
 // POST /api/admin/vouchers
 export const createVoucher = asyncHandler(async (req: Request, res: Response) => {
   const voucher = await VoucherModel.create(req.body);
+
+  // Gửi thông báo hàng loạt đến tất cả khách đã xác minh (không block response)
+  const discountLabel = req.body.discountType === 'PERCENT'
+    ? `${req.body.discountValue}%`
+    : `${Number(req.body.discountValue).toLocaleString('vi-VN')}đ`;
+  const endDate = new Date(req.body.endDate).toLocaleDateString('vi-VN');
+  NotificationService.notifyNewVoucher(voucher.Code, discountLabel, endDate).catch(err => {
+    console.error('[VoucherController] notifyNewVoucher error:', err);
+  });
+
   return res.status(201).json(ApiResponse.success(ResponseCode.SUCCESS, voucher));
 });
 

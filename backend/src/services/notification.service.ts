@@ -1,4 +1,5 @@
 import { NotificationModel, NotificationType } from '../models/notification.model';
+import { CustomerModel } from '../models/customer.model';
 import { EmailService } from './email.service';
 
 /**
@@ -120,5 +121,57 @@ export class NotificationService {
    */
   static async notifyGeneral(customerId: number, title: string, message: string, type: NotificationType = 'SYSTEM') {
     return this.send({ customerId, title, message, type });
+  }
+
+  // ===========================================================
+  // BROADCAST — Gửi thông báo đến NHIỀU khách hàng
+  // ===========================================================
+
+  /**
+   * Gửi thông báo phim mới đến tất cả khách đã xác minh.
+   * Gọi bởi movie.controller khi admin thêm phim mới.
+   */
+  static async notifyNewMovie(movieTitle: string, movieId: number) {
+    const customers = await CustomerModel.getAllVerifiedCustomers();
+
+    const promises = customers.map(customer =>
+      this.send({
+        customerId: customer.CustomerID,
+        title: 'Phim mới vừa ra mắt 🎬',
+        message: `Phim "${movieTitle}" vừa được thêm vào danh sách. Đặt vé ngay để không bỏ lỡ!`,
+        type: 'PROMO',
+        email: customer.Email,
+        emailSubject: `CineBook — Phim mới: ${movieTitle}`,
+      }).catch(err => {
+        console.error(`[NotificationService] notifyNewMovie failed for Customer #${customer.CustomerID}:`, err);
+      })
+    );
+
+    await Promise.allSettled(promises);
+    console.log(`[NotificationService] notifyNewMovie: đã gửi ${customers.length} thông báo phim "${movieTitle}"`);
+  }
+
+  /**
+   * Gửi thông báo voucher mới đến tất cả khách đã xác minh.
+   * Gọi bởi voucher.controller khi admin tạo voucher mới.
+   */
+  static async notifyNewVoucher(voucherCode: string, discount: string, endDate: string) {
+    const customers = await CustomerModel.getAllVerifiedCustomers();
+
+    const promises = customers.map(customer =>
+      this.send({
+        customerId: customer.CustomerID,
+        title: 'Voucher mới dành cho bạn 🎁',
+        message: `Bạn có voucher giảm ${discount}. Mã: ${voucherCode}. Sử dụng trước ngày ${endDate}!`,
+        type: 'PROMO',
+        email: customer.Email,
+        emailSubject: `CineBook — Voucher mới: Giảm ${discount}!`,
+      }).catch(err => {
+        console.error(`[NotificationService] notifyNewVoucher failed for Customer #${customer.CustomerID}:`, err);
+      })
+    );
+
+    await Promise.allSettled(promises);
+    console.log(`[NotificationService] notifyNewVoucher: đã gửi ${customers.length} thông báo voucher "${voucherCode}"`);
   }
 }
