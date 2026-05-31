@@ -137,7 +137,7 @@ export default function TicketScreen() {
           {!error && tickets.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="ticket-outline" size={42} color={Colors.textMuted} />
-              <Text style={styles.stateText}>Ban chua co ve nao</Text>
+              <Text style={styles.stateText}>Bạn chưa có vé nào</Text>
             </View>
           ) : (
             tickets.map(renderTicket)

@@ -6,10 +6,10 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import paymentHistoryService, { PaymentHistoryItem } from '../../services/paymentHistoryService';
 
-const formatVND = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')} d`;
+const formatVND = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
 
 const formatDate = (value?: string) => {
-  if (!value) return 'Dang cap nhat';
+  if (!value) return 'Đang cập nhật';
   return new Date(value).toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -70,7 +70,7 @@ export default function PaymentHistoryScreen() {
             <Ionicons name="card-outline" size={20} color={statusColor} />
           </View>
           <View style={styles.titleBlock}>
-            <Text style={styles.movieTitle} numberOfLines={1}>{item.MovieTitle || `Don hang #${item.BookingID}`}</Text>
+            <Text style={styles.movieTitle} numberOfLines={1}>{item.MovieTitle || `Đơn hàng #${item.BookingID}`}</Text>
             <Text style={styles.metaText}>#{item.BookingID} - {item.PaymentMethod || 'N/A'}</Text>
           </View>
           <View style={[styles.statusPill, { backgroundColor: `${statusColor}22` }]}>
@@ -88,11 +88,11 @@ export default function PaymentHistoryScreen() {
         </View>
         <View style={styles.detailRow}>
           <Feather name="film" size={14} color={Colors.textMuted} />
-          <Text style={styles.detailText}>{item.TotalSeats} ve - Suat {item.ShowTime}</Text>
+          <Text style={styles.detailText}>{item.TotalSeats} vé - Suất {item.ShowTime}</Text>
         </View>
 
         <View style={styles.amountRow}>
-          <Text style={styles.amountLabel}>Tong thanh toan</Text>
+          <Text style={styles.amountLabel}>Tổng thanh toán</Text>
           <Text style={styles.amount}>{formatVND(item.Amount)}</Text>
         </View>
         {Number(item.DiscountAmount) > 0 ? (
@@ -111,14 +111,14 @@ export default function PaymentHistoryScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Lich su thanh toan</Text>
+        <Text style={styles.headerTitle}>Lịch sử thanh toán</Text>
         <View style={styles.backBtn} />
       </View>
 
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={Colors.primary} />
-          <Text style={styles.stateText}>Dang tai lich su...</Text>
+          <Text style={styles.stateText}>Đang tải lịch sử...</Text>
         </View>
       ) : (
         <FlatList
@@ -143,7 +143,7 @@ export default function PaymentHistoryScreen() {
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Ionicons name="receipt-outline" size={46} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>Chua co giao dich nao</Text>
+              <Text style={styles.emptyText}>Chưa có giao dịch nào</Text>
             </View>
           }
         />
