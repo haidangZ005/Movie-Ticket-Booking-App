@@ -17,6 +17,9 @@ router.get('/loyalty-points', authMiddleware, roleMiddleware(['CUSTOMER']), Cust
 // GET /api/customer/vouchers — Kho voucher cá nhân
 router.get('/vouchers', authMiddleware, roleMiddleware(['CUSTOMER']), CustomerController.getMyVouchers);
 
+// POST /api/customer/redeem-voucher — Đổi điểm lấy voucher
+router.post('/redeem-voucher', authMiddleware, roleMiddleware(['CUSTOMER']), CustomerController.redeemPointsForVoucher);
+
 router.get('/payment-history', authMiddleware, roleMiddleware(['CUSTOMER']), CustomerController.getPaymentHistory);
 router.get('/payment-history/:bookingId', authMiddleware, roleMiddleware(['CUSTOMER']), CustomerController.getPaymentHistoryDetail);
 

@@ -60,5 +60,17 @@ export const handleWebhook = asyncHandler(async (req: AuthenticatedRequest, res:
   res.status(200).json(ApiResponse.success(ResponseCode.WEBHOOK_PROCESSED_SUCCESS));
 });
 
+/**
+ * GET /api/payments/:bookingId/status
+ * Kiểm tra trạng thái thanh toán.
+ */
+export const checkPaymentStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const bookingId = parseInt(req.params.bookingId);
+
+  const result = await PaymentService.checkPaymentStatus(bookingId);
+
+  res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
+});
+
 
 

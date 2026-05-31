@@ -269,4 +269,20 @@ export class PaymentService {
 
     return { bookingId, refundAmount, status: 'REFUNDED' };
   }
+
+  /**
+   * Kiểm tra trạng thái thanh toán.
+   */
+  static async checkPaymentStatus(bookingId: number) {
+    const payment = await PaymentModel.findByBookingId(bookingId);
+    if (!payment) {
+      throw new AppException(ErrorCode.DATA_NOT_FOUND);
+    }
+    return {
+      bookingId,
+      Status: payment.Status,
+      Amount: payment.Amount,
+      PaymentMethod: payment.PaymentMethod,
+    };
+  }
 }

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import SQRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../constants/colors';
 import { API_ORIGIN } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
@@ -86,6 +87,9 @@ export default function PaymentScreen() {
   const [isPaying, setIsPaying] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('FLICKTICKETS_PAY');
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQrData] = useState<InitPaymentResponse | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -318,6 +322,47 @@ export default function PaymentScreen() {
     }
   };
 
+  const isQRMethod = selectedPaymentMethod === 'QR_MOMO' || selectedPaymentMethod === 'QR_VNPAY';
+
+  const handleOpenQRModal = async () => {
+    if (isQRMethod) {
+      setShowQRModal(true);
+      setQrLoading(true);
+      setQrData(null);
+      try {
+        const bookingData = await bookingService.createBooking({
+          showId: showInfo.ShowID,
+          seatIds: selectedSeats.map(s => s.SeatID),
+          totalAmount: finalTotal,
+          products: addonItems.map(item => ({
+            productId: item.ProductID,
+            quantity: item.quantity,
+            price: item.Price,
+          })),
+        });
+        const paymentData: InitPaymentResponse = await paymentService.initPayment({
+          bookingId: bookingData.bookingId,
+          amount: finalTotal,
+          method: selectedPaymentMethod,
+          currency: 'VND',
+          voucherId: appliedVoucherId,
+          discountAmount,
+        });
+        setQrData(paymentData);
+        paymentCompletedRef.current = true;
+      } catch (err: any) {
+        const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
+        Alert.alert('Lỗi thanh toán', message);
+        setShowQRModal(false);
+        await releaseHeldSeats();
+        releasingRef.current = true;
+        navigation.navigate('PaymentResultScreen' as any, { status: 'failed', message } as any);
+      } finally {
+        setQrLoading(false);
+      }
+    }
+  };
+
   const formatCardNumber = (text: string) => {
     const cleaned = text.replace(/\D/g, '').slice(0, 16);
     const groups = cleaned.match(/.{1,4}/g);
@@ -458,7 +503,7 @@ export default function PaymentScreen() {
 
           <TouchableOpacity
             style={[S.paymentCard, selectedPaymentMethod === 'QR_MOMO' && S.paymentCardSelected]}
-            onPress={() => setSelectedPaymentMethod('QR_MOMO')}
+            onPress={() => { setSelectedPaymentMethod('QR_MOMO'); }}
           >
             <View style={[S.paymentIconBox, { backgroundColor: 'rgba(161, 42, 128, 0.15)', borderColor: 'rgba(161, 42, 128, 0.3)' }]}>
               <Text style={{ color: '#A12A80', fontSize: 14, fontWeight: '800' }}>Mo</Text>
@@ -474,7 +519,7 @@ export default function PaymentScreen() {
 
           <TouchableOpacity
             style={[S.paymentCard, selectedPaymentMethod === 'QR_VNPAY' && S.paymentCardSelected]}
-            onPress={() => setSelectedPaymentMethod('QR_VNPAY')}
+            onPress={() => { setSelectedPaymentMethod('QR_VNPAY'); }}
           >
             <View style={[S.paymentIconBox, { backgroundColor: 'rgba(0, 100, 180, 0.15)', borderColor: 'rgba(0, 100, 180, 0.3)' }]}>
               <Text style={{ color: '#0064B4', fontSize: 12, fontWeight: '800' }}>VN</Text>
@@ -604,7 +649,15 @@ export default function PaymentScreen() {
           </View>
           <TouchableOpacity
             style={[S.payBtn, isPaying && S.payBtnDisabled]}
-            onPress={() => selectedPaymentMethod === 'CREDIT_CARD' ? handleOpenCardModal() : handlePayNow()}
+            onPress={() => {
+              if (isQRMethod) {
+                handleOpenQRModal();
+              } else if (selectedPaymentMethod === 'CREDIT_CARD') {
+                handleOpenCardModal();
+              } else {
+                handlePayNow();
+              }
+            }}
             disabled={isPaying}
           >
             {isPaying ? (
@@ -615,6 +668,134 @@ export default function PaymentScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* QR Payment Modal */}
+      <Modal
+        visible={showQRModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          Alert.alert(
+            'Huỷ thanh toán?',
+            'Bạn có chắc muốn huỷ thanh toán? Ghế đang được giữ sẽ được giải phóng.',
+            [
+              { text: 'Ở lại', style: 'cancel' },
+              {
+                text: 'Huỷ',
+                style: 'destructive',
+                onPress: async () => {
+                  setShowQRModal(false);
+                  await releaseHeldSeats();
+                  releasingRef.current = true;
+                  navigation.goBack();
+                },
+              },
+            ]
+          );
+        }}
+      >
+        <View style={S.qrModalOverlay}>
+          <View style={S.qrModalContent}>
+            <View style={S.qrModalHeader}>
+              <Text style={S.qrModalTitle}>
+                {selectedPaymentMethod === 'QR_MOMO' ? 'MoMo' : 'VNPay'}
+              </Text>
+              <TouchableOpacity onPress={() => { setShowQRModal(false); }}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {qrLoading ? (
+              <View style={S.qrLoadingBox}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={S.qrLoadingText}>Đang tạo mã QR...</Text>
+              </View>
+            ) : qrData ? (
+              <ScrollView contentContainerStyle={S.qrScrollContent} showsVerticalScrollIndicator={false}>
+                <View style={S.qrMethodBadge}>
+                  <Text style={S.qrMethodBadgeText}>
+                    {selectedPaymentMethod === 'QR_MOMO' ? 'MoMo' : 'VNPay'}
+                  </Text>
+                </View>
+
+                <Text style={S.qrAmountLabel}>Quét mã để thanh toán</Text>
+                <Text style={S.qrAmountValue}>{formatVND(finalTotal)}</Text>
+
+                <View style={S.qrCodeBox}>
+                  <SQRCode
+                    value={qrData.qrUrl || qrData.qrData || qrData.paymentUrl || qrData.orderId?.toString() || ''}
+                    size={200}
+                    backgroundColor="#FFFFFF"
+                    color="#000000"
+                  />
+                </View>
+
+                <Text style={S.qrHint}>
+                  {selectedPaymentMethod === 'QR_MOMO'
+                    ? 'Mở ứng dụng MoMo và quét mã QR'
+                    : 'Mở ứng dụng VNPay và quét mã QR'}
+                </Text>
+
+                <View style={S.qrDivider} />
+
+                <View style={S.qrInfoCard}>
+                  <Text style={S.qrInfoTitle}>Thông tin thanh toán</Text>
+
+                  <View style={S.qrInfoRow}>
+                    <Text style={S.qrInfoLabel}>Phim</Text>
+                    <Text style={S.qrInfoValue} numberOfLines={1}>{showInfo?.MovieTitle}</Text>
+                  </View>
+
+                  <View style={S.qrInfoRow}>
+                    <Text style={S.qrInfoLabel}>Ghế</Text>
+                    <Text style={S.qrInfoSeatValue}>{seatNumbers}</Text>
+                  </View>
+
+                  {selectedSeats.map((seat) => (
+                    <View key={`seat-${seat.SeatID}`} style={S.qrSeatPriceRow}>
+                      <Text style={S.qrSeatPriceLabel}>Ghế {seat.SeatNumber}</Text>
+                      <Text style={S.qrSeatPriceValue}>{formatVND(seat.SeatPrice || 0)}</Text>
+                    </View>
+                  ))}
+
+                  <View style={S.qrTotalRow}>
+                    <Text style={S.qrTotalLabel}>Tổng cộng</Text>
+                    <Text style={S.qrTotalValue}>{formatVND(finalTotal)}</Text>
+                  </View>
+                </View>
+
+                <Text style={S.qrNote}>
+                  Mã QR có hiệu lực trong 10 phút. Vui lòng thanh toán trước khi hết thời gian.
+                </Text>
+
+                <TouchableOpacity
+                  style={S.qrDoneBtn}
+                  onPress={async () => {
+                    setQrLoading(true);
+                    try {
+                      const status = await paymentService.checkPaymentStatus(qrData.orderId);
+                      setQrLoading(false);
+                      setShowQRModal(false);
+                      const isSuccess = status?.Status === 'SUCCESS' || status?.Status === 'CONFIRMED';
+                      navigation.navigate('PaymentResultScreen' as any, {
+                        status: isSuccess ? 'success' : 'failed',
+                        bookingId: qrData.orderId,
+                        amount: finalTotal,
+                        message: isSuccess ? 'Thanh toán thành công!' : 'Thanh toán đang được xử lý',
+                      } as any);
+                    } catch {
+                      setQrLoading(false);
+                      Alert.alert('Thông báo', 'Chưa nhận được thanh toán. Vui lòng quét lại và thử lại.');
+                    }
+                  }}
+                >
+                  <Text style={S.qrDoneBtnText}>Kiểm tra thanh toán</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* Credit Card Modal */}
       <Modal
@@ -1283,5 +1464,185 @@ const S = StyleSheet.create({
   },
   payBtnDisabled: {
     opacity: 0.6,
+  },
+  qrModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
+  },
+  qrModalContent: {
+    backgroundColor: '#1C1B1E',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    minHeight: '60%',
+  },
+  qrModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  qrModalTitle: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  qrLoadingBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 16,
+  },
+  qrLoadingText: {
+    color: Colors.textMuted,
+    fontSize: 15,
+    marginTop: 8,
+  },
+  qrScrollContent: {
+    padding: 20,
+    paddingBottom: 48,
+    alignItems: 'center',
+  },
+  qrMethodBadge: {
+    backgroundColor: 'rgba(252, 196, 52, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(252, 196, 52, 0.3)',
+    marginBottom: 16,
+  },
+  qrMethodBadgeText: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  qrAmountLabel: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  qrAmountValue: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+    marginBottom: 20,
+  },
+  qrCodeBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrHint: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  qrDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: 20,
+  },
+  qrInfoCard: {
+    width: '100%',
+    backgroundColor: '#252328',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  qrInfoTitle: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  qrInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  qrInfoLabel: {
+    color: Colors.textMuted,
+    fontSize: 13,
+  },
+  qrInfoValue: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  qrInfoSeatValue: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  qrSeatPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingLeft: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  qrSeatPriceLabel: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    flex: 1,
+  },
+  qrSeatPriceValue: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  qrTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    marginTop: 4,
+  },
+  qrTotalLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  qrTotalValue: {
+    color: Colors.primary,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  qrNote: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  qrDoneBtn: {
+    width: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  qrDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

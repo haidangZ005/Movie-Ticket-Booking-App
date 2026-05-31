@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
@@ -15,14 +15,14 @@ const resolvePosterUrl = (posterUrl?: string) => {
 };
 
 const formatDateTime = (date?: string, time?: string) => {
-  if (!date && !time) return 'Dang cap nhat';
+  if (!date && !time) return 'Đang cập nhật';
   const dateText = date ? new Date(date).toLocaleDateString('vi-VN') : '';
   return [time, dateText].filter(Boolean).join(' - ');
 };
 
 const formatVND = (value?: number) => {
   if (value === undefined || value === null) return '';
-  return `${Number(value).toLocaleString('vi-VN')}d`;
+  return `${Number(value).toLocaleString('vi-VN')}đ`;
 };
 
 const getStatusStyle = (status?: string) => {
@@ -44,6 +44,7 @@ const getStatusStyle = (status?: string) => {
 };
 
 export default function TicketScreen() {
+  const navigation = useNavigation<any>();
   const [tickets, setTickets] = useState<ElectronicTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,7 +58,7 @@ export default function TicketScreen() {
       const data = await ticketService.getMyTickets();
       setTickets(data);
     } catch (err) {
-      setError('Khong the tai danh sach ve. Vui long thu lai.');
+      setError('Không thể tải danh sách vé. Vui lòng thử lại.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -71,7 +72,7 @@ export default function TicketScreen() {
   );
 
   const renderTicket = (ticket: ElectronicTicket) => (
-    <View key={ticket.BookingID} style={styles.ticketCard}>
+      <View key={ticket._uid} style={styles.ticketCard}>
       {resolvePosterUrl(ticket.PosterUrl) ? (
         <Image source={{ uri: resolvePosterUrl(ticket.PosterUrl) }} style={styles.poster} />
       ) : (
@@ -99,7 +100,7 @@ export default function TicketScreen() {
         <View style={styles.infoRow}>
           <Ionicons name="film-outline" size={16} color={Colors.textMuted} />
           <Text style={styles.infoText} numberOfLines={1}>
-            {ticket.HallName} - Ghe {ticket.Seats || 'dang cap nhat'}
+            {ticket.HallName} - Ghế {ticket.Seats || 'đang cập nhật'}
           </Text>
         </View>
 
@@ -114,13 +115,17 @@ export default function TicketScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Ve cua toi</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Vé của tôi</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={Colors.primary} />
-          <Text style={styles.stateText}>Dang tai ve...</Text>
+          <Text style={styles.stateText}>Đang tải vé...</Text>
         </View>
       ) : (
         <ScrollView
@@ -149,9 +154,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
 
   headerContainer: {
-    paddingVertical: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 48,
+  },
+  backBtn: {
+    padding: 8,
   },
   headerTitle: {
     fontSize: 28,

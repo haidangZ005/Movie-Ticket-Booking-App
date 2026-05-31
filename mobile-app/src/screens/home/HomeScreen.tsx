@@ -10,6 +10,7 @@ import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import movieService from '../../services/movieService';
+import notificationService from '../../services/notificationService';
 import { API_ORIGIN } from '../../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -140,6 +141,7 @@ export default function HomeScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const displayName = user?.FullName || user?.Email?.split('@')[0] || 'Khách hàng';
@@ -157,6 +159,13 @@ export default function HomeScreen({ navigation }: any) {
       ]);
       setMovies(extractMovieArray(movieRes));
       setFeaturedMovies(extractMovieArray(featuredRes));
+
+      try {
+        const count = await notificationService.getUnreadCount();
+        setUnreadCount(count);
+      } catch {
+        // ignore notification error
+      }
     } catch (error) {
       console.log('Không thể tải danh sách phim:', error);
     } finally {
@@ -262,10 +271,16 @@ export default function HomeScreen({ navigation }: any) {
           </View>
           <TouchableOpacity
             style={styles.notificationBtn}
-            onPress={() => navigation.navigate('Notification')}
+            onPress={() => navigation.navigate('NotificationList')}
           >
             <Ionicons name="notifications" size={22} color={COLORS.text} />
-            <View style={styles.notificationDot} />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -442,6 +457,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#2EF536',
     borderWidth: 2,
     borderColor: COLORS.background,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#F44336',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
 
   // ── Search ──

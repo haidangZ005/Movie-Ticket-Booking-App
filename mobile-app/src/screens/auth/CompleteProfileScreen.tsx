@@ -173,7 +173,7 @@ export default function CompleteProfileScreen() {
               </TouchableOpacity>
 
               {Platform.OS === 'android' && showDatePicker && (
-                <DateTimePicker value={dateOfBirth || new Date(2000, 0, 1)} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} />
+                <DateTimePicker value={dateOfBirth || new Date(2000, 0, 1)} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} themeVariant="dark" />
               )}
 
               <Modal transparent animationType="slide" visible={Platform.OS === 'ios' && showDatePicker} onRequestClose={() => setShowDatePicker(false)}>
@@ -192,7 +192,7 @@ export default function CompleteProfileScreen() {
                         <Text style={styles.pickerConfirmText}>Xác nhận</Text>
                       </TouchableOpacity>
                     </View>
-                    <DateTimePicker value={tempDate} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} textColor={COLORS.text} />
+                    <DateTimePicker value={tempDate} mode="date" display="spinner" maximumDate={new Date()} onChange={onDateChange} themeVariant="dark" />
                   </View>
                 </View>
               </Modal>
