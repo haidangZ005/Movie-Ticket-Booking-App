@@ -15,14 +15,14 @@ const resolvePosterUrl = (posterUrl?: string) => {
 };
 
 const formatDateTime = (date?: string, time?: string) => {
-  if (!date && !time) return 'Dang cap nhat';
+  if (!date && !time) return 'Đang cập nhật';
   const dateText = date ? new Date(date).toLocaleDateString('vi-VN') : '';
   return [time, dateText].filter(Boolean).join(' - ');
 };
 
 const formatVND = (value?: number) => {
   if (value === undefined || value === null) return '';
-  return `${Number(value).toLocaleString('vi-VN')}d`;
+  return `${Number(value).toLocaleString('vi-VN')}đ`;
 };
 
 const getStatusStyle = (status?: string) => {
@@ -57,7 +57,7 @@ export default function TicketScreen() {
       const data = await ticketService.getMyTickets();
       setTickets(data);
     } catch (err) {
-      setError('Khong the tai danh sach ve. Vui long thu lai.');
+      setError('Không thể tải danh sách vé. Vui lòng thử lại.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -99,7 +99,7 @@ export default function TicketScreen() {
         <View style={styles.infoRow}>
           <Ionicons name="film-outline" size={16} color={Colors.textMuted} />
           <Text style={styles.infoText} numberOfLines={1}>
-            {ticket.HallName} - Ghe {ticket.Seats || 'dang cap nhat'}
+            {ticket.HallName} - Ghế {ticket.Seats || 'đang cập nhật'}
           </Text>
         </View>
 
@@ -114,7 +114,7 @@ export default function TicketScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Ve cua toi</Text>
+        <Text style={styles.headerTitle}>Vé của tôi</Text>
       </View>
 
       {loading ? (
