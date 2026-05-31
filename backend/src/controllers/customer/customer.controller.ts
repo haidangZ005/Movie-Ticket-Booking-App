@@ -179,4 +179,16 @@ export class CustomerController {
     const result = await CustomerService.getPaymentHistoryDetail(accountId, bookingId);
     res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, result));
   });
+
+  static redeemPointsForVoucher = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user!.accountId;
+    const { pointCost } = req.body;
+
+    if (!pointCost || ![50, 75, 100].includes(Number(pointCost))) {
+      throw new AppException(ErrorCode.INVALID_DATA);
+    }
+
+    const result = await CustomerService.redeemPointsForVoucher(accountId, Number(pointCost));
+    res.status(201).json(ApiResponse.success(ResponseCode.SUCCESS, result));
+  });
 }

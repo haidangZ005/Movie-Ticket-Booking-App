@@ -35,4 +35,13 @@ export const loyaltyService = {
       pagination: data.pagination,
     };
   },
+
+  redeemPointsForVoucher: async (pointCost: number): Promise<{
+    voucherCode: string;
+    discountPercent: number;
+    expiresAt: string;
+  }> => {
+    const response = await apiClient.post('/customer/redeem-voucher', { pointCost });
+    return response.data?.data;
+  },
 };
