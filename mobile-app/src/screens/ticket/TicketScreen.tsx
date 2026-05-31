@@ -71,7 +71,7 @@ export default function TicketScreen() {
   );
 
   const renderTicket = (ticket: ElectronicTicket) => (
-    <View key={ticket.BookingID} style={styles.ticketCard}>
+      <View key={ticket._uid} style={styles.ticketCard}>
       {resolvePosterUrl(ticket.PosterUrl) ? (
         <Image source={{ uri: resolvePosterUrl(ticket.PosterUrl) }} style={styles.poster} />
       ) : (

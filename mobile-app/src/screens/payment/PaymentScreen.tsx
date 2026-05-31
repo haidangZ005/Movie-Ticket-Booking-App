@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import SQRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../constants/colors';
 import { API_ORIGIN } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
@@ -86,6 +87,9 @@ export default function PaymentScreen() {
   const [isPaying, setIsPaying] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('FLICKTICKETS_PAY');
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQrData] = useState<InitPaymentResponse | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -318,6 +322,47 @@ export default function PaymentScreen() {
     }
   };
 
+  const isQRMethod = selectedPaymentMethod === 'QR_MOMO' || selectedPaymentMethod === 'QR_VNPAY';
+
+  const handleOpenQRModal = async () => {
+    if (isQRMethod) {
+      setShowQRModal(true);
+      setQrLoading(true);
+      setQrData(null);
+      try {
+        const bookingData = await bookingService.createBooking({
+          showId: showInfo.ShowID,
+          seatIds: selectedSeats.map(s => s.SeatID),
+          totalAmount: finalTotal,
+          products: addonItems.map(item => ({
+            productId: item.ProductID,
+            quantity: item.quantity,
+            price: item.Price,
+          })),
+        });
+        const paymentData: InitPaymentResponse = await paymentService.initPayment({
+          bookingId: bookingData.bookingId,
+          amount: finalTotal,
+          method: selectedPaymentMethod,
+          currency: 'VND',
+          voucherId: appliedVoucherId,
+          discountAmount,
+        });
+        setQrData(paymentData);
+        paymentCompletedRef.current = true;
+      } catch (err: any) {
+        const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
+        Alert.alert('Lỗi thanh toán', message);
+        setShowQRModal(false);
+        await releaseHeldSeats();
+        releasingRef.current = true;
+        navigation.navigate('PaymentResultScreen' as any, { status: 'failed', message } as any);
+      } finally {
+        setQrLoading(false);
+      }
+    }
+  };
+
   const formatCardNumber = (text: string) => {
     const cleaned = text.replace(/\D/g, '').slice(0, 16);
     const groups = cleaned.match(/.{1,4}/g);
@@ -458,7 +503,7 @@ export default function PaymentScreen() {
 
           <TouchableOpacity
             style={[S.paymentCard, selectedPaymentMethod === 'QR_MOMO' && S.paymentCardSelected]}
-            onPress={() => setSelectedPaymentMethod('QR_MOMO')}
+            onPress={() => { setSelectedPaymentMethod('QR_MOMO'); }}
           >
             <View style={[S.paymentIconBox, { backgroundColor: 'rgba(161, 42, 128, 0.15)', borderColor: 'rgba(161, 42, 128, 0.3)' }]}>
               <Text style={{ color: '#A12A80', fontSize: 14, fontWeight: '800' }}>Mo</Text>
@@ -474,7 +519,7 @@ export default function PaymentScreen() {
 
           <TouchableOpacity
             style={[S.paymentCard, selectedPaymentMethod === 'QR_VNPAY' && S.paymentCardSelected]}
-            onPress={() => setSelectedPaymentMethod('QR_VNPAY')}
+            onPress={() => { setSelectedPaymentMethod('QR_VNPAY'); }}
           >
             <View style={[S.paymentIconBox, { backgroundColor: 'rgba(0, 100, 180, 0.15)', borderColor: 'rgba(0, 100, 180, 0.3)' }]}>
               <Text style={{ color: '#0064B4', fontSize: 12, fontWeight: '800' }}>VN</Text>
@@ -604,7 +649,15 @@ export default function PaymentScreen() {
           </View>
           <TouchableOpacity
             style={[S.payBtn, isPaying && S.payBtnDisabled]}
-            onPress={() => selectedPaymentMethod === 'CREDIT_CARD' ? handleOpenCardModal() : handlePayNow()}
+            onPress={() => {
+              if (isQRMethod) {
+                handleOpenQRModal();
+              } else if (selectedPaymentMethod === 'CREDIT_CARD') {
+                handleOpenCardModal();
+              } else {
+                handlePayNow();
+              }
+            }}
             disabled={isPaying}
           >
             {isPaying ? (

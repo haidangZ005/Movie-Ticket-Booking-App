@@ -22,12 +22,14 @@ export interface ElectronicTicket {
   Seats?: string;
   TicketCode: string;
   QrData: string;
+  _uid: string;
 }
 
 export const ticketService = {
   getMyTickets: async (): Promise<ElectronicTicket[]> => {
     const response = await apiClient.get('/bookings/my-tickets');
-    return response.data.data || [];
+    const data: ElectronicTicket[] = response.data.data || [];
+    return data.map((t, idx) => ({ ...t, _uid: `${t.BookingID}_${idx}` }));
   },
 };
 
