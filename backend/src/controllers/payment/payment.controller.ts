@@ -14,9 +14,10 @@ import { PaymentService } from '../../services/payment.service';
  */
 export const initPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const bookingId = parseInt(req.params.bookingId);
+  const customerId = Number(req.user?.customerId);
   const { amount, currency, method, voucherId, discountAmount } = req.body;
 
-  const result = await PaymentService.initPayment(bookingId, amount, method, currency, voucherId, discountAmount);
+  const result = await PaymentService.initPayment(bookingId, amount, method, currency, voucherId, discountAmount, customerId);
 
   res.status(200).json(ApiResponse.success(ResponseCode.PAYMENT_INIT_SUCCESS, result));
 });

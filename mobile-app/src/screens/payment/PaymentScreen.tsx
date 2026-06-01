@@ -8,7 +8,7 @@ import { Colors } from '../../constants/colors';
 import { API_ORIGIN } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import { paymentService, InitPaymentResponse } from '../../services/paymentService';
-import { voucherService, Voucher } from '../../services/voucherService';
+import { voucherService, CheckoutVoucher } from '../../services/voucherService';
 import bookingService from '../../services/bookingService';
 
 const PAYMENT_METHOD = 'FLICKTICKETS_PAY';
@@ -82,7 +82,7 @@ export default function PaymentScreen() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [appliedVoucherId, setAppliedVoucherId] = useState<number | undefined>(undefined);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
-  const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
+  const [checkoutVouchers, setCheckoutVouchers] = useState<CheckoutVoucher[]>([]);
   const [isLoadingVouchers, setIsLoadingVouchers] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('FLICKTICKETS_PAY');
@@ -114,15 +114,15 @@ export default function PaymentScreen() {
     const loadVouchers = async () => {
       setIsLoadingVouchers(true);
       try {
-        const data = await voucherService.getAvailableVouchers({
+        const data = await voucherService.getCheckoutVouchers({
           totalAmount: grandTotal,
           totalSeats: selectedSeats.length,
           showFormat: showInfo.Format || '2D',
         });
-        if (isMounted) setAvailableVouchers(data);
+        if (isMounted) setCheckoutVouchers(data);
       } catch (err) {
         console.error('[PaymentScreen] Load vouchers error:', err);
-        if (isMounted) setAvailableVouchers([]);
+        if (isMounted) setCheckoutVouchers([]);
       } finally {
         if (isMounted) setIsLoadingVouchers(false);
       }
@@ -177,14 +177,19 @@ export default function PaymentScreen() {
     }
     setIsApplyingVoucher(true);
     try {
-      const vouchers = await voucherService.getAvailableVouchers({
+      const vouchers = await voucherService.getCheckoutVouchers({
         totalAmount: grandTotal,
         totalSeats: selectedSeats.length,
         showFormat: showInfo.Format || '2D',
       });
       const matched = vouchers.find(v => v.Code.toUpperCase() === voucherCode.trim().toUpperCase());
       if (!matched) {
-        Alert.alert('Voucher không hợp lệ', 'Mã voucher không tồn tại hoặc không đủ điều kiện sử dụng cho đơn hàng này.');
+        Alert.alert('Voucher không hợp lệ', 'Mã voucher không tồn tại hoặc không thuộc tài khoản của bạn.');
+        setIsApplyingVoucher(false);
+        return;
+      }
+      if (!matched.isApplicable) {
+        Alert.alert('Voucher chưa đủ điều kiện', matched.reasonText || 'Voucher không đủ điều kiện sử dụng cho đơn hàng này.');
         setIsApplyingVoucher(false);
         return;
       }
@@ -207,15 +212,18 @@ export default function PaymentScreen() {
 
   const finalTotal = grandTotal - discountAmount;
 
-  const getVoucherDiscountLabel = (voucher: Voucher) => {
+  const applicableVouchers = checkoutVouchers.filter(v => v.isApplicable);
+  const notApplicableVouchers = checkoutVouchers.filter(v => !v.isApplicable);
+
+  const getVoucherDiscountLabel = (voucher: CheckoutVoucher) => {
     if (voucher.DiscountType === 'PERCENT') {
-      const maxLabel = voucher.MaxDiscount ? `, toi da ${formatVND(voucher.MaxDiscount)}` : '';
-      return `Giam ${voucher.DiscountValue}%${maxLabel}`;
+      const maxLabel = voucher.MaxDiscount ? `, tối đa ${formatVND(voucher.MaxDiscount)}` : '';
+      return `Giảm ${voucher.DiscountValue}%${maxLabel}`;
     }
-    return `Giam ${formatVND(voucher.DiscountValue)}`;
+    return `Giảm ${formatVND(voucher.DiscountValue)}`;
   };
 
-  const handleSelectVoucher = async (voucher: Voucher) => {
+  const handleSelectVoucher = async (voucher: CheckoutVoucher) => {
     setVoucherCode(voucher.Code);
     setIsApplyingVoucher(true);
     try {
@@ -575,38 +583,70 @@ export default function PaymentScreen() {
           {isLoadingVouchers ? (
             <View style={S.voucherListState}>
               <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={S.voucherStateText}>Dang tai voucher...</Text>
+              <Text style={S.voucherStateText}>Đang tải voucher...</Text>
             </View>
-          ) : availableVouchers.length > 0 ? (
-            <View style={S.availableVoucherList}>
-              {availableVouchers.map(voucher => {
-                const isSelected = appliedVoucherId === voucher.VoucherID;
-                return (
-                  <TouchableOpacity
-                    key={voucher.VoucherID}
-                    style={[S.availableVoucherCard, isSelected && S.availableVoucherCardSelected]}
-                    onPress={() => handleSelectVoucher(voucher)}
-                    disabled={isApplyingVoucher}
-                  >
-                    <View style={S.availableVoucherIcon}>
-                      <Ionicons name="ticket" size={18} color={isSelected ? '#000' : Colors.primary} />
-                    </View>
-                    <View style={S.availableVoucherInfo}>
-                      <Text style={S.availableVoucherCode}>{voucher.Code}</Text>
-                      <Text style={S.availableVoucherDesc}>{getVoucherDiscountLabel(voucher)}</Text>
-                      {!!voucher.MinOrderValue && voucher.MinOrderValue > 0 && (
-                        <Text style={S.availableVoucherMeta}>Don toi thieu {formatVND(voucher.MinOrderValue)}</Text>
-                      )}
-                    </View>
-                    <Text style={S.availableVoucherSaving}>
-                      -{formatVND(voucher.discountAmount || 0)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          ) : applicableVouchers.length > 0 || notApplicableVouchers.length > 0 ? (
+            <>
+              {applicableVouchers.length > 0 && (
+                <>
+                  <Text style={S.voucherListTitle}>Có thể áp dụng</Text>
+                  <View style={S.availableVoucherList}>
+                    {applicableVouchers.map(voucher => {
+                      const isSelected = appliedVoucherId === voucher.VoucherID;
+                      return (
+                        <TouchableOpacity
+                          key={voucher.VoucherID}
+                          style={[S.availableVoucherCard, isSelected && S.availableVoucherCardSelected]}
+                          onPress={() => handleSelectVoucher(voucher)}
+                          disabled={isApplyingVoucher}
+                        >
+                          <View style={S.availableVoucherIcon}>
+                            <Ionicons name="ticket" size={18} color={isSelected ? '#000' : Colors.primary} />
+                          </View>
+                          <View style={S.availableVoucherInfo}>
+                            <Text style={S.availableVoucherCode}>{voucher.Code}</Text>
+                            <Text style={S.availableVoucherDesc}>{getVoucherDiscountLabel(voucher)}</Text>
+                            {!!voucher.MinOrderValue && voucher.MinOrderValue > 0 && (
+                              <Text style={S.availableVoucherMeta}>Đơn tối thiểu {formatVND(voucher.MinOrderValue)}</Text>
+                            )}
+                          </View>
+                          <Text style={S.availableVoucherSaving}>
+                            -{formatVND(voucher.discountAmount || 0)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {notApplicableVouchers.length > 0 && (
+                <>
+                  <Text style={S.voucherListTitle}>Chưa thể áp dụng</Text>
+                  <View style={S.availableVoucherList}>
+                    {notApplicableVouchers.map(voucher => (
+                      <View key={voucher.VoucherID} style={[S.availableVoucherCard, S.availableVoucherCardDisabled]}>
+                        <View style={[S.availableVoucherIcon, S.availableVoucherIconDisabled]}>
+                          <Ionicons name="ticket-outline" size={18} color={Colors.textMuted} />
+                        </View>
+                        <View style={S.availableVoucherInfo}>
+                          <Text style={[S.availableVoucherCode, S.availableVoucherCodeDisabled]}>{voucher.Code}</Text>
+                          <Text style={S.availableVoucherDesc}>{getVoucherDiscountLabel(voucher)}</Text>
+                          {!!voucher.reasonText && (
+                            <Text style={S.availableVoucherReason}>{voucher.reasonText}</Text>
+                          )}
+                        </View>
+                        <Text style={[S.availableVoucherSaving, S.availableVoucherSavingDisabled]}>
+                          -{formatVND(voucher.discountAmount || 0)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </>
           ) : (
-            <Text style={S.voucherStateText}>Khong co voucher phu hop voi don hang nay.</Text>
+            <Text style={S.voucherStateText}>Không có voucher nào.</Text>
           )}
         </View>
 
@@ -1328,6 +1368,12 @@ const S = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 12,
   },
+  voucherListTitle: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
   availableVoucherList: {
     gap: 8,
   },
@@ -1345,6 +1391,9 @@ const S = StyleSheet.create({
     borderColor: Colors.primary,
     backgroundColor: 'rgba(252, 196, 52, 0.08)',
   },
+  availableVoucherCardDisabled: {
+    opacity: 0.58,
+  },
   availableVoucherIcon: {
     width: 34,
     height: 34,
@@ -1352,6 +1401,9 @@ const S = StyleSheet.create({
     backgroundColor: 'rgba(252, 196, 52, 0.14)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  availableVoucherIconDisabled: {
+    backgroundColor: 'rgba(179, 179, 179, 0.14)',
   },
   availableVoucherInfo: {
     flex: 1,
@@ -1361,6 +1413,9 @@ const S = StyleSheet.create({
     color: Colors.text,
     fontSize: 13,
     fontWeight: '700',
+  },
+  availableVoucherCodeDisabled: {
+    color: Colors.textMuted,
   },
   availableVoucherDesc: {
     color: Colors.textMuted,
@@ -1374,6 +1429,14 @@ const S = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 13,
     fontWeight: '700',
+  },
+  availableVoucherSavingDisabled: {
+    color: Colors.textMuted,
+  },
+  availableVoucherReason: {
+    color: '#F44336',
+    fontSize: 11,
+    fontWeight: '600',
   },
   breakdownRow: {
     flexDirection: 'row',

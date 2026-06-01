@@ -34,15 +34,22 @@ export interface SuggestVoucherResult {
   finalAmount: number;
 }
 
+export interface CheckoutVoucher extends Voucher {
+  HasUsed: boolean;
+  isApplicable: boolean;
+  reasonCode: string | null;
+  reasonText: string | null;
+  discountAmount: number;
+  finalAmount: number;
+}
+
 export const voucherService = {
   getAvailableVouchers: async (params: {
     totalAmount: number;
     totalSeats: number;
     showFormat: string;
   }): Promise<Voucher[]> => {
-    const response = await apiClient.get(
-      `/vouchers?totalAmount=${params.totalAmount}&totalSeats=${params.totalSeats}&showFormat=${params.showFormat}`
-    );
+    const response = await apiClient.get('/vouchers', { params });
     return response.data.data ?? [];
   },
 
@@ -68,11 +75,7 @@ export const voucherService = {
     totalSeats: number;
     showFormat: string;
   }): Promise<SuggestVoucherResult | null> => {
-    const response = await apiClient.post('/vouchers/suggest', {
-      totalAmount: params.totalAmount,
-      totalSeats: params.totalSeats,
-      showFormat: params.showFormat,
-    });
+    const response = await apiClient.get('/vouchers/suggest', { params });
     return response.data.data;
   },
 
@@ -82,6 +85,18 @@ export const voucherService = {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.items)) return data.items;
     if (Array.isArray(response.data)) return response.data;
+    return [];
+  },
+
+  getCheckoutVouchers: async (params: {
+    totalAmount: number;
+    totalSeats: number;
+    showFormat: string;
+  }): Promise<CheckoutVoucher[]> => {
+    const response = await apiClient.get('/vouchers/checkout', { params });
+    const data = response.data?.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
     return [];
   },
 };
