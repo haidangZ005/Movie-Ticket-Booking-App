@@ -14,6 +14,9 @@ import apiRoutes from './routes';
 // Load biến môi trường từ file .env
 dotenv.config();
 
+import { initLogger } from './utils/logger';
+initLogger();
+
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 

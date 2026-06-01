@@ -21,9 +21,14 @@ export interface PaginatedNotifications {
 }
 
 export const notificationService = {
-  getNotifications: async (page: number = 1, limit: number = 20): Promise<PaginatedNotifications> => {
+  getNotifications: async (page: number = 1, limit: number = 20) => {
     const response = await apiClient.get(`/notifications?page=${page}&limit=${limit}`);
-    return response.data.data;
+    // Backend returns: { code, message, data: { items: [...notifications], pagination: {...} } }
+    const result = response.data;
+    return {
+      notifications: result.data.items,
+      pagination: result.data.pagination,
+    };
   },
 
   markAsRead: async (notificationId: number): Promise<void> => {

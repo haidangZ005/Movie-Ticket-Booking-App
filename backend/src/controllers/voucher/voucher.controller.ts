@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { VoucherModel } from '../../models/voucher.model';
 import { VoucherService } from '../../services/voucher.service';
+import { NotificationService } from '../../services/notification.service';
 import { asyncHandler } from '../../utils/helpers/async.handler';
 import { AppException } from '../../utils/exceptions/app.exception';
 import { ErrorCode } from '../../utils/exceptions/error.code';
@@ -29,6 +30,16 @@ export const getVoucherById = asyncHandler(async (req: Request, res: Response) =
 // POST /api/admin/vouchers
 export const createVoucher = asyncHandler(async (req: Request, res: Response) => {
   const voucher = await VoucherModel.create(req.body);
+
+  // Gửi thông báo hàng loạt đến tất cả khách đã xác minh (không block response)
+  const discountLabel = req.body.discountType === 'PERCENT'
+    ? `${req.body.discountValue}%`
+    : `${Number(req.body.discountValue).toLocaleString('vi-VN')}đ`;
+  const endDate = new Date(req.body.endDate).toLocaleDateString('vi-VN');
+  NotificationService.notifyNewVoucher(voucher.Code, discountLabel, endDate).catch(err => {
+    console.error('[VoucherController] notifyNewVoucher error:', err);
+  });
+
   return res.status(201).json(ApiResponse.success(ResponseCode.SUCCESS, voucher));
 });
 
@@ -110,6 +121,28 @@ export const applyVoucher = asyncHandler(async (req: AuthenticatedRequest, res: 
 });
 
 /**
+ * GET /api/vouchers/checkout?totalAmount=&totalSeats=&showFormat=
+ * Lấy tất cả voucher visible cho customer cùng trạng thái applicable.
+ * Mỗi voucher kèm isApplicable, reasonCode, reasonText, discountAmount, finalAmount.
+ * Sort: applicable trước, sau đó EndDate ASC.
+ */
+export const getCheckoutVouchers = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const customerId = req.user!.customerId;
+  const totalAmount = parseFloat(req.query.totalAmount as string) || 0;
+  const totalSeats = parseInt(req.query.totalSeats as string) || 1;
+  const showFormat = (req.query.showFormat as string) || 'ALL';
+
+  const checkoutVouchers = await VoucherService.getCheckoutVouchers({
+    customerId,
+    totalAmount,
+    totalSeats,
+    showFormat,
+  });
+
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, checkoutVouchers));
+});
+
+/**
  * GET /api/vouchers/suggest?totalAmount=&totalSeats=&showFormat=
  * Auto-suggest voucher tốt nhất (giảm nhiều tiền nhất) cho customer.
  */
@@ -129,4 +162,11 @@ export const suggestBestVoucher = asyncHandler(async (req: AuthenticatedRequest,
   return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, suggestion));
 });
 
-
+/**
+ * GET /api/vouchers/public
+ * Lấy danh sách voucher công khai đang active cho Trang chủ (không cần token)
+ */
+export const getPublicVouchers = asyncHandler(async (req: Request, res: Response) => {
+  const vouchers = await VoucherModel.getPublicVouchers();
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, vouchers));
+});

@@ -375,4 +375,90 @@ export class CustomerService {
       },
     };
   }
+
+  /**
+   * Đổi điểm tích lũy lấy voucher.
+   * Tạo voucher ngẫu nhiên 7 ký tự (chữ + số), lưu vào DB và trừ điểm.
+   */
+  static async redeemPointsForVoucher(accountId: number, pointCost: number): Promise<{ voucherCode: string; discountPercent: number; expiresAt: Date }> {
+    const profile = await CustomerModel.findByAccountId(accountId);
+    if (!profile) {
+      throw new AppException(ErrorCode.USER_NOT_EXISTED);
+    }
+    const customerId = profile.CustomerID;
+    const pool = getPool();
+
+    // 1. Kiểm tra điểm đủ không
+    const pointsResult = await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .query('SELECT LoyaltyPoints FROM Customer WHERE CustomerID = @CustomerID');
+    const currentPoints = pointsResult.recordset[0]?.LoyaltyPoints ?? 0;
+
+    if (currentPoints < pointCost) {
+      throw new AppException(ErrorCode.INVALID_DATA);
+    }
+
+    // 2. Sinh mã voucher ngẫu nhiên 7 ký tự (chữ + số)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let voucherCode = 'VC';
+    for (let i = 0; i < 5; i++) {
+      voucherCode += chars[Math.floor(Math.random() * chars.length)];
+    }
+
+    // 3. Tính % giảm theo điểm
+    let discountPercent = 10;
+    if (pointCost === 75) discountPercent = 15;
+    if (pointCost === 100) discountPercent = 20;
+
+    // 4. Tính ngày hết hạn: 30 ngày kể từ hôm nay
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    // 5. Tạo voucher trong DB
+    await pool.request()
+      .input('Code', sql.NVarChar(50), voucherCode)
+      .input('DiscountType', sql.NVarChar(10), 'PERCENT')
+      .input('DiscountValue', sql.Decimal(10, 2), discountPercent)
+      .input('MaxDiscount', sql.Decimal(10, 2), 100000)
+      .input('StartDate', sql.Date, new Date())
+      .input('EndDate', sql.Date, expiresAt)
+      .input('UsageLimit', sql.Int, 1)
+      .input('MinOrderValue', sql.Decimal(10, 2), 50000)
+      .query(`
+        INSERT INTO Voucher (Code, DiscountType, DiscountValue, MaxDiscount, StartDate, EndDate, UsageLimit, MinOrderValue, IsActive)
+        VALUES (@Code, @DiscountType, @DiscountValue, @MaxDiscount, @StartDate, @EndDate, @UsageLimit, @MinOrderValue, 1)
+      `);
+
+    // 6. Gán voucher cho customer
+    await pool.request()
+      .input('Code', sql.NVarChar(50), voucherCode)
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        INSERT INTO VoucherCustomer (VoucherID, CustomerID, AssignedAt)
+        SELECT VoucherID, @CustomerID, GETDATE()
+        FROM Voucher WHERE Code = @Code
+      `);
+
+    // 7. Trừ điểm tích lũy
+    await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .input('PointsToDeduct', sql.Int, pointCost)
+      .query(`
+        UPDATE Customer
+        SET LoyaltyPoints = LoyaltyPoints - @PointsToDeduct
+        WHERE CustomerID = @CustomerID
+      `);
+
+    // 8. Ghi lịch sử điểm
+    await pool.request()
+      .input('CustomerID', sql.Int, customerId)
+      .input('Points', sql.Int, -pointCost)
+      .input('Description', sql.NVarChar(255), `Doi ${pointCost} diem lay voucher giam ${discountPercent}%`)
+      .query(`
+        INSERT INTO LoyaltyPointHistory (CustomerID, Points, Type, Description, CreatedAt)
+        VALUES (@CustomerID, @Points, 'REVOKED', @Description, GETDATE())
+      `);
+
+    return { voucherCode, discountPercent, expiresAt };
+  }
 }

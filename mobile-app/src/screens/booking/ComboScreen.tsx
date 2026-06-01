@@ -284,7 +284,7 @@ const ComboScreen: React.FC = () => {
     }
   };
 
-  const BOTTOM_H = 130 + insets.bottom;
+  const BOTTOM_BAR_SPACER = 220 + insets.bottom;
 
   const renderCard = ({ item, index }: { item: Product; index: number }) => {
     const qty = quantities[item.ProductID] ?? 0;
@@ -357,7 +357,7 @@ const ComboScreen: React.FC = () => {
         keyExtractor={item => String(item.ProductID)}
         renderItem={renderCard}
         numColumns={2}
-        contentContainerStyle={[S.grid, { paddingBottom: BOTTOM_H + 8 }]}
+        contentContainerStyle={[S.grid, { paddingBottom: BOTTOM_BAR_SPACER }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={S.emptyBox}>

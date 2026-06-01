@@ -10,8 +10,10 @@ export interface InitPaymentPayload {
 }
 
 export interface InitPaymentResponse {
+  qrUrl?: string;
   qrCodeUrl?: string;
   qrData?: string;
+  paymentUrl?: string;
   orderId: number;
   message?: string;
   expiresAt?: string;
@@ -41,6 +43,11 @@ export const paymentService = {
       amount,
       method,
     });
+    return response.data.data;
+  },
+
+  checkPaymentStatus: async (bookingId: number): Promise<any> => {
+    const response = await apiClient.get(`/payments/${bookingId}/status`);
     return response.data.data;
   },
 };

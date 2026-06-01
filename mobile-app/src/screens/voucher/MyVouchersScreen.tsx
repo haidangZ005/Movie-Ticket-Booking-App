@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { Colors } from '../../constants/colors';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import { voucherService, Voucher } from '../../services/voucherService';
@@ -70,6 +72,11 @@ export default function MyVouchersScreen() {
     fetchVouchers(true);
   };
 
+  const handleCopyCode = async (code: string) => {
+    await Clipboard.setStringAsync(code);
+    Alert.alert('Đã copy', `Mã voucher "${code}" đã được copy.`);
+  };
+
   const filteredVouchers = vouchers.filter(v => {
     const now = new Date();
     const end = new Date(v.EndDate);
@@ -125,7 +132,16 @@ export default function MyVouchersScreen() {
           )}
         </View>
         <View style={styles.voucherInfo}>
-          <Text style={styles.voucherCode}>{item.Code}</Text>
+          <View style={styles.codeRow}>
+            <Text style={styles.voucherCode}>{item.Code}</Text>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => handleCopyCode(item.Code)}
+            >
+              <Ionicons name="copy-outline" size={14} color="#4CAF50" />
+              <Text style={styles.copyBtnText}>Copy</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.voucherDesc}>
             {item.DiscountType === 'PERCENT' ? `Giảm ${item.DiscountValue}%${maxLabel}` : `Giảm ${formatVND(item.DiscountValue)}`}
           </Text>
@@ -309,6 +325,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 4,
     fontFamily: 'monospace',
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  copyBtnText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    fontWeight: '700',
   },
   voucherDesc: {
     color: Colors.text,

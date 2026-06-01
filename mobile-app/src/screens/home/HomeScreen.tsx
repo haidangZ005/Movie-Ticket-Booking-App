@@ -10,6 +10,8 @@ import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import movieService from '../../services/movieService';
+import { notificationService } from '../../services/notificationService';
+import { voucherService } from '../../services/voucherService';
 import { API_ORIGIN } from '../../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -89,29 +91,7 @@ const extractMovieArray = (response: any) => {
 };
 
 // ─── Static data for sections without backend API ───
-const PROMO_BANNERS = [
-  {
-    id: 1,
-    image: 'https://images.unsplash.com/photo-1585647347483-22b66260dfff?w=800&h=400&fit=crop',
-    title: 'Giảm 30% vé xem phim',
-    subtitle: 'Áp dụng cho thành viên mới',
-    color: '#E53935',
-  },
-  {
-    id: 2,
-    image: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop',
-    title: 'Combo bắp nước 49K',
-    subtitle: 'Mua vé kèm combo siêu tiết kiệm',
-    color: '#1565C0',
-  },
-  {
-    id: 3,
-    image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&h=400&fit=crop',
-    title: 'Thứ 3 vui vẻ - Giá 45K',
-    subtitle: 'Mỗi thứ 3 hàng tuần',
-    color: '#2E7D32',
-  },
-];
+// (Đã xóa PROMO_BANNERS tĩnh vì dùng data từ API)
 
 const SERVICE_ITEMS = [
   { id: 1, label: 'Rental', icon: 'film-outline' as const },
@@ -137,9 +117,12 @@ export default function HomeScreen({ navigation }: any) {
   const { user } = useContext(AuthContext);
   const [movies, setMovies] = useState<any[]>([]);
   const [featuredMovies, setFeaturedMovies] = useState<any[]>([]);
+  const [publicVouchers, setPublicVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const displayName = user?.FullName || user?.Email?.split('@')[0] || 'Khách hàng';
@@ -151,12 +134,21 @@ export default function HomeScreen({ navigation }: any) {
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      const [movieRes, featuredRes] = await Promise.all([
-        movieService.getMovies({ limit: 10, isActive: true }),
+      const [movieRes, featuredRes, voucherRes] = await Promise.all([
+        movieService.getMovies({ limit: 100, isActive: true }),
         movieService.getFeaturedMovies(),
+        voucherService.getPublicVouchers(),
       ]);
       setMovies(extractMovieArray(movieRes));
       setFeaturedMovies(extractMovieArray(featuredRes));
+      setPublicVouchers(voucherRes);
+
+      try {
+        const count = await notificationService.getUnreadCount();
+        setUnreadCount(count);
+      } catch {
+        // ignore notification error
+      }
     } catch (error) {
       console.log('Không thể tải danh sách phim:', error);
     } finally {
@@ -174,6 +166,25 @@ export default function HomeScreen({ navigation }: any) {
   const featuredNowPlaying = featuredMovies.filter(isNowPlaying);
   const nowPlayingData = (featuredNowPlaying.length > 0 ? featuredNowPlaying : nowPlayingMovies).slice(0, 5);
   const comingSoonData = movies.filter((movie) => isComingSoon(movie.MovieReleaseDate)).slice(0, 6);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const searchResults = normalizedSearchQuery
+    ? movies
+        .filter((movie) => {
+          const searchable = [
+            movie.MovieTitle,
+            movie.MovieGenre,
+            movie.MovieLanguage,
+            movie.MovieActor,
+            movie.MovieDirector,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+          return searchable.includes(normalizedSearchQuery);
+        })
+        .slice(0, 6)
+    : [];
 
   const onNowPlayingScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / NOW_PLAYING_SNAP);
@@ -233,17 +244,120 @@ export default function HomeScreen({ navigation }: any) {
   );
 
   // ─── Promo Card ───
-  const renderPromoCard = ({ item }: { item: typeof PROMO_BANNERS[0] }) => (
-    <TouchableOpacity style={styles.promoCard} activeOpacity={0.9}>
-      <Image source={{ uri: item.image }} style={styles.promoBg} />
-      <View style={[styles.promoOverlay, { backgroundColor: item.color + 'CC' }]}>
-        <View style={styles.promoContent}>
-          <Text style={styles.promoTitle}>{item.title}</Text>
-          <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
-        </View>
+  const renderSearchResult = (item: any) => (
+    <TouchableOpacity
+      key={`search-${item.MovieID}`}
+      style={styles.searchResultItem}
+      activeOpacity={0.85}
+      onPress={() => {
+        setSearchQuery('');
+        navigation.navigate('MovieDetail', { movieId: item.MovieID });
+      }}
+    >
+      <Image source={{ uri: getPosterImage(item) }} style={styles.searchResultPoster} />
+      <View style={styles.searchResultInfo}>
+        <Text style={styles.searchResultTitle} numberOfLines={2}>{item.MovieTitle}</Text>
+        <Text style={styles.searchResultMeta} numberOfLines={1}>
+          {item.MovieGenre || 'Phim'}
+          {item.MovieRuntime ? ` • ${formatRuntime(item.MovieRuntime)}` : ''}
+        </Text>
+        <Text style={styles.searchResultDate}>{formatDate(item.MovieReleaseDate)}</Text>
       </View>
+      <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
     </TouchableOpacity>
   );
+
+  const renderPromoCard = ({ item }: { item: any }) => {
+    const discountText = item.DiscountType === 'PERCENT'
+      ? `Giảm ${item.DiscountValue}%`
+      : `Giảm ${Number(item.DiscountValue).toLocaleString('vi-VN')}đ`;
+
+    const maxDiscountText = item.MaxDiscount
+      ? ` (tối đa ${Number(item.MaxDiscount).toLocaleString('vi-VN')}đ)`
+      : '';
+
+    const minOrderText = item.MinOrderValue
+      ? `Đơn tối thiểu: ${Number(item.MinOrderValue).toLocaleString('vi-VN')}đ`
+      : 'Áp dụng cho mọi đơn hàng';
+
+    // Calculate remaining days
+    const today = new Date();
+    const endDate = new Date(item.EndDate);
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Format date DD/MM/YYYY
+    const formattedDate = `${endDate.getDate().toString().padStart(2, '0')}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}/${endDate.getFullYear()}`;
+
+    // Left block discount display
+    const leftValue = item.DiscountType === 'PERCENT' ? `${item.DiscountValue}%` : `${item.DiscountValue / 1000}K`;
+
+    return (
+      <TouchableOpacity
+        style={{
+          width: 320,
+          backgroundColor: '#1E1E1E',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(217, 168, 83, 0.3)',
+          flexDirection: 'row',
+          overflow: 'hidden',
+        }}
+        activeOpacity={0.9}
+      >
+        {/* Left section */}
+        <View style={{
+          width: 90,
+          backgroundColor: '#2A2216',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderRightWidth: 1,
+          borderRightColor: 'rgba(255, 255, 255, 0.05)',
+          borderStyle: 'dashed',
+        }}>
+          <Text style={{ color: '#FBC02D', fontSize: 24, fontWeight: 'bold' }}>{leftValue}</Text>
+          <Text style={{ color: '#FBC02D', fontSize: 10, marginTop: 4, opacity: 0.8, fontWeight: 'bold' }}>GIẢM</Text>
+        </View>
+
+        {/* Right section */}
+        <View style={{ flex: 1, padding: 12, paddingVertical: 14 }}>
+          {/* Top row */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: '#FBC02D', fontSize: 14, fontWeight: 'bold' }}>{item.Code}</Text>
+            <TouchableOpacity style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#182A1B',
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 6,
+            }}>
+              <Ionicons name="copy-outline" size={12} color="#4CAF50" />
+              <Text style={{ color: '#4CAF50', fontSize: 10, marginLeft: 4, fontWeight: 'bold' }}>Copy</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Description */}
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }} numberOfLines={1}>
+            {discountText}{maxDiscountText}
+          </Text>
+          <Text style={{ color: '#9E9E9E', fontSize: 11, marginBottom: 2 }}>{minOrderText}</Text>
+          <Text style={{ color: '#9E9E9E', fontSize: 11, marginBottom: 12 }}>HSD: {formattedDate}</Text>
+
+          {/* Tag */}
+          <View style={{
+            alignSelf: 'flex-start',
+            backgroundColor: '#2A2216',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+          }}>
+            <Text style={{ color: '#FBC02D', fontSize: 10, fontWeight: '600' }}>Còn {diffDays > 0 ? diffDays : 0} ngày</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const activeMovie = nowPlayingData[activeSlide];
 
@@ -262,22 +376,46 @@ export default function HomeScreen({ navigation }: any) {
           </View>
           <TouchableOpacity
             style={styles.notificationBtn}
-            onPress={() => navigation.navigate('Notification')}
+            onPress={() => navigation.navigate('NotificationList')}
           >
             <Ionicons name="notifications" size={22} color={COLORS.text} />
-            <View style={styles.notificationDot} />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
         {/* ═══ SEARCH BAR ═══ */}
-        <TouchableOpacity
-          style={styles.searchBar}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('Movie')}
-        >
+        <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color="#8C8C8C" />
-          <Text style={styles.searchPlaceholder}>Tìm kiếm</Text>
-        </TouchableOpacity>
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Tìm kiếm"
+            placeholderTextColor="#8C8C8C"
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <Ionicons name="close-circle" size={18} color="#8C8C8C" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {normalizedSearchQuery.length > 0 && (
+          <View style={styles.searchResultsBox}>
+            {searchResults.length > 0 ? (
+              searchResults.map(renderSearchResult)
+            ) : (
+              <Text style={styles.searchEmptyText}>Không tìm thấy phim phù hợp</Text>
+            )}
+          </View>
+        )}
 
         {/* ═══ NOW PLAYING ═══ */}
         <SectionHeader title="Đang chiếu" onSeeAll={() => navigation.navigate('Movie')} />
@@ -360,15 +498,19 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* ═══ PROMO & DISCOUNT ═══ */}
         <SectionHeader title="Ưu đãi & Giảm giá" onSeeAll={() => {}} />
-        <FlatList
-          data={PROMO_BANNERS}
-          keyExtractor={(item) => `promo-${item.id}`}
-          renderItem={renderPromoCard}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING }}
-          ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
-        />
+        {publicVouchers.length > 0 ? (
+          <FlatList
+            data={publicVouchers}
+            keyExtractor={(item) => `promo-${item.VoucherID}`}
+            renderItem={renderPromoCard}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING }}
+            ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
+          />
+        ) : (
+          <Text style={styles.emptyText}>Chưa có ưu đãi nào</Text>
+        )}
 
         {/* ═══ SERVICE ═══ */}
         <SectionHeader title="Dịch vụ" onSeeAll={() => {}} />
@@ -443,6 +585,23 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.background,
   },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#F44336',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
 
   // ── Search ──
   searchBar: {
@@ -456,9 +615,64 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     gap: 12,
   },
-  searchPlaceholder: {
-    color: '#8C8C8C',
+  searchInput: {
+    flex: 1,
+    color: COLORS.text,
     fontSize: 16,
+    padding: 0,
+  },
+  searchResultsBox: {
+    marginHorizontal: HORIZONTAL_PADDING,
+    marginTop: -16,
+    marginBottom: 22,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1C',
+    borderWidth: 1,
+    borderColor: '#2E2E2E',
+  },
+  searchResultItem: {
+    minHeight: 86,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2E2E2E',
+    gap: 12,
+  },
+  searchResultPoster: {
+    width: 44,
+    height: 62,
+    borderRadius: 6,
+    backgroundColor: COLORS.card,
+  },
+  searchResultInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  searchResultTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  searchResultMeta: {
+    color: '#BFBFBF',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  searchResultDate: {
+    color: COLORS.muted,
+    fontSize: 12,
+  },
+  searchEmptyText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
   },
 
   // ── Section Header ──

@@ -4,6 +4,7 @@ import { LoyaltyService } from './loyalty.service';
 import { EmailService } from './email.service';
 import { NotificationService } from './notification.service';
 import { VoucherModel } from '../models/voucher.model';
+import { VoucherService } from './voucher.service';
 import { generateSignature } from '../utils/hmac';
 import { getPool } from '../config/database';
 import { AppException } from '../utils/exceptions/app.exception';
@@ -13,18 +14,96 @@ import sql from 'mssql';
 const PAYMENT_GW_URL = process.env.PAYMENT_GW_URL || 'http://localhost:4000/api/payment';
 
 export class PaymentService {
+  private static async getBookingPaymentContext(bookingId: number, customerId?: number) {
+    const pool = getPool();
+    const result = await pool.request()
+      .input('BookingID', sql.Int, bookingId)
+      .query(`
+        SELECT
+          b.BookingID,
+          b.CustomerID,
+          b.TotalSeats,
+          sh.Format,
+          ISNULL(ticket.TotalTicketAmount, 0) AS TicketAmount,
+          ISNULL(product.TotalProductAmount, 0) AS ProductAmount
+        FROM Booking b
+        INNER JOIN [Show] sh ON sh.ShowID = b.ShowID
+        OUTER APPLY (
+          SELECT SUM(bs.TicketPrice) AS TotalTicketAmount
+          FROM BookingSeat bs
+          WHERE bs.BookingID = b.BookingID
+        ) ticket
+        OUTER APPLY (
+          SELECT SUM(bp.Quantity * bp.UnitPrice) AS TotalProductAmount
+          FROM BookingProduct bp
+          WHERE bp.BookingID = b.BookingID
+        ) product
+        WHERE b.BookingID = @BookingID
+      `);
+
+    const booking = result.recordset[0];
+    if (!booking) {
+      throw new AppException(ErrorCode.DATA_NOT_FOUND);
+    }
+    if (customerId && Number(booking.CustomerID) !== Number(customerId)) {
+      throw new AppException(ErrorCode.FORBIDDEN);
+    }
+
+    return {
+      customerId: Number(booking.CustomerID),
+      totalSeats: Number(booking.TotalSeats || 1),
+      showFormat: booking.Format || 'ALL',
+      originalAmount: Number(booking.TicketAmount || 0) + Number(booking.ProductAmount || 0),
+    };
+  }
+
   /**
    * Khởi tạo thanh toán: 
    * Sinh QR code hoặc trả về thông báo thanh toán thẻ.
    */
-  static async initPayment(bookingId: number, amount: number, method: string, currency: string = 'VND', voucherId?: number, discountAmount?: number) {
+  static async initPayment(bookingId: number, amount: number, method: string, currency: string = 'VND', voucherId?: number, discountAmount?: number, customerId?: number) {
     // 1. Tạo Payment record trong DB (trạng thái CREATED)
+    const context = await PaymentService.getBookingPaymentContext(bookingId, customerId);
+    let finalAmount = context.originalAmount;
+    let verifiedDiscountAmount = 0;
+
+    if (voucherId) {
+      const applied = await VoucherService.applyAndCalculate(
+        Number(voucherId),
+        context.customerId,
+        undefined,
+        context.originalAmount,
+        context.totalSeats,
+        context.showFormat
+      );
+      verifiedDiscountAmount = applied.discountAmount;
+      finalAmount = applied.finalAmount;
+    }
+
+    const requestedAmount = Number(amount);
+    const requestedDiscount = Number(discountAmount ?? 0);
+    if (Number.isFinite(requestedAmount) && Math.round(requestedAmount) !== Math.round(finalAmount)) {
+      throw new AppException(ErrorCode.INVALID_DATA);
+    }
+    if (Number.isFinite(requestedDiscount) && Math.round(requestedDiscount) !== Math.round(verifiedDiscountAmount)) {
+      throw new AppException(ErrorCode.INVALID_DATA);
+    }
+
+    await getPool().request()
+      .input('BookingID', sql.Int, bookingId)
+      .input('TotalAmount', sql.Decimal(10, 2), finalAmount)
+      .query(`
+        UPDATE Booking
+        SET TotalAmount = @TotalAmount, UpdatedAt = GETDATE()
+        WHERE BookingID = @BookingID
+      `);
+
     await PaymentModel.create({
       bookingId,
-      amount,
+      amount: finalAmount,
       method: method as any || 'QR_MOMO',
       voucherId,
-      discountAmount: discountAmount ?? 0,
+      discountAmount: verifiedDiscountAmount,
     });
 
     if (method === 'CREDIT_CARD') {
@@ -39,7 +118,7 @@ export class PaymentService {
       // 2. Gọi Payment Gateway → sinh mã QR (kèm HMAC)
       const payloadData = {
         orderId: bookingId,
-        amount,
+        amount: finalAmount,
         currency,
         method,
       };
@@ -268,5 +347,21 @@ export class PaymentService {
     }
 
     return { bookingId, refundAmount, status: 'REFUNDED' };
+  }
+
+  /**
+   * Kiểm tra trạng thái thanh toán.
+   */
+  static async checkPaymentStatus(bookingId: number) {
+    const payment = await PaymentModel.findByBookingId(bookingId);
+    if (!payment) {
+      throw new AppException(ErrorCode.DATA_NOT_FOUND);
+    }
+    return {
+      bookingId,
+      Status: payment.Status,
+      Amount: payment.Amount,
+      PaymentMethod: payment.PaymentMethod,
+    };
   }
 }

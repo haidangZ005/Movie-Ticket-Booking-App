@@ -44,28 +44,43 @@ export class VoucherModel {
 
   static async create(voucher: IVoucher) {
     const pool = await connectDB();
+    // Normalize: API gửi snake_case (code, discountType) nhưng interface dùng PascalCase
+    const normalized = {
+      Code: voucher.Code || (voucher as any).code,
+      DiscountType: voucher.DiscountType || (voucher as any).discountType,
+      DiscountValue: voucher.DiscountValue ?? (voucher as any).discountValue,
+      MaxDiscount: voucher.MaxDiscount ?? (voucher as any).maxDiscount,
+      StartDate: voucher.StartDate || (voucher as any).startDate,
+      EndDate: voucher.EndDate || (voucher as any).endDate,
+      IsActive: voucher.IsActive ?? (voucher as any).isActive ?? true,
+      UsageLimit: voucher.UsageLimit ?? (voucher as any).usageLimit,
+      MinTicketQty: voucher.MinTicketQty ?? (voucher as any).minTicketQty,
+      MinOrderValue: voucher.MinOrderValue ?? (voucher as any).minOrderValue,
+      ApplicableFormat: voucher.ApplicableFormat ?? (voucher as any).applicableFormat,
+    };
+
     const result = await pool.request()
-      .input('code', sql.NVarChar(50), voucher.Code)
-      .input('discountType', sql.NVarChar(10), voucher.DiscountType)
-      .input('discountValue', sql.Decimal(10, 2), voucher.DiscountValue)
-      .input('maxDiscount', sql.Decimal(10, 2), voucher.MaxDiscount ?? null)
-      .input('startDate', sql.Date, voucher.StartDate)
-      .input('endDate', sql.Date, voucher.EndDate)
-      .input('isActive', sql.Bit, voucher.IsActive ?? true)
-      .input('usageLimit', sql.Int, voucher.UsageLimit)
-      .input('minTicketQty', sql.Int, voucher.MinTicketQty ?? null)
-      .input('minOrderValue', sql.Decimal(10, 2), voucher.MinOrderValue ?? null)
-      .input('applicableFormat', sql.NVarChar(10), voucher.ApplicableFormat ?? null)
+      .input('Code', sql.NVarChar(50), normalized.Code)
+      .input('discountType', sql.NVarChar(10), normalized.DiscountType)
+      .input('discountValue', sql.Decimal(10, 2), normalized.DiscountValue)
+      .input('maxDiscount', sql.Decimal(10, 2), normalized.MaxDiscount ?? null)
+      .input('startDate', sql.Date, normalized.StartDate)
+      .input('endDate', sql.Date, normalized.EndDate)
+      .input('isActive', sql.Bit, normalized.IsActive)
+      .input('usageLimit', sql.Int, normalized.UsageLimit)
+      .input('minTicketQty', sql.Int, normalized.MinTicketQty ?? null)
+      .input('minOrderValue', sql.Decimal(10, 2), normalized.MinOrderValue ?? null)
+      .input('applicableFormat', sql.NVarChar(10), normalized.ApplicableFormat ?? null)
       .query(`
         INSERT INTO Voucher (
-          Code, DiscountType, DiscountValue, MaxDiscount, 
-          StartDate, EndDate, IsActive, UsageLimit, UsageCount, 
+          Code, DiscountType, DiscountValue, MaxDiscount,
+          StartDate, EndDate, IsActive, UsageLimit, UsageCount,
           MinTicketQty, MinOrderValue, ApplicableFormat, CreatedAt
         )
         OUTPUT inserted.*
         VALUES (
-          @code, @discountType, @discountValue, @maxDiscount, 
-          @startDate, @endDate, @isActive, @usageLimit, 0, 
+          @Code, @discountType, @discountValue, @maxDiscount,
+          @startDate, @endDate, @isActive, @usageLimit, 0,
           @minTicketQty, @minOrderValue, @applicableFormat, GETDATE()
         )
       `);
@@ -172,11 +187,82 @@ export class VoucherModel {
           AND (v.MinOrderValue IS NULL OR v.MinOrderValue <= @TotalAmount)
           AND (v.MinTicketQty IS NULL OR v.MinTicketQty <= @TotalSeats)
           AND (v.ApplicableFormat IS NULL OR UPPER(v.ApplicableFormat) IN (UPPER(@ShowFormat), 'ALL'))
-          AND GETDATE() BETWEEN v.StartDate AND v.EndDate
+          AND CAST(GETDATE() AS DATE) BETWEEN v.StartDate AND v.EndDate
           AND (v.UsageLimit IS NULL OR v.UsageCount < v.UsageLimit)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM VoucherUsage vu
+            WHERE vu.VoucherID = v.VoucherID
+              AND vu.CustomerID = @CustomerID
+          )
         ORDER BY v.EndDate ASC
       `);
     return result.recordset;
+  }
+
+  /**
+   * Lấy tất cả voucher visible cho customer (cả applicable và không applicable).
+   * Bao gồm voucher public + voucher được gán cho customer.
+   * Mỗi voucher kèm isApplicable, reasonCode, discountAmount, finalAmount.
+   * Sort: applicable trước, sau đó theo EndDate ASC.
+   */
+  static async getCheckoutVouchers(params: VoucherCheckParams) {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('CustomerID', sql.Int, params.customerId)
+      .input('TotalAmount', sql.Decimal(10, 2), params.totalAmount)
+      .input('TotalSeats', sql.Int, params.totalSeats)
+      .input('ShowFormat', sql.NVarChar(10), params.showFormat)
+      .query(`
+        SELECT v.*, vc.AssignedAt,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM VoucherUsage vu WHERE vu.VoucherID = v.VoucherID AND vu.CustomerID = @CustomerID
+          ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS HasUsed
+        FROM Voucher v
+        LEFT JOIN VoucherCustomer vc
+          ON v.VoucherID = vc.VoucherID
+          AND vc.CustomerID = @CustomerID
+        WHERE (vc.CustomerID = @CustomerID OR NOT EXISTS (
+            SELECT 1 FROM VoucherCustomer vcAny WHERE vcAny.VoucherID = v.VoucherID
+          ))
+          AND v.IsActive = 1
+        ORDER BY v.EndDate ASC
+      `);
+
+    const vouchers = result.recordset;
+    const now = new Date();
+
+    const enriched = vouchers.map((v: any) => {
+      const isApplicable = evaluateVoucherApplicability(v, params, now);
+      return {
+        VoucherID: v.VoucherID,
+        Code: v.Code,
+        DiscountType: v.DiscountType,
+        DiscountValue: v.DiscountValue,
+        MaxDiscount: v.MaxDiscount,
+        MinOrderValue: v.MinOrderValue,
+        MinTicketQty: v.MinTicketQty,
+        ApplicableFormat: v.ApplicableFormat,
+        StartDate: v.StartDate,
+        EndDate: v.EndDate,
+        UsageLimit: v.UsageLimit,
+        UsageCount: v.UsageCount,
+        AssignedAt: v.AssignedAt,
+        HasUsed: v.HasUsed,
+        isApplicable: isApplicable.applicable,
+        reasonCode: isApplicable.reasonCode || null,
+        reasonText: isApplicable.reasonText || null,
+        discountAmount: calculateDiscount(v, params.totalAmount),
+        finalAmount: Math.max(params.totalAmount - calculateDiscount(v, params.totalAmount), 0),
+      };
+    });
+
+    enriched.sort((a: any, b: any) => {
+      if (a.isApplicable !== b.isApplicable) return a.isApplicable ? -1 : 1;
+      return new Date(a.EndDate).getTime() - new Date(b.EndDate).getTime();
+    });
+
+    return enriched;
   }
 
   /**
@@ -217,5 +303,82 @@ export class VoucherModel {
         VALUES (@VoucherID, @CustomerID, @BookingID, GETDATE())
       `);
   }
+
+  /**
+   * Kiểm tra customer đã dùng voucher này chưa.
+   */
+  static async hasCustomerUsedVoucher(voucherId: number, customerId: number): Promise<boolean> {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('VoucherID', sql.Int, voucherId)
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        SELECT TOP 1 VUsageID FROM VoucherUsage
+        WHERE VoucherID = @VoucherID AND CustomerID = @CustomerID
+      `);
+    return result.recordset.length > 0;
+  }
+
+  /**
+   * Lấy danh sách voucher công khai (không gán riêng cho user nào) đang active
+   */
+  static async getPublicVouchers() {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .query(`
+        SELECT * FROM Voucher v
+        WHERE v.IsActive = 1
+          AND CAST(GETDATE() AS DATE) BETWEEN v.StartDate AND v.EndDate
+          AND (v.UsageLimit IS NULL OR ISNULL(v.UsageCount, 0) < v.UsageLimit)
+          AND NOT EXISTS (
+            SELECT 1 FROM VoucherCustomer vc WHERE vc.VoucherID = v.VoucherID
+          )
+        ORDER BY v.EndDate ASC
+      `);
+    return result.recordset;
+  }
+}
+
+type ReasonCode = 'NOT_STARTED' | 'EXPIRED' | 'USAGE_LIMIT_REACHED' | 'MIN_ORDER_NOT_MET' | 'MIN_TICKET_NOT_MET' | 'FORMAT_NOT_MATCH' | 'ALREADY_USED';
+
+function evaluateVoucherApplicability(voucher: any, params: VoucherCheckParams, now: Date): { applicable: boolean; reasonCode?: ReasonCode; reasonText?: string } {
+  const endDate = new Date(voucher.EndDate);
+  endDate.setHours(23, 59, 59, 999);
+
+  if (now < new Date(voucher.StartDate)) {
+    return { applicable: false, reasonCode: 'NOT_STARTED', reasonText: 'Voucher chưa đến thời gian sử dụng' };
+  }
+  if (now > endDate) {
+    return { applicable: false, reasonCode: 'EXPIRED', reasonText: 'Voucher đã hết hạn' };
+  }
+  if (voucher.UsageLimit && (voucher.UsageCount ?? 0) >= voucher.UsageLimit) {
+    return { applicable: false, reasonCode: 'USAGE_LIMIT_REACHED', reasonText: 'Voucher đã hết lượt sử dụng' };
+  }
+  if (voucher.MinOrderValue && params.totalAmount < voucher.MinOrderValue) {
+    return { applicable: false, reasonCode: 'MIN_ORDER_NOT_MET', reasonText: `Đơn tối thiểu ${Number(voucher.MinOrderValue).toLocaleString('vi-VN')}đ` };
+  }
+  if (voucher.MinTicketQty && params.totalSeats < voucher.MinTicketQty) {
+    return { applicable: false, reasonCode: 'MIN_TICKET_NOT_MET', reasonText: `Cần ít nhất ${voucher.MinTicketQty} vé` };
+  }
+  if (voucher.ApplicableFormat && voucher.ApplicableFormat.toUpperCase() !== 'ALL' && voucher.ApplicableFormat.toUpperCase() !== params.showFormat.toUpperCase()) {
+    return { applicable: false, reasonCode: 'FORMAT_NOT_MATCH', reasonText: `Chỉ áp dụng định dạng ${voucher.ApplicableFormat}` };
+  }
+  if (voucher.HasUsed) {
+    return { applicable: false, reasonCode: 'ALREADY_USED', reasonText: 'Bạn đã sử dụng voucher này' };
+  }
+  return { applicable: true };
+}
+
+function calculateDiscount(voucher: any, totalAmount: number): number {
+  let discount = 0;
+  if (voucher.DiscountType === 'PERCENT') {
+    discount = (voucher.DiscountValue / 100) * totalAmount;
+    if (voucher.MaxDiscount) {
+      discount = Math.min(discount, voucher.MaxDiscount);
+    }
+  } else {
+    discount = Math.min(voucher.DiscountValue, totalAmount);
+  }
+  return Math.round(discount);
 }
 

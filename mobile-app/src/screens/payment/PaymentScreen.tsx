@@ -3,11 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import SQRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../constants/colors';
 import { API_ORIGIN } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import { paymentService, InitPaymentResponse } from '../../services/paymentService';
-import { voucherService, Voucher } from '../../services/voucherService';
+import { voucherService, CheckoutVoucher } from '../../services/voucherService';
 import bookingService from '../../services/bookingService';
 
 const PAYMENT_METHOD = 'FLICKTICKETS_PAY';
@@ -81,11 +82,14 @@ export default function PaymentScreen() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [appliedVoucherId, setAppliedVoucherId] = useState<number | undefined>(undefined);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
-  const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
+  const [checkoutVouchers, setCheckoutVouchers] = useState<CheckoutVoucher[]>([]);
   const [isLoadingVouchers, setIsLoadingVouchers] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('FLICKTICKETS_PAY');
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQrData] = useState<InitPaymentResponse | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -110,15 +114,15 @@ export default function PaymentScreen() {
     const loadVouchers = async () => {
       setIsLoadingVouchers(true);
       try {
-        const data = await voucherService.getAvailableVouchers({
+        const data = await voucherService.getCheckoutVouchers({
           totalAmount: grandTotal,
           totalSeats: selectedSeats.length,
           showFormat: showInfo.Format || '2D',
         });
-        if (isMounted) setAvailableVouchers(data);
+        if (isMounted) setCheckoutVouchers(data);
       } catch (err) {
         console.error('[PaymentScreen] Load vouchers error:', err);
-        if (isMounted) setAvailableVouchers([]);
+        if (isMounted) setCheckoutVouchers([]);
       } finally {
         if (isMounted) setIsLoadingVouchers(false);
       }
@@ -173,14 +177,19 @@ export default function PaymentScreen() {
     }
     setIsApplyingVoucher(true);
     try {
-      const vouchers = await voucherService.getAvailableVouchers({
+      const vouchers = await voucherService.getCheckoutVouchers({
         totalAmount: grandTotal,
         totalSeats: selectedSeats.length,
         showFormat: showInfo.Format || '2D',
       });
       const matched = vouchers.find(v => v.Code.toUpperCase() === voucherCode.trim().toUpperCase());
       if (!matched) {
-        Alert.alert('Voucher không hợp lệ', 'Mã voucher không tồn tại hoặc không đủ điều kiện sử dụng cho đơn hàng này.');
+        Alert.alert('Voucher không hợp lệ', 'Mã voucher không tồn tại hoặc không thuộc tài khoản của bạn.');
+        setIsApplyingVoucher(false);
+        return;
+      }
+      if (!matched.isApplicable) {
+        Alert.alert('Voucher chưa đủ điều kiện', matched.reasonText || 'Voucher không đủ điều kiện sử dụng cho đơn hàng này.');
         setIsApplyingVoucher(false);
         return;
       }
@@ -203,15 +212,18 @@ export default function PaymentScreen() {
 
   const finalTotal = grandTotal - discountAmount;
 
-  const getVoucherDiscountLabel = (voucher: Voucher) => {
+  const applicableVouchers = checkoutVouchers.filter(v => v.isApplicable);
+  const notApplicableVouchers = checkoutVouchers.filter(v => !v.isApplicable);
+
+  const getVoucherDiscountLabel = (voucher: CheckoutVoucher) => {
     if (voucher.DiscountType === 'PERCENT') {
-      const maxLabel = voucher.MaxDiscount ? `, toi da ${formatVND(voucher.MaxDiscount)}` : '';
-      return `Giam ${voucher.DiscountValue}%${maxLabel}`;
+      const maxLabel = voucher.MaxDiscount ? `, tối đa ${formatVND(voucher.MaxDiscount)}` : '';
+      return `Giảm ${voucher.DiscountValue}%${maxLabel}`;
     }
-    return `Giam ${formatVND(voucher.DiscountValue)}`;
+    return `Giảm ${formatVND(voucher.DiscountValue)}`;
   };
 
-  const handleSelectVoucher = async (voucher: Voucher) => {
+  const handleSelectVoucher = async (voucher: CheckoutVoucher) => {
     setVoucherCode(voucher.Code);
     setIsApplyingVoucher(true);
     try {
@@ -315,6 +327,47 @@ export default function PaymentScreen() {
   const handleOpenCardModal = () => {
     if (selectedPaymentMethod === 'CREDIT_CARD') {
       setShowCardModal(true);
+    }
+  };
+
+  const isQRMethod = selectedPaymentMethod === 'QR_MOMO' || selectedPaymentMethod === 'QR_VNPAY';
+
+  const handleOpenQRModal = async () => {
+    if (isQRMethod) {
+      setShowQRModal(true);
+      setQrLoading(true);
+      setQrData(null);
+      try {
+        const bookingData = await bookingService.createBooking({
+          showId: showInfo.ShowID,
+          seatIds: selectedSeats.map(s => s.SeatID),
+          totalAmount: finalTotal,
+          products: addonItems.map(item => ({
+            productId: item.ProductID,
+            quantity: item.quantity,
+            price: item.Price,
+          })),
+        });
+        const paymentData: InitPaymentResponse = await paymentService.initPayment({
+          bookingId: bookingData.bookingId,
+          amount: finalTotal,
+          method: selectedPaymentMethod,
+          currency: 'VND',
+          voucherId: appliedVoucherId,
+          discountAmount,
+        });
+        setQrData(paymentData);
+        paymentCompletedRef.current = true;
+      } catch (err: any) {
+        const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
+        Alert.alert('Lỗi thanh toán', message);
+        setShowQRModal(false);
+        await releaseHeldSeats();
+        releasingRef.current = true;
+        navigation.navigate('PaymentResultScreen' as any, { status: 'failed', message } as any);
+      } finally {
+        setQrLoading(false);
+      }
     }
   };
 
@@ -458,7 +511,7 @@ export default function PaymentScreen() {
 
           <TouchableOpacity
             style={[S.paymentCard, selectedPaymentMethod === 'QR_MOMO' && S.paymentCardSelected]}
-            onPress={() => setSelectedPaymentMethod('QR_MOMO')}
+            onPress={() => { setSelectedPaymentMethod('QR_MOMO'); }}
           >
             <View style={[S.paymentIconBox, { backgroundColor: 'rgba(161, 42, 128, 0.15)', borderColor: 'rgba(161, 42, 128, 0.3)' }]}>
               <Text style={{ color: '#A12A80', fontSize: 14, fontWeight: '800' }}>Mo</Text>
@@ -474,7 +527,7 @@ export default function PaymentScreen() {
 
           <TouchableOpacity
             style={[S.paymentCard, selectedPaymentMethod === 'QR_VNPAY' && S.paymentCardSelected]}
-            onPress={() => setSelectedPaymentMethod('QR_VNPAY')}
+            onPress={() => { setSelectedPaymentMethod('QR_VNPAY'); }}
           >
             <View style={[S.paymentIconBox, { backgroundColor: 'rgba(0, 100, 180, 0.15)', borderColor: 'rgba(0, 100, 180, 0.3)' }]}>
               <Text style={{ color: '#0064B4', fontSize: 12, fontWeight: '800' }}>VN</Text>
@@ -530,38 +583,70 @@ export default function PaymentScreen() {
           {isLoadingVouchers ? (
             <View style={S.voucherListState}>
               <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={S.voucherStateText}>Dang tai voucher...</Text>
+              <Text style={S.voucherStateText}>Đang tải voucher...</Text>
             </View>
-          ) : availableVouchers.length > 0 ? (
-            <View style={S.availableVoucherList}>
-              {availableVouchers.map(voucher => {
-                const isSelected = appliedVoucherId === voucher.VoucherID;
-                return (
-                  <TouchableOpacity
-                    key={voucher.VoucherID}
-                    style={[S.availableVoucherCard, isSelected && S.availableVoucherCardSelected]}
-                    onPress={() => handleSelectVoucher(voucher)}
-                    disabled={isApplyingVoucher}
-                  >
-                    <View style={S.availableVoucherIcon}>
-                      <Ionicons name="ticket" size={18} color={isSelected ? '#000' : Colors.primary} />
-                    </View>
-                    <View style={S.availableVoucherInfo}>
-                      <Text style={S.availableVoucherCode}>{voucher.Code}</Text>
-                      <Text style={S.availableVoucherDesc}>{getVoucherDiscountLabel(voucher)}</Text>
-                      {!!voucher.MinOrderValue && voucher.MinOrderValue > 0 && (
-                        <Text style={S.availableVoucherMeta}>Don toi thieu {formatVND(voucher.MinOrderValue)}</Text>
-                      )}
-                    </View>
-                    <Text style={S.availableVoucherSaving}>
-                      -{formatVND(voucher.discountAmount || 0)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          ) : applicableVouchers.length > 0 || notApplicableVouchers.length > 0 ? (
+            <>
+              {applicableVouchers.length > 0 && (
+                <>
+                  <Text style={S.voucherListTitle}>Có thể áp dụng</Text>
+                  <View style={S.availableVoucherList}>
+                    {applicableVouchers.map(voucher => {
+                      const isSelected = appliedVoucherId === voucher.VoucherID;
+                      return (
+                        <TouchableOpacity
+                          key={voucher.VoucherID}
+                          style={[S.availableVoucherCard, isSelected && S.availableVoucherCardSelected]}
+                          onPress={() => handleSelectVoucher(voucher)}
+                          disabled={isApplyingVoucher}
+                        >
+                          <View style={S.availableVoucherIcon}>
+                            <Ionicons name="ticket" size={18} color={isSelected ? '#000' : Colors.primary} />
+                          </View>
+                          <View style={S.availableVoucherInfo}>
+                            <Text style={S.availableVoucherCode}>{voucher.Code}</Text>
+                            <Text style={S.availableVoucherDesc}>{getVoucherDiscountLabel(voucher)}</Text>
+                            {!!voucher.MinOrderValue && voucher.MinOrderValue > 0 && (
+                              <Text style={S.availableVoucherMeta}>Đơn tối thiểu {formatVND(voucher.MinOrderValue)}</Text>
+                            )}
+                          </View>
+                          <Text style={S.availableVoucherSaving}>
+                            -{formatVND(voucher.discountAmount || 0)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {notApplicableVouchers.length > 0 && (
+                <>
+                  <Text style={S.voucherListTitle}>Chưa thể áp dụng</Text>
+                  <View style={S.availableVoucherList}>
+                    {notApplicableVouchers.map(voucher => (
+                      <View key={voucher.VoucherID} style={[S.availableVoucherCard, S.availableVoucherCardDisabled]}>
+                        <View style={[S.availableVoucherIcon, S.availableVoucherIconDisabled]}>
+                          <Ionicons name="ticket-outline" size={18} color={Colors.textMuted} />
+                        </View>
+                        <View style={S.availableVoucherInfo}>
+                          <Text style={[S.availableVoucherCode, S.availableVoucherCodeDisabled]}>{voucher.Code}</Text>
+                          <Text style={S.availableVoucherDesc}>{getVoucherDiscountLabel(voucher)}</Text>
+                          {!!voucher.reasonText && (
+                            <Text style={S.availableVoucherReason}>{voucher.reasonText}</Text>
+                          )}
+                        </View>
+                        <Text style={[S.availableVoucherSaving, S.availableVoucherSavingDisabled]}>
+                          -{formatVND(voucher.discountAmount || 0)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </>
           ) : (
-            <Text style={S.voucherStateText}>Khong co voucher phu hop voi don hang nay.</Text>
+            <Text style={S.voucherStateText}>Không có voucher nào.</Text>
           )}
         </View>
 
@@ -604,7 +689,15 @@ export default function PaymentScreen() {
           </View>
           <TouchableOpacity
             style={[S.payBtn, isPaying && S.payBtnDisabled]}
-            onPress={() => selectedPaymentMethod === 'CREDIT_CARD' ? handleOpenCardModal() : handlePayNow()}
+            onPress={() => {
+              if (isQRMethod) {
+                handleOpenQRModal();
+              } else if (selectedPaymentMethod === 'CREDIT_CARD') {
+                handleOpenCardModal();
+              } else {
+                handlePayNow();
+              }
+            }}
             disabled={isPaying}
           >
             {isPaying ? (
@@ -615,6 +708,134 @@ export default function PaymentScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* QR Payment Modal */}
+      <Modal
+        visible={showQRModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          Alert.alert(
+            'Huỷ thanh toán?',
+            'Bạn có chắc muốn huỷ thanh toán? Ghế đang được giữ sẽ được giải phóng.',
+            [
+              { text: 'Ở lại', style: 'cancel' },
+              {
+                text: 'Huỷ',
+                style: 'destructive',
+                onPress: async () => {
+                  setShowQRModal(false);
+                  await releaseHeldSeats();
+                  releasingRef.current = true;
+                  navigation.goBack();
+                },
+              },
+            ]
+          );
+        }}
+      >
+        <View style={S.qrModalOverlay}>
+          <View style={S.qrModalContent}>
+            <View style={S.qrModalHeader}>
+              <Text style={S.qrModalTitle}>
+                {selectedPaymentMethod === 'QR_MOMO' ? 'MoMo' : 'VNPay'}
+              </Text>
+              <TouchableOpacity onPress={() => { setShowQRModal(false); }}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {qrLoading ? (
+              <View style={S.qrLoadingBox}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={S.qrLoadingText}>Đang tạo mã QR...</Text>
+              </View>
+            ) : qrData ? (
+              <ScrollView contentContainerStyle={S.qrScrollContent} showsVerticalScrollIndicator={false}>
+                <View style={S.qrMethodBadge}>
+                  <Text style={S.qrMethodBadgeText}>
+                    {selectedPaymentMethod === 'QR_MOMO' ? 'MoMo' : 'VNPay'}
+                  </Text>
+                </View>
+
+                <Text style={S.qrAmountLabel}>Quét mã để thanh toán</Text>
+                <Text style={S.qrAmountValue}>{formatVND(finalTotal)}</Text>
+
+                <View style={S.qrCodeBox}>
+                  <SQRCode
+                    value={qrData.qrUrl || qrData.qrData || qrData.paymentUrl || qrData.orderId?.toString() || ''}
+                    size={200}
+                    backgroundColor="#FFFFFF"
+                    color="#000000"
+                  />
+                </View>
+
+                <Text style={S.qrHint}>
+                  {selectedPaymentMethod === 'QR_MOMO'
+                    ? 'Mở ứng dụng MoMo và quét mã QR'
+                    : 'Mở ứng dụng VNPay và quét mã QR'}
+                </Text>
+
+                <View style={S.qrDivider} />
+
+                <View style={S.qrInfoCard}>
+                  <Text style={S.qrInfoTitle}>Thông tin thanh toán</Text>
+
+                  <View style={S.qrInfoRow}>
+                    <Text style={S.qrInfoLabel}>Phim</Text>
+                    <Text style={S.qrInfoValue} numberOfLines={1}>{showInfo?.MovieTitle}</Text>
+                  </View>
+
+                  <View style={S.qrInfoRow}>
+                    <Text style={S.qrInfoLabel}>Ghế</Text>
+                    <Text style={S.qrInfoSeatValue}>{seatNumbers}</Text>
+                  </View>
+
+                  {selectedSeats.map((seat) => (
+                    <View key={`seat-${seat.SeatID}`} style={S.qrSeatPriceRow}>
+                      <Text style={S.qrSeatPriceLabel}>Ghế {seat.SeatNumber}</Text>
+                      <Text style={S.qrSeatPriceValue}>{formatVND(seat.SeatPrice || 0)}</Text>
+                    </View>
+                  ))}
+
+                  <View style={S.qrTotalRow}>
+                    <Text style={S.qrTotalLabel}>Tổng cộng</Text>
+                    <Text style={S.qrTotalValue}>{formatVND(finalTotal)}</Text>
+                  </View>
+                </View>
+
+                <Text style={S.qrNote}>
+                  Mã QR có hiệu lực trong 10 phút. Vui lòng thanh toán trước khi hết thời gian.
+                </Text>
+
+                <TouchableOpacity
+                  style={S.qrDoneBtn}
+                  onPress={async () => {
+                    setQrLoading(true);
+                    try {
+                      const status = await paymentService.checkPaymentStatus(qrData.orderId);
+                      setQrLoading(false);
+                      setShowQRModal(false);
+                      const isSuccess = status?.Status === 'SUCCESS' || status?.Status === 'CONFIRMED';
+                      navigation.navigate('PaymentResultScreen' as any, {
+                        status: isSuccess ? 'success' : 'failed',
+                        bookingId: qrData.orderId,
+                        amount: finalTotal,
+                        message: isSuccess ? 'Thanh toán thành công!' : 'Thanh toán đang được xử lý',
+                      } as any);
+                    } catch {
+                      setQrLoading(false);
+                      Alert.alert('Thông báo', 'Chưa nhận được thanh toán. Vui lòng quét lại và thử lại.');
+                    }
+                  }}
+                >
+                  <Text style={S.qrDoneBtnText}>Kiểm tra thanh toán</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* Credit Card Modal */}
       <Modal
@@ -1147,6 +1368,12 @@ const S = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 12,
   },
+  voucherListTitle: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
   availableVoucherList: {
     gap: 8,
   },
@@ -1164,6 +1391,9 @@ const S = StyleSheet.create({
     borderColor: Colors.primary,
     backgroundColor: 'rgba(252, 196, 52, 0.08)',
   },
+  availableVoucherCardDisabled: {
+    opacity: 0.58,
+  },
   availableVoucherIcon: {
     width: 34,
     height: 34,
@@ -1171,6 +1401,9 @@ const S = StyleSheet.create({
     backgroundColor: 'rgba(252, 196, 52, 0.14)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  availableVoucherIconDisabled: {
+    backgroundColor: 'rgba(179, 179, 179, 0.14)',
   },
   availableVoucherInfo: {
     flex: 1,
@@ -1180,6 +1413,9 @@ const S = StyleSheet.create({
     color: Colors.text,
     fontSize: 13,
     fontWeight: '700',
+  },
+  availableVoucherCodeDisabled: {
+    color: Colors.textMuted,
   },
   availableVoucherDesc: {
     color: Colors.textMuted,
@@ -1193,6 +1429,14 @@ const S = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 13,
     fontWeight: '700',
+  },
+  availableVoucherSavingDisabled: {
+    color: Colors.textMuted,
+  },
+  availableVoucherReason: {
+    color: '#F44336',
+    fontSize: 11,
+    fontWeight: '600',
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -1283,5 +1527,185 @@ const S = StyleSheet.create({
   },
   payBtnDisabled: {
     opacity: 0.6,
+  },
+  qrModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
+  },
+  qrModalContent: {
+    backgroundColor: '#1C1B1E',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    minHeight: '60%',
+  },
+  qrModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  qrModalTitle: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  qrLoadingBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 16,
+  },
+  qrLoadingText: {
+    color: Colors.textMuted,
+    fontSize: 15,
+    marginTop: 8,
+  },
+  qrScrollContent: {
+    padding: 20,
+    paddingBottom: 48,
+    alignItems: 'center',
+  },
+  qrMethodBadge: {
+    backgroundColor: 'rgba(252, 196, 52, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(252, 196, 52, 0.3)',
+    marginBottom: 16,
+  },
+  qrMethodBadgeText: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  qrAmountLabel: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  qrAmountValue: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+    marginBottom: 20,
+  },
+  qrCodeBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrHint: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  qrDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: 20,
+  },
+  qrInfoCard: {
+    width: '100%',
+    backgroundColor: '#252328',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  qrInfoTitle: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  qrInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  qrInfoLabel: {
+    color: Colors.textMuted,
+    fontSize: 13,
+  },
+  qrInfoValue: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  qrInfoSeatValue: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  qrSeatPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingLeft: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  qrSeatPriceLabel: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    flex: 1,
+  },
+  qrSeatPriceValue: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  qrTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    marginTop: 4,
+  },
+  qrTotalLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  qrTotalValue: {
+    color: Colors.primary,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  qrNote: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  qrDoneBtn: {
+    width: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  qrDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
