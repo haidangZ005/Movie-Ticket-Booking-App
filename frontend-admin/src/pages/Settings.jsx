@@ -9,30 +9,25 @@ const fallbackSettings = [
 
 const Settings = () => {
   const [settings, setSettings] = useState(fallbackSettings);
-  const [auditLogs, setAuditLogs] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
     apiClient.get('/admin/settings')
       .then((res) => setSettings(res.data?.items || res.data || fallbackSettings))
       .catch(() => setError('Backend settings chua san sang hoac tai khoan khong du quyen, dang hien thi cau hinh mau theo schema SystemSettings.'));
-
-    apiClient.get('/admin/audit-logs')
-      .then((res) => setAuditLogs(res.data?.items || res.data || []))
-      .catch(() => setAuditLogs([]));
   }, []);
 
   return (
     <>
       <div className="mb-6">
         <h2 className="font-headline-sm text-headline-sm text-text-primary">Settings</h2>
-        <p className="mt-1 text-sm text-text-muted">Cau hinh he thong va nhat ky thao tac danh cho admin.</p>
+        <p className="mt-1 text-sm text-text-muted">Cấu hình hệ thống dành cho admin.</p>
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">{error}</div>}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="rounded-xl border border-border-default bg-surface p-card-padding shadow-sm xl:col-span-2">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="rounded-xl border border-border-default bg-surface p-card-padding shadow-sm">
           <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-text-secondary">System Settings</h3>
           <div className="space-y-3">
             {settings.map((setting) => (
@@ -47,24 +42,6 @@ const Settings = () => {
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="rounded-xl border border-border-default bg-surface p-card-padding shadow-sm">
-          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-text-secondary">Audit Logs</h3>
-          {auditLogs.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border-default bg-surface-container-low p-4 text-sm text-text-muted">
-              Chua co du lieu audit log hoac chi SUPER_ADMIN moi xem duoc.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {auditLogs.slice(0, 5).map((log) => (
-                <div key={log.LogID} className="rounded-lg bg-surface-container-low p-3">
-                  <div className="font-semibold text-text-primary">{log.Action}</div>
-                  <div className="text-xs text-text-muted">{log.TableName} #{log.RecordID} - {new Date(log.CreatedAt).toLocaleString('vi-VN')}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </>
