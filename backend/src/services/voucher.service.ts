@@ -4,11 +4,19 @@ import { VoucherModel, VoucherCheckParams, IVoucher } from '../models/voucher.mo
 import { AppException } from '../utils/exceptions/app.exception';
 import { ErrorCode } from '../utils/exceptions/error.code';
 
+type ReasonCode = 'NOT_STARTED' | 'EXPIRED' | 'USAGE_LIMIT_REACHED' | 'MIN_ORDER_NOT_MET' | 'MIN_TICKET_NOT_MET' | 'FORMAT_NOT_MATCH' | 'ALREADY_USED' | 'NOT_OWNED';
+
+interface EvaluateResult {
+  applicable: boolean;
+  reasonCode?: ReasonCode;
+  reasonText?: string;
+}
+
 export class VoucherService {
   /**
    * Tính số tiền được giảm từ voucher.
    */
-  static calculateDiscount(voucher: IVoucher, totalAmount: number): number {
+  static calculateDiscount(voucher: IVoucher | any, totalAmount: number): number {
     let discount = 0;
     if (voucher.DiscountType === 'PERCENT') {
       discount = (voucher.DiscountValue / 100) * totalAmount;
@@ -16,10 +24,68 @@ export class VoucherService {
         discount = Math.min(discount, voucher.MaxDiscount);
       }
     } else {
-      // FIXED
       discount = Math.min(voucher.DiscountValue, totalAmount);
     }
-    return Math.round(discount); // Làm tròn VND
+    return Math.round(discount);
+  }
+
+  /**
+   * Đánh giá điều kiện voucher — dùng chung cho checkout và apply.
+   * Backend là nguồn sự thật cho business rule.
+   */
+  static evaluateVoucher(voucher: any, totalAmount: number, totalSeats: number, showFormat: string, hasUsed: boolean): EvaluateResult {
+    const now = new Date();
+    const endDate = new Date(voucher.EndDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    if (now < new Date(voucher.StartDate)) {
+      return { applicable: false, reasonCode: 'NOT_STARTED', reasonText: 'Voucher chưa đến thời gian sử dụng' };
+    }
+    if (now > endDate) {
+      return { applicable: false, reasonCode: 'EXPIRED', reasonText: 'Voucher đã hết hạn' };
+    }
+    if (voucher.UsageLimit && (voucher.UsageCount ?? 0) >= voucher.UsageLimit) {
+      return { applicable: false, reasonCode: 'USAGE_LIMIT_REACHED', reasonText: 'Voucher đã hết lượt sử dụng' };
+    }
+    if (voucher.MinOrderValue && totalAmount < voucher.MinOrderValue) {
+      return { applicable: false, reasonCode: 'MIN_ORDER_NOT_MET', reasonText: `Đơn tối thiểu ${Number(voucher.MinOrderValue).toLocaleString('vi-VN')}đ` };
+    }
+    if (voucher.MinTicketQty && totalSeats < voucher.MinTicketQty) {
+      return { applicable: false, reasonCode: 'MIN_TICKET_NOT_MET', reasonText: `Cần ít nhất ${voucher.MinTicketQty} vé` };
+    }
+    if (voucher.ApplicableFormat && voucher.ApplicableFormat.toUpperCase() !== 'ALL' && voucher.ApplicableFormat.toUpperCase() !== showFormat.toUpperCase()) {
+      return { applicable: false, reasonCode: 'FORMAT_NOT_MATCH', reasonText: `Chỉ áp dụng định dạng ${voucher.ApplicableFormat}` };
+    }
+    if (hasUsed) {
+      return { applicable: false, reasonCode: 'ALREADY_USED', reasonText: 'Bạn đã sử dụng voucher này' };
+    }
+
+    return { applicable: true };
+  }
+
+  /**
+   * Kiểm tra customer có quyền dùng voucher: public hoặc được gán qua VoucherCustomer.
+   */
+  static async checkVoucherOwnership(voucherId: number, customerId: number): Promise<boolean> {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('VoucherID', sql.Int, voucherId)
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        SELECT COUNT(*) AS cnt FROM VoucherCustomer
+        WHERE VoucherID = @VoucherID AND CustomerID = @CustomerID
+      `);
+
+    if (result.recordset[0].cnt > 0) return true;
+
+    const isPublic = await pool.request()
+      .input('VoucherID', sql.Int, voucherId)
+      .query(`
+        SELECT COUNT(*) AS cnt FROM VoucherCustomer
+        WHERE VoucherID = @VoucherID
+      `);
+
+    return isPublic.recordset[0].cnt === 0;
   }
 
   /**
@@ -37,42 +103,21 @@ export class VoucherService {
       throw new AppException(ErrorCode.DATA_NOT_FOUND);
     }
 
-    // Kiểm tra voucher còn active
     if (!voucher.IsActive) {
       throw new AppException(ErrorCode.INVALID_DATA);
     }
 
-    // Kiểm tra còn hiệu lực
-    const now = new Date();
-    if (now < new Date(voucher.StartDate) || now > new Date(voucher.EndDate)) {
+    const hasUsed = await VoucherModel.hasCustomerUsedVoucher(voucherId, customerId);
+    const isOwner = await VoucherService.checkVoucherOwnership(voucherId, customerId);
+    if (!isOwner) {
+      throw new AppException(ErrorCode.FORBIDDEN);
+    }
+
+    const evaluation = VoucherService.evaluateVoucher(voucher, totalAmount, totalSeats, showFormat, hasUsed);
+    if (!evaluation.applicable) {
       throw new AppException(ErrorCode.INVALID_DATA);
     }
 
-    // Kiểm tra còn lượt dùng
-    if (voucher.UsageLimit && (voucher.UsageCount ?? 0) >= voucher.UsageLimit) {
-      throw new AppException(ErrorCode.INVALID_DATA);
-    }
-
-    // Kiểm tra giá trị đơn tối thiểu
-    if (voucher.MinOrderValue && totalAmount < voucher.MinOrderValue) {
-      throw new AppException(ErrorCode.INVALID_DATA);
-    }
-
-    // Kiểm tra số vé tối thiểu
-    if (voucher.MinTicketQty && totalSeats < voucher.MinTicketQty) {
-      throw new AppException(ErrorCode.INVALID_DATA);
-    }
-
-    // Kiểm tra định dạng phim
-    if (
-      voucher.ApplicableFormat &&
-      voucher.ApplicableFormat.toUpperCase() !== 'ALL' &&
-      voucher.ApplicableFormat.toUpperCase() !== showFormat.toUpperCase()
-    ) {
-      throw new AppException(ErrorCode.INVALID_DATA);
-    }
-
-    // Kiểm tra customer đã dùng voucher này chưa (first use only)
     return voucher;
   }
 
@@ -88,14 +133,11 @@ export class VoucherService {
     totalSeats: number,
     showFormat: string
   ) {
-    // 1. Validate đầy đủ
-    const voucher = await this.validateVoucher(voucherId, customerId, totalAmount, totalSeats, showFormat);
+    const voucher = await VoucherService.validateVoucher(voucherId, customerId, totalAmount, totalSeats, showFormat);
 
-    // 2. Tính số tiền giảm
-    const discountAmount = this.calculateDiscount(voucher, totalAmount);
+    const discountAmount = VoucherService.calculateDiscount(voucher, totalAmount);
     const finalAmount = totalAmount - discountAmount;
 
-    // 3. Ghi nhận sử dụng voucher
     if (bookingId) {
       await VoucherModel.applyVoucher(voucherId, customerId, bookingId);
     }
@@ -118,12 +160,11 @@ export class VoucherService {
 
     if (vouchers.length === 0) return null;
 
-    // Tính discount cho từng voucher → chọn cái giảm nhiều nhất
     let bestVoucher = vouchers[0];
-    let bestDiscount = this.calculateDiscount(bestVoucher, params.totalAmount);
+    let bestDiscount = VoucherService.calculateDiscount(bestVoucher, params.totalAmount);
 
     for (let i = 1; i < vouchers.length; i++) {
-      const discount = this.calculateDiscount(vouchers[i], params.totalAmount);
+      const discount = VoucherService.calculateDiscount(vouchers[i], params.totalAmount);
       if (discount > bestDiscount) {
         bestDiscount = discount;
         bestVoucher = vouchers[i];
@@ -138,13 +179,18 @@ export class VoucherService {
   }
 
   /**
+   * Checkout vouchers — trả tất cả voucher visible cho customer cùng trạng thái applicable.
+   */
+  static async getCheckoutVouchers(params: VoucherCheckParams) {
+    return VoucherModel.getCheckoutVouchers(params);
+  }
+
+  /**
    * Khôi phục voucher khi hủy vé — rollback VoucherUsage + giảm UsageCount.
-   * Gọi bởi TV3 khi cancel booking.
    */
   static async restoreVoucher(voucherId: number, customerId: number, bookingId: number) {
     const pool = await connectDB();
 
-    // 1. Xóa bản ghi VoucherUsage
     await pool.request()
       .input('VoucherID', sql.Int, voucherId)
       .input('CustomerID', sql.Int, customerId)
@@ -156,7 +202,6 @@ export class VoucherService {
           AND BookingID = @BookingID
       `);
 
-    // 2. Giảm UsageCount (không được < 0)
     await pool.request()
       .input('VoucherID', sql.Int, voucherId)
       .query(`

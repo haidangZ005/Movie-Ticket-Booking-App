@@ -121,6 +121,28 @@ export const applyVoucher = asyncHandler(async (req: AuthenticatedRequest, res: 
 });
 
 /**
+ * GET /api/vouchers/checkout?totalAmount=&totalSeats=&showFormat=
+ * Lấy tất cả voucher visible cho customer cùng trạng thái applicable.
+ * Mỗi voucher kèm isApplicable, reasonCode, reasonText, discountAmount, finalAmount.
+ * Sort: applicable trước, sau đó EndDate ASC.
+ */
+export const getCheckoutVouchers = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const customerId = req.user!.customerId;
+  const totalAmount = parseFloat(req.query.totalAmount as string) || 0;
+  const totalSeats = parseInt(req.query.totalSeats as string) || 1;
+  const showFormat = (req.query.showFormat as string) || 'ALL';
+
+  const checkoutVouchers = await VoucherService.getCheckoutVouchers({
+    customerId,
+    totalAmount,
+    totalSeats,
+    showFormat,
+  });
+
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, checkoutVouchers));
+});
+
+/**
  * GET /api/vouchers/suggest?totalAmount=&totalSeats=&showFormat=
  * Auto-suggest voucher tốt nhất (giảm nhiều tiền nhất) cho customer.
  */
@@ -140,4 +162,11 @@ export const suggestBestVoucher = asyncHandler(async (req: AuthenticatedRequest,
   return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, suggestion));
 });
 
-
+/**
+ * GET /api/vouchers/public
+ * Lấy danh sách voucher công khai đang active cho Trang chủ (không cần token)
+ */
+export const getPublicVouchers = asyncHandler(async (req: Request, res: Response) => {
+  const vouchers = await VoucherModel.getPublicVouchers();
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, vouchers));
+});
