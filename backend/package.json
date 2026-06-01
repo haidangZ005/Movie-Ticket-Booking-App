@@ -7,6 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "test": "npm run test:unit",
+    "test:unit": "node --test --require ts-node/register tests/unit/voucher.service.test.ts tests/unit/payment.service.test.ts tests/unit/seat-layout.service.test.ts tests/unit/seat-hold.service.test.ts",
     "seed:media": "node scripts/seed-minio-assets.js",
     "test:auth": "node scripts/auth-smoke-test.js",
     "worker:email": "ts-node-dev --respawn --transpile-only src/workers/email.worker.ts"
