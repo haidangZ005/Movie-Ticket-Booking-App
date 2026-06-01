@@ -73,7 +73,7 @@ export class AdminModel {
       .query(`
         SELECT TOP 50 
           al.*, 
-          a.AccountName 
+          a.Email as AccountName 
         FROM [dbo].[AuditLog] al
         JOIN [dbo].[Account] a ON al.AccountID = a.AccountID
         ORDER BY al.CreatedAt DESC

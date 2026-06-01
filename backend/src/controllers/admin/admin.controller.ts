@@ -41,6 +41,20 @@ export class AdminController {
     }
   }
 
+  /**
+   * GET /api/admin/system-logs
+   */
+  static async getSystemLogs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { systemLogs } = require('../../utils/logger');
+      res.status(200).json({
+        success: true,
+        data: systemLogs
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 
   /**
    * GET /api/admin/settings
