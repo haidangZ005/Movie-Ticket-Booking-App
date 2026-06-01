@@ -142,6 +142,7 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const displayName = user?.FullName || user?.Email?.split('@')[0] || 'Khách hàng';
@@ -154,7 +155,7 @@ export default function HomeScreen({ navigation }: any) {
     try {
       setLoading(true);
       const [movieRes, featuredRes] = await Promise.all([
-        movieService.getMovies({ limit: 10, isActive: true }),
+        movieService.getMovies({ limit: 100, isActive: true }),
         movieService.getFeaturedMovies(),
       ]);
       setMovies(extractMovieArray(movieRes));
@@ -183,6 +184,25 @@ export default function HomeScreen({ navigation }: any) {
   const featuredNowPlaying = featuredMovies.filter(isNowPlaying);
   const nowPlayingData = (featuredNowPlaying.length > 0 ? featuredNowPlaying : nowPlayingMovies).slice(0, 5);
   const comingSoonData = movies.filter((movie) => isComingSoon(movie.MovieReleaseDate)).slice(0, 6);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const searchResults = normalizedSearchQuery
+    ? movies
+        .filter((movie) => {
+          const searchable = [
+            movie.MovieTitle,
+            movie.MovieGenre,
+            movie.MovieLanguage,
+            movie.MovieActor,
+            movie.MovieDirector,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+          return searchable.includes(normalizedSearchQuery);
+        })
+        .slice(0, 6)
+    : [];
 
   const onNowPlayingScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / NOW_PLAYING_SNAP);
@@ -242,6 +262,29 @@ export default function HomeScreen({ navigation }: any) {
   );
 
   // ─── Promo Card ───
+  const renderSearchResult = (item: any) => (
+    <TouchableOpacity
+      key={`search-${item.MovieID}`}
+      style={styles.searchResultItem}
+      activeOpacity={0.85}
+      onPress={() => {
+        setSearchQuery('');
+        navigation.navigate('MovieDetail', { movieId: item.MovieID });
+      }}
+    >
+      <Image source={{ uri: getPosterImage(item) }} style={styles.searchResultPoster} />
+      <View style={styles.searchResultInfo}>
+        <Text style={styles.searchResultTitle} numberOfLines={2}>{item.MovieTitle}</Text>
+        <Text style={styles.searchResultMeta} numberOfLines={1}>
+          {item.MovieGenre || 'Phim'}
+          {item.MovieRuntime ? ` • ${formatRuntime(item.MovieRuntime)}` : ''}
+        </Text>
+        <Text style={styles.searchResultDate}>{formatDate(item.MovieReleaseDate)}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
+    </TouchableOpacity>
+  );
+
   const renderPromoCard = ({ item }: { item: typeof PROMO_BANNERS[0] }) => (
     <TouchableOpacity style={styles.promoCard} activeOpacity={0.9}>
       <Image source={{ uri: item.image }} style={styles.promoBg} />
@@ -285,14 +328,32 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         {/* ═══ SEARCH BAR ═══ */}
-        <TouchableOpacity
-          style={styles.searchBar}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('Movie')}
-        >
+        <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color="#8C8C8C" />
-          <Text style={styles.searchPlaceholder}>Tìm kiếm</Text>
-        </TouchableOpacity>
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Tìm kiếm"
+            placeholderTextColor="#8C8C8C"
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <Ionicons name="close-circle" size={18} color="#8C8C8C" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {normalizedSearchQuery.length > 0 && (
+          <View style={styles.searchResultsBox}>
+            {searchResults.length > 0 ? (
+              searchResults.map(renderSearchResult)
+            ) : (
+              <Text style={styles.searchEmptyText}>Không tìm thấy phim phù hợp</Text>
+            )}
+          </View>
+        )}
 
         {/* ═══ NOW PLAYING ═══ */}
         <SectionHeader title="Đang chiếu" onSeeAll={() => navigation.navigate('Movie')} />
@@ -488,9 +549,64 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     gap: 12,
   },
-  searchPlaceholder: {
-    color: '#8C8C8C',
+  searchInput: {
+    flex: 1,
+    color: COLORS.text,
     fontSize: 16,
+    padding: 0,
+  },
+  searchResultsBox: {
+    marginHorizontal: HORIZONTAL_PADDING,
+    marginTop: -16,
+    marginBottom: 22,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1C',
+    borderWidth: 1,
+    borderColor: '#2E2E2E',
+  },
+  searchResultItem: {
+    minHeight: 86,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2E2E2E',
+    gap: 12,
+  },
+  searchResultPoster: {
+    width: 44,
+    height: 62,
+    borderRadius: 6,
+    backgroundColor: COLORS.card,
+  },
+  searchResultInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  searchResultTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  searchResultMeta: {
+    color: '#BFBFBF',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  searchResultDate: {
+    color: COLORS.muted,
+    fontSize: 12,
+  },
+  searchEmptyText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
   },
 
   // ── Section Header ──
