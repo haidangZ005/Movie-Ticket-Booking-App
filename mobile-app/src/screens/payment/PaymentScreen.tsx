@@ -209,10 +209,10 @@ export default function PaymentScreen() {
 
   const getVoucherDiscountLabel = (voucher: Voucher) => {
     if (voucher.DiscountType === 'PERCENT') {
-      const maxLabel = voucher.MaxDiscount ? `, toi da ${formatVND(voucher.MaxDiscount)}` : '';
-      return `Giam ${voucher.DiscountValue}%${maxLabel}`;
+      const maxLabel = voucher.MaxDiscount ? `, tối đa ${formatVND(voucher.MaxDiscount)}` : '';
+      return `Giảm ${voucher.DiscountValue}%${maxLabel}`;
     }
-    return `Giam ${formatVND(voucher.DiscountValue)}`;
+    return `Giảm ${formatVND(voucher.DiscountValue)}`;
   };
 
   const handleSelectVoucher = async (voucher: Voucher) => {
@@ -228,8 +228,8 @@ export default function PaymentScreen() {
       setDiscountAmount(result.discountAmount);
       setAppliedVoucherId(voucher.VoucherID);
     } catch (err: any) {
-      const message = err?.response?.data?.message || err?.message || 'Co loi xay ra';
-      Alert.alert('Loi voucher', message);
+      const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
+      Alert.alert('Lỗi voucher', message);
     } finally {
       setIsApplyingVoucher(false);
     }
@@ -575,7 +575,7 @@ export default function PaymentScreen() {
           {isLoadingVouchers ? (
             <View style={S.voucherListState}>
               <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={S.voucherStateText}>Dang tai voucher...</Text>
+              <Text style={S.voucherStateText}>Đang tải voucher...</Text>
             </View>
           ) : availableVouchers.length > 0 ? (
             <View style={S.availableVoucherList}>
@@ -606,7 +606,7 @@ export default function PaymentScreen() {
               })}
             </View>
           ) : (
-            <Text style={S.voucherStateText}>Khong co voucher phu hop voi don hang nay.</Text>
+            <Text style={S.voucherStateText}>Không có voucher phù hợp với đơn hàng này.</Text>
           )}
         </View>
 

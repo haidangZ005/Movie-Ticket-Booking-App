@@ -6,10 +6,10 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import paymentHistoryService, { PaymentHistoryDetail } from '../../services/paymentHistoryService';
 
-const formatVND = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')} d`;
+const formatVND = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
 
 const formatDate = (value?: string) => {
-  if (!value) return 'Dang cap nhat';
+  if (!value) return 'Đang cập nhật';
   return new Date(value).toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -53,25 +53,25 @@ export default function PaymentHistoryDetailScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiet thanh toan</Text>
+        <Text style={styles.headerTitle}>Chi tiết thanh toán</Text>
         <View style={styles.backBtn} />
       </View>
 
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={Colors.primary} />
-          <Text style={styles.stateText}>Dang tai chi tiet...</Text>
+          <Text style={styles.stateText}>Đang tải chi tiết...</Text>
         </View>
       ) : !detail || !summary ? (
         <View style={styles.centerState}>
           <Ionicons name="receipt-outline" size={44} color={Colors.textMuted} />
-          <Text style={styles.stateText}>Khong tim thay giao dich</Text>
+          <Text style={styles.stateText}>Không tìm thấy giao dịch</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.summaryCard}>
             <Text style={styles.movieTitle}>{summary.MovieTitle}</Text>
-            <Text style={styles.metaText}>Don hang #{summary.BookingID}</Text>
+            <Text style={styles.metaText}>Đơn hàng #{summary.BookingID}</Text>
             <Text style={styles.metaText}>{summary.CinemaName} - {summary.HallName}</Text>
             <Text style={styles.metaText}>{formatDate(summary.PaymentDate)} - Suat {summary.ShowTime}</Text>
             <View style={styles.statusRow}>
@@ -87,7 +87,7 @@ export default function PaymentHistoryDetailScreen() {
                 <View style={styles.itemLeft}>
                   <Ionicons name="ticket-outline" size={18} color={Colors.primary} />
                   <View>
-                    <Text style={styles.itemName}>Ghe {seat.SeatNumber}</Text>
+                    <Text style={styles.itemName}>Ghế {seat.SeatNumber}</Text>
                     <Text style={styles.itemMeta}>{seat.SeatType} - {seat.Status}</Text>
                   </View>
                 </View>
@@ -99,7 +99,7 @@ export default function PaymentHistoryDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Do an va san pham</Text>
             {detail.products.length === 0 ? (
-              <Text style={styles.emptyText}>Khong mua them san pham nao</Text>
+              <Text style={styles.emptyText}>Không mua thêm sản phẩm nào</Text>
             ) : (
               detail.products.map((product) => (
                 <View key={product.BookingProductID} style={styles.lineItem}>
