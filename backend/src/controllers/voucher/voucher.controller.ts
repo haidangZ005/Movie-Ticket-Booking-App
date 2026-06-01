@@ -162,4 +162,11 @@ export const suggestBestVoucher = asyncHandler(async (req: AuthenticatedRequest,
   return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, suggestion));
 });
 
-
+/**
+ * GET /api/vouchers/public
+ * Lấy danh sách voucher công khai đang active cho Trang chủ (không cần token)
+ */
+export const getPublicVouchers = asyncHandler(async (req: Request, res: Response) => {
+  const vouchers = await VoucherModel.getPublicVouchers();
+  return res.status(200).json(ApiResponse.success(ResponseCode.SUCCESS, vouchers));
+});

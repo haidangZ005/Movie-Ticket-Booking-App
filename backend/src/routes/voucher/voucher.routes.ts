@@ -5,9 +5,14 @@ import {
   getCheckoutVouchers,
   applyVoucher,
   suggestBestVoucher,
+  getPublicVouchers,
 } from '../../controllers/voucher/voucher.controller';
 
 const router = Router();
+
+// GET /api/vouchers/public
+// Lấy danh sách voucher công khai cho Trang chủ
+router.get('/public', getPublicVouchers);
 
 // GET /api/vouchers/checkout?totalAmount=&totalSeats=&showFormat=
 // Lấy tất cả voucher visible cho customer cùng trạng thái applicable

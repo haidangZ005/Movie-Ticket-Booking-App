@@ -318,6 +318,25 @@ export class VoucherModel {
       `);
     return result.recordset.length > 0;
   }
+
+  /**
+   * Lấy danh sách voucher công khai (không gán riêng cho user nào) đang active
+   */
+  static async getPublicVouchers() {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .query(`
+        SELECT * FROM Voucher v
+        WHERE v.IsActive = 1
+          AND CAST(GETDATE() AS DATE) BETWEEN v.StartDate AND v.EndDate
+          AND (v.UsageLimit IS NULL OR ISNULL(v.UsageCount, 0) < v.UsageLimit)
+          AND NOT EXISTS (
+            SELECT 1 FROM VoucherCustomer vc WHERE vc.VoucherID = v.VoucherID
+          )
+        ORDER BY v.EndDate ASC
+      `);
+    return result.recordset;
+  }
 }
 
 type ReasonCode = 'NOT_STARTED' | 'EXPIRED' | 'USAGE_LIMIT_REACHED' | 'MIN_ORDER_NOT_MET' | 'MIN_TICKET_NOT_MET' | 'FORMAT_NOT_MATCH' | 'ALREADY_USED';

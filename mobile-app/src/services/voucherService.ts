@@ -53,6 +53,11 @@ export const voucherService = {
     return response.data.data ?? [];
   },
 
+  getPublicVouchers: async (): Promise<Voucher[]> => {
+    const response = await apiClient.get('/vouchers/public');
+    return response.data.data ?? [];
+  },
+
   applyVoucher: async (params: {
     voucherId: number;
     totalAmount: number;

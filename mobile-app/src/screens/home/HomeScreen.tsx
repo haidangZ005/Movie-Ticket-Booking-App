@@ -10,7 +10,8 @@ import { COLORS } from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
 import BottomNavBar from '../../components/common/BottomNavBar';
 import movieService from '../../services/movieService';
-import notificationService from '../../services/notificationService';
+import { notificationService } from '../../services/notificationService';
+import { voucherService } from '../../services/voucherService';
 import { API_ORIGIN } from '../../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -90,29 +91,7 @@ const extractMovieArray = (response: any) => {
 };
 
 // ─── Static data for sections without backend API ───
-const PROMO_BANNERS = [
-  {
-    id: 1,
-    image: 'https://images.unsplash.com/photo-1585647347483-22b66260dfff?w=800&h=400&fit=crop',
-    title: 'Giảm 30% vé xem phim',
-    subtitle: 'Áp dụng cho thành viên mới',
-    color: '#E53935',
-  },
-  {
-    id: 2,
-    image: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=400&fit=crop',
-    title: 'Combo bắp nước 49K',
-    subtitle: 'Mua vé kèm combo siêu tiết kiệm',
-    color: '#1565C0',
-  },
-  {
-    id: 3,
-    image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&h=400&fit=crop',
-    title: 'Thứ 3 vui vẻ - Giá 45K',
-    subtitle: 'Mỗi thứ 3 hàng tuần',
-    color: '#2E7D32',
-  },
-];
+// (Đã xóa PROMO_BANNERS tĩnh vì dùng data từ API)
 
 const SERVICE_ITEMS = [
   { id: 1, label: 'Rental', icon: 'film-outline' as const },
@@ -138,6 +117,7 @@ export default function HomeScreen({ navigation }: any) {
   const { user } = useContext(AuthContext);
   const [movies, setMovies] = useState<any[]>([]);
   const [featuredMovies, setFeaturedMovies] = useState<any[]>([]);
+  const [publicVouchers, setPublicVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -153,12 +133,14 @@ export default function HomeScreen({ navigation }: any) {
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      const [movieRes, featuredRes] = await Promise.all([
+      const [movieRes, featuredRes, voucherRes] = await Promise.all([
         movieService.getMovies({ limit: 10, isActive: true }),
         movieService.getFeaturedMovies(),
+        voucherService.getPublicVouchers(),
       ]);
       setMovies(extractMovieArray(movieRes));
       setFeaturedMovies(extractMovieArray(featuredRes));
+      setPublicVouchers(voucherRes);
 
       try {
         const count = await notificationService.getUnreadCount();
@@ -242,17 +224,97 @@ export default function HomeScreen({ navigation }: any) {
   );
 
   // ─── Promo Card ───
-  const renderPromoCard = ({ item }: { item: typeof PROMO_BANNERS[0] }) => (
-    <TouchableOpacity style={styles.promoCard} activeOpacity={0.9}>
-      <Image source={{ uri: item.image }} style={styles.promoBg} />
-      <View style={[styles.promoOverlay, { backgroundColor: item.color + 'CC' }]}>
-        <View style={styles.promoContent}>
-          <Text style={styles.promoTitle}>{item.title}</Text>
-          <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
+  const renderPromoCard = ({ item }: { item: any }) => {
+    const discountText = item.DiscountType === 'PERCENT' 
+      ? `Giảm ${item.DiscountValue}%` 
+      : `Giảm ${Number(item.DiscountValue).toLocaleString('vi-VN')}đ`;
+
+    const maxDiscountText = item.MaxDiscount 
+      ? ` (tối đa ${Number(item.MaxDiscount).toLocaleString('vi-VN')}đ)`
+      : '';
+
+    const minOrderText = item.MinOrderValue 
+      ? `Đơn tối thiểu: ${Number(item.MinOrderValue).toLocaleString('vi-VN')}đ`
+      : 'Áp dụng cho mọi đơn hàng';
+
+    // Calculate remaining days
+    const today = new Date();
+    const endDate = new Date(item.EndDate);
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Format date DD/MM/YYYY
+    const formattedDate = `${endDate.getDate().toString().padStart(2, '0')}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}/${endDate.getFullYear()}`;
+
+    // Left block discount display
+    const leftValue = item.DiscountType === 'PERCENT' ? `${item.DiscountValue}%` : `${item.DiscountValue / 1000}K`;
+
+    return (
+      <TouchableOpacity 
+        style={{
+          width: 320,
+          backgroundColor: '#1E1E1E',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(217, 168, 83, 0.3)',
+          flexDirection: 'row',
+          overflow: 'hidden',
+        }} 
+        activeOpacity={0.9}
+      >
+        {/* Left section */}
+        <View style={{
+          width: 90,
+          backgroundColor: '#2A2216',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderRightWidth: 1,
+          borderRightColor: 'rgba(255, 255, 255, 0.05)',
+          borderStyle: 'dashed',
+        }}>
+          <Text style={{ color: '#FBC02D', fontSize: 24, fontWeight: 'bold' }}>{leftValue}</Text>
+          <Text style={{ color: '#FBC02D', fontSize: 10, marginTop: 4, opacity: 0.8, fontWeight: 'bold' }}>GIẢM</Text>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+
+        {/* Right section */}
+        <View style={{ flex: 1, padding: 12, paddingVertical: 14 }}>
+          {/* Top row */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: '#FBC02D', fontSize: 14, fontWeight: 'bold' }}>{item.Code}</Text>
+            <TouchableOpacity style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#182A1B',
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 6,
+            }}>
+              <Ionicons name="copy-outline" size={12} color="#4CAF50" />
+              <Text style={{ color: '#4CAF50', fontSize: 10, marginLeft: 4, fontWeight: 'bold' }}>Copy</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Description */}
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }} numberOfLines={1}>
+            {discountText}{maxDiscountText}
+          </Text>
+          <Text style={{ color: '#9E9E9E', fontSize: 11, marginBottom: 2 }}>{minOrderText}</Text>
+          <Text style={{ color: '#9E9E9E', fontSize: 11, marginBottom: 12 }}>HSD: {formattedDate}</Text>
+
+          {/* Tag */}
+          <View style={{
+            alignSelf: 'flex-start',
+            backgroundColor: '#2A2216',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+          }}>
+            <Text style={{ color: '#FBC02D', fontSize: 10, fontWeight: '600' }}>Còn {diffDays > 0 ? diffDays : 0} ngày</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const activeMovie = nowPlayingData[activeSlide];
 
@@ -375,15 +437,19 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* ═══ PROMO & DISCOUNT ═══ */}
         <SectionHeader title="Ưu đãi & Giảm giá" onSeeAll={() => {}} />
-        <FlatList
-          data={PROMO_BANNERS}
-          keyExtractor={(item) => `promo-${item.id}`}
-          renderItem={renderPromoCard}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING }}
-          ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
-        />
+        {publicVouchers.length > 0 ? (
+          <FlatList
+            data={publicVouchers}
+            keyExtractor={(item) => `promo-${item.VoucherID}`}
+            renderItem={renderPromoCard}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING }}
+            ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
+          />
+        ) : (
+          <Text style={styles.emptyText}>Chưa có ưu đãi nào</Text>
+        )}
 
         {/* ═══ SERVICE ═══ */}
         <SectionHeader title="Dịch vụ" onSeeAll={() => {}} />
