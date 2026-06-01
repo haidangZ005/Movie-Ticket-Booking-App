@@ -13,6 +13,7 @@ import Vouchers from './pages/Vouchers';
 import Customers from './pages/Customers';
 import Transactions from './pages/Transactions';
 import Settings from './pages/Settings';
+import Logs from './pages/Logs';
 import SeatLayoutBuilder from './pages/SeatLayoutBuilder';
 import Halls from './pages/Halls';
 import Showtimes from './pages/Showtimes';
@@ -40,6 +41,7 @@ function App() {
           <Route path="customers" element={<Customers />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="logs" element={<Logs />} />
           <Route path="halls" element={<Halls />} />
           <Route path="showtimes" element={<Showtimes />} />
           <Route path="seat-layout" element={<SeatLayoutBuilder />} />

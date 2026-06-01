@@ -14,6 +14,7 @@ const navItems = [
   { to: '/analytics', label: 'Thống kê', icon: 'analytics' },
   { to: '/halls', label: 'Phòng chiếu', icon: 'meeting_room' },
   { to: '/seat-layout', label: 'Sơ đồ ghế', icon: 'grid_view' },
+  { to: '/logs', label: 'Nhật ký (Logs)', icon: 'terminal' },
   { to: '/settings', label: 'Cài đặt', icon: 'settings' },
 ];
 
