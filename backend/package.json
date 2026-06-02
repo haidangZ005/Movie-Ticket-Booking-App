@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed:media": "node scripts/seed-minio-assets.js",
+    "test": "node scripts/tv4-test-suite.js",
     "test:auth": "node scripts/auth-smoke-test.js",
+    "test:tv4": "node scripts/tv4-test-suite.js",
     "worker:email": "ts-node-dev --respawn --transpile-only src/workers/email.worker.ts"
   },
   "dependencies": {
