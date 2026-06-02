@@ -1,18 +1,22 @@
 import SeatLayoutModel, { SeatLayoutItem } from '../models/seat-layout.model';
+import { AppException } from '../utils/exceptions/app.exception';
+import { ErrorCode } from '../utils/exceptions/error.code';
 
 class SeatLayoutService {
     private static createBadRequest(message: string, errorCode: string) {
-        const error: any = new Error(message);
-        error.statusCode = 400;
-        error.errorCode = errorCode;
-        return error;
+        return new AppException({
+            code: 4000,
+            message: message,
+            statusCode: 400
+        });
     }
 
     private static createConflict(message: string, errorCode: string) {
-        const error: any = new Error(message);
-        error.statusCode = 409;
-        error.errorCode = errorCode;
-        return error;
+        return new AppException({
+            code: 4090,
+            message: message,
+            statusCode: 409
+        });
     }
 
     private static validateLayoutPayload(payload: {
@@ -118,10 +122,7 @@ class SeatLayoutService {
         const hall = await SeatLayoutModel.getHallById(hallId);
 
         if (!hall) {
-            const error: any = new Error('Phòng chiếu không tồn tại');
-            error.statusCode = 404;
-            error.errorCode = 'HALL_NOT_FOUND';
-            throw error;
+            throw new AppException(ErrorCode.HALL_NOT_FOUND);
         }
 
 
@@ -143,24 +144,15 @@ class SeatLayoutService {
         const hall = await SeatLayoutModel.getHallById(hallId);
 
         if (!hall) {
-            const error: any = new Error('Phòng chiếu không tồn tại');
-            error.statusCode = 404;
-            error.errorCode = 'HALL_NOT_FOUND';
-            throw error;
+            throw new AppException(ErrorCode.HALL_NOT_FOUND);
         }
 
         if (!Array.isArray(payload.seats)) {
-            const error: any = new Error('Danh sách ghế không hợp lệ');
-            error.statusCode = 400;
-            error.errorCode = 'INVALID_SEATS';
-            throw error;
+            throw new AppException(ErrorCode.INVALID_DATA);
         }
 
         if (!payload.totalRows || !payload.totalCols) {
-            const error: any = new Error('Số hàng và số cột là bắt buộc');
-            error.statusCode = 400;
-            error.errorCode = 'INVALID_LAYOUT_SIZE';
-            throw error;
+            throw new AppException(ErrorCode.INVALID_DATA);
         }
 
         this.validateLayoutPayload(payload);

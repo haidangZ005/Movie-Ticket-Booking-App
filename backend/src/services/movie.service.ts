@@ -135,10 +135,11 @@ class MovieService {
   }
 
   private static createValidationError(message: string, errorCode: string) {
-    const error: any = new Error(message);
-    error.statusCode = 400;
-    error.errorCode = errorCode;
-    return error;
+    return new AppException({
+      code: 4000,
+      message: message,
+      statusCode: 400
+    });
   }
 }
 
